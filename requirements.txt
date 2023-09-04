@@ -12,3 +12,4 @@ InstructorEmbedding
 sentence_transformers
 together
 cohere
+python-dotenv

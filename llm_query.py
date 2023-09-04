@@ -1,5 +1,5 @@
-# llm_queries.py
 import together
+import os
 from typing import Any, Dict
 from pydantic import Extra, root_validator
 from langchain.llms.base import LLM
@@ -10,8 +10,13 @@ from langchain.prompts import PromptTemplate
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.embeddings.cohere import CohereEmbeddings
 import textwrap
+from dotenv import load_dotenv
 
-TOGETHER_API_KEY = "3d8c5454421c4ebbf1e320caa0c22ba436d16d4ae95e77ff20b9a473f8b194ec"
+load_dotenv()
+
+TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+COHERE_API_KEY = os.environ.get("COHERE_API_KEY")
+
 
 class TogetherLLM(LLM):
     """Together large language models."""
@@ -59,19 +64,22 @@ class TogetherLLM(LLM):
                                           )
         text = output['output']['choices'][0]['text']
         return text
-    
+
+
 class LLMQueryProcessor:
     def __init__(self, db_path='db'):
         self.db_path = db_path
         # embedding_function = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl", model_kwargs={"device": "cuda"})
-        embedding_function = CohereEmbeddings(cohere_api_key="CtR0cQDxkD1Hq4HMH3YP6fxiAAnDlDKhNxRrdOJf", model='embed-multilingual-v2.0')
-        self.vectordb = Chroma(persist_directory = self.db_path, embedding_function = embedding_function)
+        embedding_function = CohereEmbeddings(
+            cohere_api_key=COHERE_API_KEY, model='embed-multilingual-v2.0')
+        self.vectordb = Chroma(
+            persist_directory=self.db_path, embedding_function=embedding_function)
         self.retriever = self._setup_retriever()
-        
+
         # Configuration for LLaMA-2 prompt style
         sys_prompt = "Du är dokumentchatbot för Vasa kommun. Svara endast på svenska."
         instruction = """CONTEXT:/n/n {context}/n\nQuestion: {question}"""
-        
+
         # Configure the LLaMA model
         self.qa_chain = self._configure_llama(instruction, sys_prompt)
 
@@ -79,23 +87,24 @@ class LLMQueryProcessor:
         return self.vectordb.as_retriever(search_kwargs={"k": 10})
 
     def _configure_llama(self, instruction, sys_prompt):
-            prompt_template = self._get_prompt(instruction, sys_prompt)
-            llama_prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+        prompt_template = self._get_prompt(instruction, sys_prompt)
+        llama_prompt = PromptTemplate(
+            template=prompt_template, input_variables=["context", "question"])
 
-            llm = TogetherLLM(
-                model="togethercomputer/llama-2-70b-chat",
-                temperature=0.1,
-                max_tokens=1024
-            )
+        llm = TogetherLLM(
+            model="togethercomputer/llama-2-70b-chat",
+            temperature=0.1,
+            max_tokens=1024
+        )
 
-            chain_type_kwargs = {"prompt": llama_prompt}
-            return RetrievalQA.from_chain_type(
-                llm=llm,
-                chain_type="stuff",
-                retriever=self.retriever,
-                chain_type_kwargs=chain_type_kwargs,
-                return_source_documents=True
-            )
+        chain_type_kwargs = {"prompt": llama_prompt}
+        return RetrievalQA.from_chain_type(
+            llm=llm,
+            chain_type="stuff",
+            retriever=self.retriever,
+            chain_type_kwargs=chain_type_kwargs,
+            return_source_documents=True
+        )
 
     @staticmethod
     def _get_prompt(instruction, new_system_prompt):
@@ -113,5 +122,6 @@ class LLMQueryProcessor:
     def process_prompt(self, user_prompt):
         llm_response = self.qa_chain(user_prompt)
         result = self._wrap_text_preserve_newlines(llm_response['result'])
-        sources = [source.metadata['source'] for source in llm_response["source_documents"]]
+        sources = [source.metadata['source']
+                   for source in llm_response["source_documents"]]
         return result, sources
