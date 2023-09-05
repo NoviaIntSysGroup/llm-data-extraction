@@ -28,8 +28,8 @@ def generate_markdown_link(filename, doc_id):
 
 st.set_page_config(page_title="Democracy Chatbot", page_icon="🗳",
                    layout="centered", initial_sidebar_state="auto", menu_items=None)
-st.title("Democracy Chatbot")
-st.info('Chat with the documents of municipality of Vaasa')
+st.title("🗳 Democracy Chatbot")
+st.info('Chat with the documents of municipality of Vaasa. Easy information access for everyone!')
 
 if "messages" not in st.session_state.keys():  # Initialize the chat messages history
     st.session_state.messages = [
