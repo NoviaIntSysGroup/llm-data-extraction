@@ -26,7 +26,7 @@ def generate_markdown_link(filename, doc_id):
     return f"[{filename}]({url})"
 
 
-st.set_page_config(page_title="Democracy Chatbot", page_icon="🦙",
+st.set_page_config(page_title="Democracy Chatbot", page_icon="🗳",
                    layout="centered", initial_sidebar_state="auto", menu_items=None)
 st.title("Democracy Chatbot")
 st.info('Chat with the documents of municipality of Vaasa')
