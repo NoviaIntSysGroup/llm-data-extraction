@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 from langchain.document_loaders import PyPDFLoader
 from langchain.document_loaders import DirectoryLoader
 from langchain.document_loaders import TextLoader
@@ -6,11 +7,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.embeddings.cohere import CohereEmbeddings
 from langchain.vectorstores import Chroma
-from dotenv import load_dotenv
 
-load_dotenv()
 
-COHERE_API_KEY = os.environ.get("COHERE_API_KEY")
+COHERE_API_KEY = st.secrets["COHERE_API_KEY"]
 
 
 class DocumentDatabase:

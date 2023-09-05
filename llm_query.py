@@ -1,5 +1,6 @@
 import together
 import os
+import streamlit as st
 from typing import Any, Dict
 from pydantic import Extra, root_validator
 from langchain.llms.base import LLM
@@ -10,12 +11,10 @@ from langchain.prompts import PromptTemplate
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.embeddings.cohere import CohereEmbeddings
 import textwrap
-from dotenv import load_dotenv
 
-load_dotenv()
 
-TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
-COHERE_API_KEY = os.environ.get("COHERE_API_KEY")
+TOGETHER_API_KEY = st.secrets["TOGETHER_API_KEY"]
+COHERE_API_KEY = st.secrets["COHERE_API_KEY"]
 
 
 class TogetherLLM(LLM):
