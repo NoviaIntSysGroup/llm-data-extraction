@@ -111,7 +111,7 @@ class LLMQueryProcessor:
         B_INST, E_INST = "[INST]", "[/INST]"
         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
         SYSTEM_PROMPT = B_SYS + new_system_prompt + E_SYS
-        return B_INST + SYSTEM_PROMPT + instruction + "Svara endast på svenska." + E_INST
+        return B_INST + SYSTEM_PROMPT + instruction + ". Svara endast på svenska." + E_INST
 
     @staticmethod
     def _wrap_text_preserve_newlines(text, width=110):
