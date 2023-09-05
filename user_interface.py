@@ -1,7 +1,11 @@
+import sys
 import streamlit as st
 from llm_query import *
 import os
 import re
+
+__import__('pysqlite3')
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 
 def extract_doc_id(filename):
