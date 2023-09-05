@@ -1,6 +1,6 @@
 streamlit
 torch
-llama-index
+# llama-index
 nltk
 langchain
 huggingface_hub
@@ -8,7 +8,8 @@ tiktoken
 chromadb
 PyPDF2 
 pypdf 
-InstructorEmbedding 
+# InstructorEmbedding 
 sentence_transformers
 together
 cohere
+sqlite3 >= 3.35.0
