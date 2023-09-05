@@ -1,5 +1,5 @@
 streamlit
-torch
+# torch
 # llama-index
 nltk
 langchain
@@ -9,7 +9,7 @@ chromadb
 PyPDF2 
 pypdf 
 # InstructorEmbedding 
-sentence_transformers
+# sentence_transformers
 together
 cohere
 pysqlite3-binary
