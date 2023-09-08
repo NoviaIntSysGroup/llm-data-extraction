@@ -5,7 +5,7 @@ from typing import Any, Dict
 from pydantic import Extra, root_validator
 from langchain.llms.base import LLM
 from langchain.utils import get_from_dict_or_env
-from langchain.chains import RetrievalQA
+from langchain.chains import RetrievalQA, HypotheticalDocumentEmbedder
 from langchain.vectorstores import Chroma
 from langchain.prompts import PromptTemplate
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
@@ -56,12 +56,16 @@ class TogetherLLM(LLM):
     ) -> str:
         """Call to Together endpoint."""
         together.api_key = self.together_api_key
+        print("PROMPT TO THE LLM:\n", prompt)
         output = together.Complete.create(prompt,
                                           model=self.model,
                                           max_tokens=self.max_tokens,
                                           temperature=self.temperature,
                                           )
         text = output['output']['choices'][0]['text']
+        # show prompt in a togglable box
+        st.expander("See prompt sent to the LLM // Only for debugging",
+                    expanded=False).markdown(prompt)
         return text
 
 
@@ -71,46 +75,51 @@ class LLMQueryProcessor:
         # embedding_function = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl", model_kwargs={"device": "cuda"})
         embedding_function = CohereEmbeddings(
             cohere_api_key=COHERE_API_KEY, model='embed-multilingual-v2.0')
+        self.llm = TogetherLLM(
+            model="togethercomputer/llama-2-70b-chat",
+            temperature=0.1,
+            max_tokens=1024
+        )
+        # embedding_function = HypotheticalDocumentEmbedder.from_llm(
+        #     self.llm, embedding_function, "web_search"
+        # )
         self.vectordb = Chroma(
             persist_directory=self.db_path, embedding_function=embedding_function)
         self.retriever = self._setup_retriever()
 
         # Configuration for LLaMA-2 prompt style
-        sys_prompt = "Du är dokumentchatbot för Vasa kommun. Svara endast på svenska."
-        instruction = """CONTEXT:/n/n {context}/n\nQuestion: {question}"""
+        # sys_prompt = "Du är dokumentchatbot för Vasa kommun. Svara endast på svenska."
+        sys_prompt = 'You are a helpful document chatbot'
+        instruction = """CONTEXT:\n\n {context}\n\nQUESTION: {question}"""
 
         # Configure the LLaMA model
         self.qa_chain = self._configure_llama(instruction, sys_prompt)
 
     def _setup_retriever(self):
-        return self.vectordb.as_retriever(search_kwargs={"k": 10})
+        return self.vectordb.as_retriever(search_type="mmr", search_kwargs={"k": 5, "similarity_threshold": 0.7})
 
     def _configure_llama(self, instruction, sys_prompt):
         prompt_template = self._get_prompt(instruction, sys_prompt)
         llama_prompt = PromptTemplate(
             template=prompt_template, input_variables=["context", "question"])
-
-        llm = TogetherLLM(
-            model="togethercomputer/llama-2-70b-chat",
-            temperature=0.1,
-            max_tokens=1024
-        )
-
+        llm = self.llm
         chain_type_kwargs = {"prompt": llama_prompt}
-        return RetrievalQA.from_chain_type(
+        a = RetrievalQA.from_chain_type(
             llm=llm,
             chain_type="stuff",
             retriever=self.retriever,
             chain_type_kwargs=chain_type_kwargs,
             return_source_documents=True
         )
+        print(a)
+        return a
 
     @staticmethod
     def _get_prompt(instruction, new_system_prompt):
         B_INST, E_INST = "[INST]", "[/INST]"
         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
         SYSTEM_PROMPT = B_SYS + new_system_prompt + E_SYS
-        return B_INST + SYSTEM_PROMPT + instruction + ". Svara endast på svenska." + E_INST
+        return B_INST + SYSTEM_PROMPT + instruction + E_INST
 
     @staticmethod
     def _wrap_text_preserve_newlines(text, width=110):
@@ -124,3 +133,10 @@ class LLMQueryProcessor:
         sources = [source.metadata['source']
                    for source in llm_response["source_documents"]]
         return result, sources
+
+
+if __name__ == "__main__":
+    processor = LLMQueryProcessor()
+    result, sources = processor.process_prompt("Who are the authors of ReAct?")
+    print(result)
+    print(sources)

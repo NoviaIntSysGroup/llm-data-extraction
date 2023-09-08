@@ -10,10 +10,12 @@ from langchain.vectorstores import Chroma
 
 
 COHERE_API_KEY = st.secrets["COHERE_API_KEY"]
+DATASET_PATH = "protocols/"
+FILETYPE = '.pdf'
 
 
 class DocumentDatabase:
-    def __init__(self, path='protocols/', filetype='.pdf'):
+    def __init__(self, path, filetype):
         self.path = path
         self.filetype = filetype
 
@@ -45,7 +47,5 @@ class DocumentDatabase:
 
 
 if __name__ == "__main__":
-    dataset_path = "protocols/"
-    filetype = '.pdf'
-    db = DocumentDatabase(path=dataset_path, filetype=filetype)
+    db = DocumentDatabase(path=DATASET_PATH, filetype=FILETYPE)
     db.process_and_save()
