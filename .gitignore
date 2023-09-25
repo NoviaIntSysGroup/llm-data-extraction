@@ -5,6 +5,7 @@ __pycache__/
 
 secrets.toml
 *ignore*
+knowledge_graph.ipynb
 # C extensions
 *.so
 
