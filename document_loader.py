@@ -1,6 +1,6 @@
 import os
 import streamlit as st
-from langchain.document_loaders import PyPDFLoader
+from langchain.document_loaders import PyMuPDFLoader
 from langchain.document_loaders import DirectoryLoader
 from langchain.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -23,10 +23,14 @@ class DocumentDatabase:
         if os.path.isdir(self.path):
             print(f'Loading {self.filetype} documents from {self.path}...')
             loader = DirectoryLoader(
-                self.path, glob=f"./*{self.filetype}", loader_cls=PyPDFLoader)
+                self.path, glob=f"./*{self.filetype}", loader_cls=PyMuPDFLoader, loader_kwargs={"option": "xhtml"})
         else:
             loader = TextLoader(self.path)
-        return loader.load()
+        documents = loader.load()
+        print(f'Extracted text from the documents.')
+        import sys
+        sys.exit()
+        return documents
 
     def _embed_documents(self, documents):
         print('Embedding documents, this may take a while...')
@@ -37,9 +41,9 @@ class DocumentDatabase:
         # embedding_function = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl", model_kwargs={"device": "cuda"})
         embedding_function = CohereEmbeddings(
             cohere_api_key=COHERE_API_KEY, model='embed-multilingual-v2.0')
-
         Chroma.from_documents(
             documents=texts, embedding=embedding_function, persist_directory='db')
+        print('Finished embedding documents.')
 
     def process_and_save(self):
         documents = self._load_documents()

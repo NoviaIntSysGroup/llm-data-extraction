@@ -6,8 +6,9 @@ langchain
 huggingface_hub
 tiktoken
 chromadb
-PyPDF2 
-pypdf 
+# PyPDF2 
+# pypdf
+pymupdf 
 # InstructorEmbedding 
 # sentence_transformers
 together
