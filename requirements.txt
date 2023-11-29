@@ -5,12 +5,13 @@ huggingface_hub
 tiktoken
 chromadb
 pymupdf
-pydantic==1.10.9 
+pydantic==1.10.9
+python-dotenv 
 # InstructorEmbedding 
 # sentence_transformers
 together
 cohere
-pysqlite3-binary
+# pysqlite3-binary
 halo
 openai
 mammoth

@@ -12,7 +12,7 @@ from langchain.vectorstores import Chroma
 
 COHERE_API_KEY = st.secrets["COHERE_API_KEY"]
 HF_API_KEY = st.secrets["HF_API_KEY"]
-DATASET_PATH = "protocols/"
+PROTOCOLS_PDF_PATH = os.getenv("PROTOCOLS_PDF_PATH")
 FILETYPE = '.pdf'
 
 
@@ -52,5 +52,5 @@ class DocumentDatabase:
 
 
 if __name__ == "__main__":
-    db = DocumentDatabase(path=DATASET_PATH, filetype=FILETYPE)
+    db = DocumentDatabase(path=PROTOCOLS_PDF_PATH, filetype=FILETYPE)
     db.process_and_save()

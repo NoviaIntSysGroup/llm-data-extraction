@@ -1,11 +1,19 @@
+# custom files and folders
+secrets.toml
+*ignore*
+knowledge_graph.ipynb
+data/protocols_pdf
+data/protocols_html
+
+## Boilerplates
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
-secrets.toml
-*ignore*
-knowledge_graph.ipynb
+
 # C extensions
 *.so
 

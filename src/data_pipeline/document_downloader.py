@@ -3,11 +3,20 @@ import requests
 import os
 from urllib.parse import unquote
 import re
+from dotenv import load_dotenv
 
-# Function to download PDF and return the filename
 
+def download_pdf(url, protocols_pdf_path):
+    """
+    Downloads a PDF file from the given URL and saves it in the 'protocols' folder.
 
-def download_pdf(url):
+    Args:
+        url (str): The URL of the PDF file to download.
+        protocols_pdf_path (str): The path to the directory where the PDF will be saved.
+
+    Returns:
+        str: The filename of the downloaded PDF file, or None if there was an error.
+    """
     try:
         response = requests.get(url, allow_redirects=True)
         response.raise_for_status()  # Raise an error for bad status codes
@@ -24,7 +33,7 @@ def download_pdf(url):
             filename = url.split('/')[-1]
 
         # Save the PDF in 'protocols' folder
-        filepath = os.path.join(download_path, filename)
+        filepath = os.path.join(protocols_pdf_path, filename)
         with open(filepath, 'wb') as f:
             f.write(response.content)
 
@@ -34,12 +43,19 @@ def download_pdf(url):
         return None
 
 
-if __name__ == '__main__':
-    # Create the 'protocols' directory if it doesn't exist
-    download_path = '/data/protocols_pdf'
-    os.makedirs(download_path, exist_ok=True)
+def download_pdfs(df, protocols_pdf_path):
+    """
+    Downloads PDFs from the given dataframe and saves them in the directory defined in PROTOCOLS_PDF_PATH in environment file.
 
-    df = pd.read_csv('/data/metadata.csv')
+    Args:
+        df (pandas.DataFrame): The dataframe containing the PDF links.
+        protocols_pdf_path (str): The path to the directory where the PDFs will be saved.
+
+    Returns:
+        pandas.DataFrame: The updated dataframe with the 'doc_name' column added.
+    """
+    # Create the 'protocols' directory if it doesn't exist
+    os.makedirs(protocols_pdf_path, exist_ok=True)
 
     # Add the 'doc_name' column to the dataframe
     df['doc_name'] = df['doc_link'].apply(download_pdf)
@@ -48,5 +64,22 @@ if __name__ == '__main__':
     df = df[['doc_name', 'doc_link', 'rubrik', 'section', 'meeting_date', 'meeting_time', 'meeting_reference',
              'verksamhetsorgan', 'parent_link']]
 
+    return df
+
+
+def main():
+
+    load_dotenv()
+
+    # Constants
+    PROTOCOLS_PDF_PATH = os.getenv("PROTOCOLS_PDF_PATH")
+    METADATA_FILE = os.getenv("METADATA_FILE")
+    df = pd.read_csv(METADATA_FILE)
+    df = download_pdfs(df, PROTOCOLS_PDF_PATH)
+
     # Save the updated DataFrame
-    df.to_csv('/data/metadata.csv', index=False)
+    df.to_csv(METADATA_FILE, index=False)
+
+
+if __name__ == '__main__':
+    main()
