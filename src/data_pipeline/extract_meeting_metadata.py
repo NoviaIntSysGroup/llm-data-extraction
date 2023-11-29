@@ -4,16 +4,18 @@ import time
 from openai import OpenAI
 import multiprocessing
 import pandas as pd
+from dotenv import load_dotenv
+import streamlit as st
+
+load_dotenv()
 
 # Initialize the OpenAI client and assistant_id
-client = OpenAI(api_key='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')
-assistant_id = "asst_q3KCyxW9Ib7U1tinoHW7ynHy"
-
-# Function to process text with LLM
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+assistant_id = st.secrets["OPENAI_ASSISTANT_ID"]
 
 
 def extract_data_with_llm(text, pdf_name, assistant_id):
-    '''Extract data from a PDF file using the LLM model'''
+    '''Extract data from a PDF file using the LLM'''
     # Create a thread, send the extracted text, and run the assistant
     thread = client.beta.threads.create()
     message = client.beta.threads.messages.create(
