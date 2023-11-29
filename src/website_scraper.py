@@ -103,4 +103,4 @@ if __name__ == '__main__':
         json.dump(result, f, ensure_ascii=False, indent=4)
 
     df = convert_to_df(result)
-    df.to_csv('/data/scraped_df.csv', index=False)
+    df.to_csv('/data/metadata.csv', index=False)
