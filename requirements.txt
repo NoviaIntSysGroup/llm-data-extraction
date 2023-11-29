@@ -1,16 +1,14 @@
 streamlit
-# torch
-# llama-index
 nltk
 langchain
 huggingface_hub
 tiktoken
 chromadb
-# PyPDF2 
-# pypdf
-pymupdf 
+pymupdf
+pydantic==1.10.9 
 # InstructorEmbedding 
 # sentence_transformers
 together
 cohere
 pysqlite3-binary
+halo
