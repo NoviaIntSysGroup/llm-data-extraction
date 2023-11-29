@@ -12,3 +12,5 @@ together
 cohere
 pysqlite3-binary
 halo
+openai
+mammoth
