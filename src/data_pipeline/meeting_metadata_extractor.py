@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 
 def extract_data_with_llm(text, client, prompt):
+    print(text)
     response = client.chat.completions.create(
         model="gpt-4-1106-preview",
         response_format={"type": "json_object"},
@@ -20,6 +21,7 @@ def extract_data_with_llm(text, client, prompt):
         ]
     )
     print(response.choices[0].message.content)
+    sys.exit()
     return response.choices[0].message.content.replace('```json', '').replace('```', '')
 
 
@@ -95,14 +97,14 @@ def process_pdf(pdf_name, protocols_pdf_path, client, prompt):
     return pdf_name, "LLM Error!"
 
 
-def extract_meeting_metadata(df, meeting_titles_filter, protocols_pdf_path, client, prompt):
+def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, client, prompt):
     """
     Extracts meeting metadata from a meeting documents.
 
     Args:
         df (pandas.DataFrame): The DataFrame containing the meeting data.
         meeting_titles_filter (list): List of meeting titles to filter documents.
-        protocols_pdf_path (str): Path to the protocols PDF files.
+        protocols_html_path (str): Path to the protocols HTML files.
         client (OpenAI): OpenAI client object.
         prompt (str): The prompt to use for the LLM.
 
@@ -115,8 +117,9 @@ def extract_meeting_metadata(df, meeting_titles_filter, protocols_pdf_path, clie
 
     results = []
     for filename in tqdm(filtered_df['doc_name']):
+        filename = os.path.splitext(filename)[0] + '.html'
         results.append(process_pdf(
-            filename, protocols_pdf_path, client, prompt))
+            filename, protocols_html_path, client, prompt))
 
     # add metadata to dataframe
     for pdf_name, metadata in results:
@@ -143,7 +146,7 @@ def extract_meeting_metadata(df, meeting_titles_filter, protocols_pdf_path, clie
 
 def main():
 
-    PROTOCOLS_PDF_PATH = os.getenv("PROTOCOLS_PDF_PATH")
+    PROTOCOLS_HTML_PATH = os.getenv("PROTOCOLS_HTML_PATH")
     METADATA_FILE = os.getenv("METADATA_FILE")
     MEETING_TITLES_FILTER = ['Beslutande', 'Sammanträdesuppgifter och deltagande',
                              'Kokoustiedot ja osallistujat', 'Vln:Beslutande', 'Päättäjät']
@@ -160,7 +163,7 @@ def main():
 
     df = pd.read_csv(METADATA_FILE)
     df = extract_meeting_metadata(
-        df, MEETING_TITLES_FILTER, PROTOCOLS_PDF_PATH, client, prompt)
+        df, MEETING_TITLES_FILTER, PROTOCOLS_HTML_PATH, client, prompt)
 
     # Save the updated DataFrame
     df.to_csv(METADATA_FILE)

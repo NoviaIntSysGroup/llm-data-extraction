@@ -4,9 +4,10 @@ import pandas as pd
 from mammoth import convert_to_html
 import os
 from tqdm import tqdm
+import html
 
 
-def convert_df_to_html(df, protocols_pdf_path, protocols_html_path, output_type='xhtml'):
+def convert_pdfs_to_html(df, protocols_pdf_path, protocols_html_path, output_type='xhtml'):
     '''
     Convert PDF document saved in DataFrame to HTML.
 
@@ -30,7 +31,7 @@ def convert_df_to_html(df, protocols_pdf_path, protocols_html_path, output_type=
     text = ""
 
     # Iterate over each row in the DataFrame
-    for index, row in tqdm(df.iterrows(), desc="Converting PDFs to HTML..."):
+    for index, row in tqdm(df.iterrows(), desc="Converting PDFs to HTML", total=len(df)):
         filename = row['doc_name']
         file_rootname, file_extension = os.path.splitext(filename)
         file_path = os.path.join(protocols_pdf_path, filename)
@@ -47,8 +48,8 @@ def convert_df_to_html(df, protocols_pdf_path, protocols_html_path, output_type=
                 text = convert_to_html(docx)
                 text = text.value
 
-        # Encode the text as UTF-8
-        text = text.encode('utf-8')
+        # unescape the html special swedish chars
+        text = html.unescape(text)
 
         # Determine the file extension based on the output type
         extension = 'html' if output_type == 'xhtml' else 'txt'
@@ -58,7 +59,7 @@ def convert_df_to_html(df, protocols_pdf_path, protocols_html_path, output_type=
             protocols_html_path, f'{file_rootname}.{extension}')
 
         # Write the text to the output file
-        with open(output_file, "wb") as file:
+        with open(output_file, "w") as file:
             file.write(text)
     print(f"Saved converted html files to {protocols_html_path}")
 
@@ -71,7 +72,7 @@ def main():
 
     os.makedirs(PROTOCOLS_HTML_PATH, exist_ok=True)
     df = pd.read_csv(METADATA_FILE)
-    convert_df_to_html(df, PROTOCOLS_PDF_PATH, PROTOCOLS_HTML_PATH)
+    convert_pdfs_to_html(df, PROTOCOLS_PDF_PATH, PROTOCOLS_HTML_PATH)
 
 
 if __name__ == '__main__':
