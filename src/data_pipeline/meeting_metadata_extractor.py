@@ -4,7 +4,7 @@ from openai import OpenAI
 import pandas as pd
 import streamlit as st
 from tqdm import tqdm
-from utils import process_html
+from .utils import process_html
 
 
 # def extract_data_with_llm(text, pdf_name, client, assistant_id):
@@ -95,8 +95,8 @@ def main():
 
     PROTOCOLS_HTML_PATH = os.getenv("PROTOCOLS_HTML_PATH")
     METADATA_FILE = os.getenv("METADATA_FILE")
-    MEETING_TITLES_WITH_METADATA = ['Beslutande', 'Sammanträdesuppgifter och deltagande',
-                                    'Kokoustiedot ja osallistujat', 'Vln:Beslutande', 'Päättäjät']
+    DOC_TITLES_WITH_METADATA = ['Beslutande', 'Sammanträdesuppgifter och deltagande',
+                                'Kokoustiedot ja osallistujat', 'Vln:Beslutande', 'Päättäjät']
     METADATA_EXTRACTION_PROMPT_PATH = os.getenv(
         "METADATA_EXTRACTION_PROMPT_PATH")
 
@@ -109,7 +109,7 @@ def main():
 
     df = pd.read_csv(METADATA_FILE)
     df = extract_meeting_metadata(
-        df, MEETING_TITLES_WITH_METADATA, PROTOCOLS_HTML_PATH, client, prompt)
+        df, DOC_TITLES_WITH_METADATA, PROTOCOLS_HTML_PATH, client, prompt)
 
     # Save the updated DataFrame
     df.to_csv(METADATA_FILE)
