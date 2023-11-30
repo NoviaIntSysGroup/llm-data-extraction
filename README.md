@@ -23,3 +23,14 @@ To run the project, perform the following steps:
 2. Open the `notebooks/unstructured_to_structured_data_pipeline.ipynb` file.
 
 3. Execute the notebook to run the project.
+
+
+## Project Structure
+
+The project directory contains the following files and folders:
+
+- `data/`: Contains the data used in the project. PDFs and HTML files downloaded by the scripts are stored here.
+- `data/example_prompts/`: Contains the prompts used for LLMs.
+- `notebooks/`: Contains the notebooks used in the project.
+- `src/`: Contains the source code of the project.
+- 
