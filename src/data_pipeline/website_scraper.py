@@ -2,9 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import pandas as pd
-from dotenv import load_dotenv
 import os
-from halo import Halo
 
 
 def fetch_and_parse(url):
@@ -125,8 +123,7 @@ def convert_to_df(json_data):
 
 def main():
 
-    load_dotenv()
-
+    DATA_PATH = os.getenv('DATA_PATH')
     SCRAPING_START_URL = os.getenv('SCRAPING_START_URL')
     SCRAPING_BASE_URL = os.getenv('SCRAPING_BASE_URL')
     SCRAPED_DATA_FILE_PATH = os.getenv('SCRAPED_DATA_FILE_PATH')
@@ -139,6 +136,7 @@ def main():
     result = scrape_table(tables[0], SCRAPING_BASE_URL)
 
     print(f'Saving scraped data to {SCRAPED_DATA_FILE_PATH}...')
+    os.makedirs(DATA_PATH, exist_ok=True)
     with open(SCRAPED_DATA_FILE_PATH, 'w', encoding='utf-8') as f:
         json.dump(result, f, ensure_ascii=False, indent=4)
 

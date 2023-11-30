@@ -2,16 +2,17 @@ import fitz
 import os
 import pandas as pd
 from mammoth import convert_to_html
-from dotenv import load_dotenv
 import os
+from tqdm import tqdm
 
 
-def convert_df_to_html(df, protocols_html_path, output_type='xhtml'):
+def convert_df_to_html(df, protocols_pdf_path, protocols_html_path, output_type='xhtml'):
     '''
     Convert PDF document saved in DataFrame to HTML.
 
     Args:
         df (DataFrame): The DataFrame containing the PDF documents.
+        protocols_pdf_path (str): The path to the directory containing the PDF files.
         protocols_html_path (str): The path to the directory where the HTML files will be saved.
         output_type (str, optional): The type of output, either 'text' or 'xhtml'. Defaults to 'xhtml'.
 
@@ -29,10 +30,10 @@ def convert_df_to_html(df, protocols_html_path, output_type='xhtml'):
     text = ""
 
     # Iterate over each row in the DataFrame
-    for index, row in df.iterrows():
+    for index, row in tqdm(df.iterrows(), desc="Converting PDFs to HTML..."):
         filename = row['doc_name']
         file_rootname, file_extension = os.path.splitext(filename)
-        file_path = os.path.join(protocols_html_path, filename)
+        file_path = os.path.join(protocols_pdf_path, filename)
 
         # Check the file extension and process accordingly
         if file_extension == ".pdf":
@@ -46,30 +47,31 @@ def convert_df_to_html(df, protocols_html_path, output_type='xhtml'):
                 text = convert_to_html(docx)
                 text = text.value
 
-    # Encode the text as UTF-8
-    text = text.encode('utf-8')
+        # Encode the text as UTF-8
+        text = text.encode('utf-8')
 
-    # Determine the file extension based on the output type
-    extension = 'html' if output_type == 'xhtml' else 'txt'
+        # Determine the file extension based on the output type
+        extension = 'html' if output_type == 'xhtml' else 'txt'
 
-    # Define the output file path
-    output_file = os.path.join(
-        protocols_html_path, f'{file_rootname}.{extension}')
+        # Define the output file path
+        output_file = os.path.join(
+            protocols_html_path, f'{file_rootname}.{extension}')
 
-    # Write the text to the output file
-    with open(output_file, "wb") as file:
-        file.write(text)
-        print(text.decode('utf-8'))
+        # Write the text to the output file
+        with open(output_file, "wb") as file:
+            file.write(text)
+    print(f"Saved converted html files to {protocols_html_path}")
 
 
 def main():
-    load_dotenv()
 
+    PROTOCOLS_PDF_PATH = os.environ.get('PROTOCOLS_PDF_PATH')
     PROTOCOLS_HTML_PATH = os.environ.get('PROTOCOLS_HTML_PATH')
     METADATA_FILE = os.environ.get('METADATA_FILE')
 
+    os.makedirs(PROTOCOLS_HTML_PATH, exist_ok=True)
     df = pd.read_csv(METADATA_FILE)
-    convert_df_to_html(df, PROTOCOLS_HTML_PATH)
+    convert_df_to_html(df, PROTOCOLS_PDF_PATH, PROTOCOLS_HTML_PATH)
 
 
 if __name__ == '__main__':

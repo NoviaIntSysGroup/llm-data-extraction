@@ -3,7 +3,7 @@ import requests
 import os
 from urllib.parse import unquote
 import re
-from dotenv import load_dotenv
+from tqdm import tqdm
 
 
 def download_pdf(url, protocols_pdf_path):
@@ -24,7 +24,6 @@ def download_pdf(url, protocols_pdf_path):
         # Extract filename from Content-Disposition header
         cd = response.headers.get('content-disposition', '')
         filename = re.findall('filename=(.+)', cd)
-        print(filename)
         if filename:
             # Decoding any URL encoded characters
             filename = unquote(filename[0])
@@ -58,7 +57,9 @@ def download_pdfs(df, protocols_pdf_path):
     os.makedirs(protocols_pdf_path, exist_ok=True)
 
     # Add the 'doc_name' column to the dataframe
-    df['doc_name'] = df['doc_link'].apply(download_pdf)
+    tqdm.pandas(desc="Downloading PDFs...")
+    df['doc_name'] = df['doc_link'].progress_apply(
+        lambda download_link: download_pdf(download_link, protocols_pdf_path))
 
     # sort columns
     df = df[['doc_name', 'doc_link', 'rubrik', 'section', 'meeting_date', 'meeting_time', 'meeting_reference',
@@ -69,16 +70,17 @@ def download_pdfs(df, protocols_pdf_path):
 
 def main():
 
-    load_dotenv()
-
     # Constants
     PROTOCOLS_PDF_PATH = os.getenv("PROTOCOLS_PDF_PATH")
+    os.makedirs(PROTOCOLS_PDF_PATH, exist_ok=True)
     METADATA_FILE = os.getenv("METADATA_FILE")
     df = pd.read_csv(METADATA_FILE)
     df = download_pdfs(df, PROTOCOLS_PDF_PATH)
 
     # Save the updated DataFrame
     df.to_csv(METADATA_FILE, index=False)
+
+    return df
 
 
 if __name__ == '__main__':
