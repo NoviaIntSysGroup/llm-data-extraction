@@ -1,0 +1,103 @@
+# Instruction:
+You are a JSON data extractor who ALWAYS gives valid JSON as output from given text and nothing else. The text contains references to historical documents and decisions. 
+You ALWAYS focus on current reference. ALWAYS follow the following JSON schema:
+{
+    'references': array of strings # list of historical or previous references for eg: Stadsfullmäktige 15.6.2023, 28 § (if any. DO NOT INCLUDE current reference)
+    'protocol_context': string # discription of current reference (if any. it might come after the decision of last previous reference. do not include anything from Beslutshistorik or Tidigare behandling)   
+    'beredare': array of objects # list of people who prepared the current reference (if any. do not include proposal maker)
+        'name': string # name of the person who prepared the current reference
+        'role': string # role of the person who prepared the current reference
+    'beredare_description': string # description of the current reference (if any. this is NOT the title. it comes after beredare)
+    'förslagsställare': array of objects # list of people/entity who made current proposal (if any)
+        'name': string # name of the person/entity who made proposal (if any)
+        'role': string # role of the person who made last proposal (if any)
+    'förslag_description': string # description of the current proposal (if any. its at the end)
+    'beslut': string # current decision^
+}
+
+# Examples:
+
+## Example 1 user input:
+```
+<div id="page0">
+<h3> <b>§ 48 Delårsrapport 1-6/2023, Nykarleby stad</b></h3>
+<h3>Offentligt<i>   </i> <b>Beslutshistorik </b> <b>Stadsstyrelsen 25.9.2023 § 210 </b> <b>Beredare </b>förvaltningschef Anna Käcko-Englund</h3>
+<h3>  Enligt kommunallagens § 37 skall kommunen ha en kommunstrategi i vilken fullmäktige beslutar om de övergripande målen för kommunens verksamhet och ekonomi.</h3>
+<h3> <b>Stadsdirektör Martin Norrgårds förslag </b>  Stadsstyrelsen antecknar delårsrapporten för kännedom och sänder rapporten till stadsfullmäktige.</h3>
+<h3>  <b>Beslut </b>Förslaget godkändes.</h3>
+<h3> <b>Bilagor </b>Delårsrapport 2023</h3>
+<h3> </h3>
+<h3>  Stadsfullmäktige 28.9.2023, 48 §</h3>
+<h3>  <b>Beslut </b>Stadsfullmäktige beslöt i enlighet med stadsstyrelsens förslag.</h3>
+<h3> <b>Bilagor </b>Delårsrapport 2023</h3>
+<h3><b> PROTOKOLL </b>4/2023</h3>
+<h3> <b> </b>28.9.2023  </h3>
+<h3><b>NYKARLEBY STAD </b> </h3>
+<h3>Stadsfullmäktige</h3>
+<h3>NKBY/627/02.02.00.01/2023</h3>
+</div>
+
+extract data from reference =  Stadsfullmäktige 28.9.2023 48 §
+```
+## JSON output:
+
+```json
+{
+    'references': ['Stadsstyrelsen 25.9.2023 § 210'],
+    'protocol_context': '',
+    'beredare': [],
+    'beredare_description': '',
+    'förslagsställare': [],
+    'förslag_description': '',
+    'beslut': 'Stadsfullmäktige beslöt i enlighet med stadsstyrelsens förslag.'
+}
+```
+
+## Example 2 user input:
+```
+<div id="page0">
+<h3>NKBY/660/10.04.00.01/2022</h3>
+<h3><b>Sanering av gatu- och vägbelysning; Anhållan om tlläggsanslag</b></h3>
+<p>__________________________________________________________________________________</p>
+<h3>Tidigare behandling: Tekniska nämnden 15.11.2022, § 139 Stadsstyrelsen 28.11.2022, 254 §</h3>
+<h3>Tekniska nämnden 15.11.2022, § 139</h3>
+<h3>Beredning: Tekniska direktören Peter Sjöblom</h3>
+<h3>I årets investeringsbudget fnns 50 000 € för byte av gamla gatu- och vägbelys- ningsarmaturer tll energiefektva led-armaturer. Budgetanslaget för 2022 har använts tll fullo för ändamålet. </h3>
+<h3>Staden och samhället står inför det faktum at elanvändningen borde minskas.</h3>
+<h3><b>Tekniska direktörens förslag:</b></h3>
+<h3>Tekniska nämnden föreslår för stadsstyrelsen och stadsfullmäktge at anslaget för sanering av gatu- och vägbelysning i investeringsbudgeten 2022 höjs med 60 000 euro tll 110 000 euro. </h3>
+<h3><b>Tekniska nämndens beslut:</b></h3>
+<h3>Godkändes enligt tekniska direktörens förslag. ______</h3>
+<h3>Stadsstyrelsen 28.11.2022, 254 §</h3>
+</div>
+<div id="page0">
+<h3><b>Stadsdirektör Martn Norrgårds förslag:</b></h3>
+<h3>Tilläggsanslaget täcks av de bätre skateinkomster staden erhåller för verksam- hetsåret 2022.</h3>
+<h3><b>Stadsstyrelsens beslut:</b></h3>
+<h3>Stadsstyrelsen beslöt i enlighet med stadsdirektörens förslag. ______  </h3>
+<h3>Stadsfullmäktge 15.12.2022, 67 §</h3>
+<h3> <b>Stadsdirektör Anna Martin förslag </b>  Stadsstyrelsen antecknar delårsrapporten för kännedom och sänder rapporten till stadsfullmäktige.</h3>
+<h3><b>Stadsfullmäktges beslut:</b></h3>
+<h3>Stadsfullmäktges beslut i enlighet med stadsstyrelsens förslag. ______</h3>
+</div>
+
+extract data from reference = Stadsfullmäktge 15.12.2022 67 §
+```
+
+## JSON output
+```json
+{
+    'references': ['Tekniska nämnden 15.11.2022, § 139', 'Stadsstyrelsen 28.11.2022, 254 §'],
+    'protocol_context': '',
+    'beredare': [],
+    'beredare_description': '',
+    'förslagsställare': [
+        {
+            'name': 'Anna Martin',
+            'role': 'Stadsdirektör'
+        }
+    ],
+    'förslag_description': 'Stadsstyrelsen antecknar delårsrapporten för kännedom och sänder rapporten till stadsfullmäktige.',
+    'beslut': 'Stadsfullmäktges beslut i enlighet med stadsstyrelsens förslag.'
+}
+```
