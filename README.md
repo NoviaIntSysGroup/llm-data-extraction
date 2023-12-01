@@ -6,12 +6,20 @@ To set up the project, follow the steps below:
 
     ```bash
     conda create -n meeting-protocol-chatbot python=3.11
+    
+    conda activate meeting-protocol-chatbot
     ```
 
 2. Clone the project repository by executing the following command:
 
     ```bash
     git clone https://github.com/NoviaIntSysGroup/meeting-protocol-chatbot.git
+    ```
+
+3. Navigate to the project directory and install the required packages by running the following command:
+
+    ```bash
+    pip install -e .
     ```
 
 ## Running the Project
