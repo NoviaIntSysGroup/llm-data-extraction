@@ -73,9 +73,13 @@ This figure outlines the workflow for converting unstructured data from meeting 
 
 #### Knowledge Graph (KG) Conversion
 
+> KG Schema
+
+![KG Schema](assets/knowledge_graph_schema.png)
+
 1. **Cypher Script for JSON to KG**: Convert the JSON formatted data into a knowledge graph using a Cypher script.
-1. **User Query to Cypher with LLM**: Convert the user query into cypher query using a LLM.
-1. **Retrieved Relevant Data**: The result of the user query is the retrieval of relevant data from the knowledge graph.
+2. **User Query to Cypher with LLM**: Convert the user query into cypher query using a LLM.
+3. **Retrieved Relevant Data**: The result of the user query is the retrieval of relevant data from the knowledge graph.
 
 This workflow transforms unstructured data into structured knowledge that is easily accessible and queryable by end-users.
 
