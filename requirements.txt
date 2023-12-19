@@ -1,18 +1,21 @@
+# General Packages
 notebook
-streamlit
-nltk
+python-dotenv 
+halo
+pydantic==1.10.9
+
+# Document processing
+mammoth
+pymupdf
+
+# Packages for LLMs
 langchain
 huggingface_hub
 tiktoken
-chromadb
-pymupdf
-pydantic==1.10.9
-python-dotenv 
-# InstructorEmbedding 
-# sentence_transformers
 together
 cohere
-# pysqlite3-binary
-halo
 openai
-mammoth
+chromadb
+
+# UI
+streamlit
