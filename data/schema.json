@@ -1,0 +1,176 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "verksamhetsorgan": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "meetings": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "meetingDate": {
+                                    "type": "string"
+                                },
+                                "startTime": {
+                                    "type": "string"
+                                },
+                                "rubrik": {
+                                    "type": "string"
+                                },
+                                "section": {
+                                    "type": "string"
+                                },
+                                "meetingReference": {
+                                    "type": "string"
+                                },
+                                "endTime": {
+                                    "type": "string"
+                                },
+                                "meetingPlace": {
+                                    "type": "string"
+                                },
+                                "parentLink": {
+                                    "type": "string"
+                                },
+                                "members": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "role": {
+                                                "type": "string"
+                                            },
+                                            "attendance": {
+                                                "type": "boolean"
+                                            }
+                                        }
+                                    }
+                                },
+                                "substitutes": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "substitutedFor": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
+                                "additionalAttendees": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "role": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
+                                "protocolSignatories": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string"
+                                            },
+                                            "role": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
+                                "protocolAdjustment": {
+                                    "type": "object",
+                                    "properties": {
+                                        "adjustedBy": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "adjustmentDate": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "meetingItems": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "references": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "protocolContext": {
+                                                "type": "string"
+                                            },
+                                            "beredare": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "role": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "beredareDescription": {
+                                                "type": "string"
+                                            },
+                                            "förslagsställare": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "role": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "förslagDescription": {
+                                                "type": "string"
+                                            },
+                                            "beslut": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

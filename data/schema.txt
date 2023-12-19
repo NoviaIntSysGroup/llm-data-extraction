@@ -1,0 +1,49 @@
+# verksamhetsorgan (list of objects, there can be multiple organs)
+- name: string # name of the organ
+
+# meetings (list of objects, an organ can have multiple meetings)
+    ## Basic Meeting Information
+    - meetingDate: string # The date of the meeting, exact date string as appears in document
+    - startTime: string # The starting time of the meeting in form hour:min, if available
+    - rubrik: string # The title of the meeting, if available
+    - section: string # The section reference number
+    - meetingReference: string # The reference number of the meeting, if available
+    - endTime: string # The ending time of the meeting in form hour:min, if available
+    - meetingPlace: string # The location of the meeting
+    - parentLink: string # Link to the parent meeting, only for appendices
+
+    ## Members and Attendance
+    - members: array of objects
+        - name: string # The name of the member
+        - role: string # Their role or title, e.g., ordförande, vice ordförande, medlem etc
+        - attendance: boolean # Indicating if they were present or absent, if available, maybe indicated by [X]
+    - substitutes: array of objects
+        - name: string # The name of the substitute member
+        - substitutedFor: string # The name of who was substituted
+    - additionalAttendees: array of objects
+        - name: string # The name of the attendee
+        - role: string # Their role or title, e.g., director, expert
+
+    ## Protocol Signatories (do not include adjusters)
+    - protocolSignatories: array of objects
+        - name: string # The name of the signatory
+        - role: string # Their role in the signing process, e.g., chairman, secretary
+
+    ## Protocol Adjustment
+    - protocolAdjustment: object
+        - adjustedBy: array of strings # Names of those who adjusted the protocol
+        - adjustmentDate: string # The date of adjustment, exact date string as appears in document
+
+    ## Meeting Items (list of objects, there can be multiple items)
+        ### Item
+        - references: array of strings # List of historical or previous references for eg: Stadsfullmäktige 15.6.2023, 28 § (if any. DO NOT INCLUDE current reference)
+        - protocolContext: string # Description of current reference (if any. it might come after the decision of last previous reference. do not include anything from Beslutshistorik or Tidigare behandling)   
+        - beredare: array of objects # List of people who prepared the current reference (if any. do not include proposal maker)
+            - name: string # Name of the person who prepared the current reference
+            - role: string # Role of the person who prepared the current reference
+        - beredareDescription: string # Description of the current reference (if any. this is NOT the title. it comes after beredare)
+        - förslagsställare: array of objects # List of people/entity who made current proposal (if any)
+            - name: string # Name of the person/entity who made proposal (if any)
+            - role: string # Role of the person who made last proposal (if any)
+        - förslagDescription: string # Description of the current proposal (if any. its at the end)
+        - beslut: string # Current decision

@@ -1,0 +1,110 @@
+{
+    "verksamhetsorgan": [
+        {
+            "name": "Stadsfullmäktige",
+            "meetings": [
+                {
+                    "meetingDate": "2023-12-01",
+                    "startTime": "14:00",
+                    "rubrik": "Budgetdiskussion",
+                    "section": "Ekonomi",
+                    "meetingReference": "SF/12/2023",
+                    "endTime": "16:00",
+                    "meetingPlace": "Stadshuset, stora konferensrummet",
+                    "parentLink": "",
+                    "members": [
+                        {
+                            "name": "Anna Korhonen",
+                            "role": "Ordförande",
+                            "attendance": true
+                        },
+                        {
+                            "name": "Mikael Virtanen",
+                            "role": "Ledamot",
+                            "attendance": true
+                        },
+                        {
+                            "name": "Liisa Laaksonen",
+                            "role": "Sekreterare",
+                            "attendance": false
+                        }
+                    ],
+                    "substitutes": [
+                        {
+                            "name": "Johan Backman",
+                            "substitutedFor": "Liisa Laaksonen"
+                        }
+                    ],
+                    "additionalAttendees": [
+                        {
+                            "name": "Erik Nyman",
+                            "role": "Ekonomidirektör"
+                        }
+                    ],
+                    "protocolSignatories": [
+                        {
+                            "name": "Anna Korhonen",
+                            "role": "Ordförande"
+                        },
+                        {
+                            "name": "Mikael Virtanen",
+                            "role": "Ledamot"
+                        }
+                    ],
+                    "protocolAdjustment": {
+                        "adjustedBy": [
+                            "Anna Korhonen",
+                            "Mikael Virtanen"
+                        ],
+                        "adjustmentDate": "2023-12-02"
+                    },
+                    "meetingItems": [
+                        {
+                            "references": [
+                                "Dokument 123",
+                                "Dokument 456"
+                            ],
+                            "protocolContext": "Budgetförslag 2024",
+                            "beredare": [
+                                {
+                                    "name": "Sara Lind",
+                                    "role": "Ekonom"
+                                }
+                            ],
+                            "beredareDescription": "Presentation av budgetförslag",
+                            "förslagsställare": [
+                                {
+                                    "name": "Lars Andersson",
+                                    "role": "Stadsdirektör"
+                                }
+                            ],
+                            "förslagDescription": "Förslag till stadens budget för 2024",
+                            "beslut": "Godkänd med ändringar"
+                        },
+                        {
+                            "references": [
+                                "Dokument 789"
+                            ],
+                            "protocolContext": "Investeringar i infrastruktur",
+                            "beredare": [
+                                {
+                                    "name": "Karl Eriksson",
+                                    "role": "Teknisk chef"
+                                }
+                            ],
+                            "beredareDescription": "Framläggning av infrastrukturprojekt",
+                            "förslagsställare": [
+                                {
+                                    "name": "Maria Johansson",
+                                    "role": "Stadsplanerare"
+                                }
+                            ],
+                            "förslagDescription": "Investeringar i ny väginfrastruktur",
+                            "beslut": "Skjuts upp till nästa möte"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

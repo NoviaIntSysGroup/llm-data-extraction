@@ -12,7 +12,7 @@ You ALWAYS focus on current reference. ALWAYS follow the following JSON schema:
         'name': string # name of the person/entity who made proposal (if any)
         'role': string # role of the person who made last proposal (if any)
     'förslag_description': string # description of the current proposal (if any. its at the end)
-    'beslut': string # current decision^
+    'beslut': string # current decision
 }
 
 # Examples:
