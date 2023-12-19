@@ -1,5 +1,5 @@
 # custom files and folders
-secrets.toml
+config/secrets.env
 data/protocols_pdf
 data/protocols_html
 
@@ -129,7 +129,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/

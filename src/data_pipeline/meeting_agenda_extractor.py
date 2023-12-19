@@ -2,7 +2,6 @@ import json
 import os
 from openai import OpenAI
 import pandas as pd
-import streamlit as st
 from tqdm import tqdm
 from .utils import process_html
 
@@ -65,7 +64,7 @@ def main():
         "AGENDA_EXTRACTION_PROMPT_PATH")
 
     # Initialize the OpenAI client and assistant_id
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     # read the prompt text
     with open(AGENDA_EXTRACTION_PROMPT_PATH, 'r') as file:

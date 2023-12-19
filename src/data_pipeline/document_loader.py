@@ -10,8 +10,8 @@ from langchain.embeddings.cohere import CohereEmbeddings
 from langchain.vectorstores import Chroma
 
 
-COHERE_API_KEY = st.secrets["COHERE_API_KEY"]
-HF_API_KEY = st.secrets["HF_API_KEY"]
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
+HF_API_KEY = os.getenv("HF_API_KEY")
 PROTOCOLS_PDF_PATH = os.getenv("PROTOCOLS_PDF_PATH")
 FILETYPE = '.pdf'
 
