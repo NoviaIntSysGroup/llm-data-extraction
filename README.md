@@ -5,15 +5,15 @@ To set up the project, follow the steps below:
 1. Create a new conda environment by running the following command:
 
     ```bash
-    conda create -n meeting-protocol-chatbot python=3.11
+    conda create -n llm-data-extraction python=3.11
     
-    conda activate meeting-protocol-chatbot
+    conda activate llm-data-extraction
     ```
 
 1. Clone the project repository by executing the following command:
 
     ```bash
-    git clone https://github.com/NoviaIntSysGroup/meeting-protocol-chatbot.git
+    git clone git@github.com:NoviaIntSysGroup/llm-data-extraction.git
     ```
 
 1. Navigate to the project directory and install the required packages by running the following command:

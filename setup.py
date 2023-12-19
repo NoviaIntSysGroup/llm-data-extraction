@@ -14,7 +14,7 @@ def get_install_requirements():
 
 
 setuptools.setup(
-    name="democracy-chatbot",
+    name="llm-data-extraction",
     version='0.1.0',
     author="Intelligent Systems Institute @ Novia",
     packages=setuptools.find_packages(where="src"),
