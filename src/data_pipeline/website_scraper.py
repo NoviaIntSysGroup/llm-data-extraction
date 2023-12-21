@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import pandas as pd
 import os
+import re
 
 
 def fetch_and_parse(url):
@@ -59,6 +60,21 @@ def scrape_table(table, base_url, depth=1):
         if row_data:
             data.append(row_data)
     return data
+
+
+def find_meeting_reference(s):
+    """
+    Finds the meeting reference in a string.
+
+    Args:
+        s (str): String to search.
+
+    Returns:
+        str: The meeting reference if found, otherwise None.
+    """
+    pattern = r'\d+/\d{4}'
+    match = re.search(pattern, s)
+    return match.group() if match else None
 
 
 def convert_to_df(json_data):
