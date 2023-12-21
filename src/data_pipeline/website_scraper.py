@@ -107,7 +107,7 @@ def convert_to_df(json_data):
                     'section': "" if not doc['§'] else f"§ {doc['§']}",
                     'meeting_date': meeting['Datum'][0]['title'].split(' ')[0].strip(),
                     'meeting_time': meeting['Datum'][0]['title'].split(' ')[1].strip(),
-                    'meeting_reference': meeting['Verksamhetsorgan'].split(":")[1].strip(),
+                    'meeting_reference': find_meeting_reference(meeting['Verksamhetsorgan']),
                     'verksamhetsorgan': meeting['Verksamhetsorgan'].split(":")[0].strip(),
                     'parent_link': ""
                 }
@@ -126,7 +126,7 @@ def convert_to_df(json_data):
                             'section': "",
                             'meeting_date': meeting['Datum'][0]['title'].split(' ')[0].strip(),
                             'meeting_time': meeting['Datum'][0]['title'].split(' ')[1].strip(),
-                            'meeting_reference': meeting['Verksamhetsorgan'].split(":")[1].strip(),
+                            'meeting_reference': find_meeting_reference(meeting['Verksamhetsorgan']),
                             'verksamhetsorgan': meeting['Verksamhetsorgan'].split(":")[0].strip(),
                             'parent_link': parent_row['doc_link']
                         }
