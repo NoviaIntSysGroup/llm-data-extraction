@@ -14,7 +14,7 @@ def extract_data_with_llm(text, client, prompt):
     Returns:
         str: The extracted data as a JSON string.
     '''
-    print(text)
+    # print(text)
     response = client.chat.completions.create(
         model="gpt-4-1106-preview",
         response_format={"type": "json_object"},
@@ -24,7 +24,7 @@ def extract_data_with_llm(text, client, prompt):
             {"role": "user", "content": text}
         ]
     )
-    print(response.choices[0].message.content)
+    # print(response.choices[0].message.content)
     return response.choices[0].message.content.replace('```json', '').replace('```', '')
 
 
@@ -43,7 +43,7 @@ def process_html(filename, filepath, client, prompt):
     '''
 
     # Open and read the html file
-    with open(os.path.join(filepath, filename)) as doc:
+    with open(os.path.join(filepath, filename + '.html')) as doc:
         text = doc.read()
 
     json_response = extract_data_with_llm(text, client, prompt)

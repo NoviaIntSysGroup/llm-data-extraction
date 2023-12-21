@@ -6,12 +6,9 @@
                 {
                     "meetingDate": "2023-12-01",
                     "startTime": "14:00",
-                    "rubrik": "Budgetdiskussion",
-                    "section": "102",
-                    "meetingReference": "SF/12/2023",
+                    "meetingReference": "5/2023",
                     "endTime": "16:00",
                     "meetingPlace": "Stadshuset, stora konferensrummet",
-                    "parentLink": "",
                     "members": [
                         {
                             "name": "Anna Korhonen",
@@ -51,18 +48,18 @@
                             "role": "Ledamot"
                         }
                     ],
-                    "protocolAdjustment": {
-                        "adjustedBy": [
-                            "Anna Korhonen",
-                            "Mikael Virtanen"
-                        ],
-                        "adjustmentDate": "2023-12-02"
-                    },
+                    "adjustedBy": [
+                        "Anna Korhonen",
+                        "Mikael Virtanen"
+                    ],
+                    "adjustmentDate": "2023-12-02",
                     "meetingItems": [
                         {
+                            "rubrik": "Mötets öppnande",
+                            "section": "§ 27",
                             "references": [
-                                "Dokument 123",
-                                "Dokument 456"
+                                "Stadsstyrelsen 27.11.2023 § 269",
+                                "Stadsstyrelsen 27.11.2023 § 270"
                             ],
                             "protocolContext": "Budgetförslag 2024",
                             "beredare": [
@@ -79,11 +76,19 @@
                                 }
                             ],
                             "förslagDescription": "Förslag till stadens budget för 2024",
-                            "beslut": "Godkänd med ändringar"
+                            "beslut": "Godkänd med ändringar",
+                            "attachments": [
+                                {
+                                    "rubrik": "Bilaga 1",
+                                    "link": "www.example.fi/bilaga1.pdf"
+                                }
+                            ]
                         },
                         {
+                            "rubrik": "Mötets avslutande",
+                            "section": "§ 28",
                             "references": [
-                                "Dokument 789"
+                                "Stadsstyrelsen 27.11.2023 § 269"
                             ],
                             "protocolContext": "Investeringar i infrastruktur",
                             "beredare": [

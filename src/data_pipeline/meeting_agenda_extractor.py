@@ -6,7 +6,7 @@ from tqdm import tqdm
 from .utils import process_html
 
 
-def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, client, prompt):
+def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, client, prompt, num_docs):
     """
     Extracts meeting metadata from a meeting documents.
 
@@ -16,6 +16,7 @@ def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, clien
         protocols_html_path (str): Path to the protocols HTML files.
         client (OpenAI): OpenAI client object.
         prompt (str): The prompt to use for the LLM.
+        num_docs (int): Number of documents to process.
 
     Returns:
         pandas.DataFrame: The updated DataFrame with extracted metadata.
@@ -27,20 +28,23 @@ def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, clien
         ~filtered_df['section'].isin(["", "§ 0"])) & (filtered_df['verksamhetsorgan'] == 'Stadsfullmäktige')]
 
     results = []
-    for filename in tqdm(filtered_df['doc_name']):
-        filename = os.path.splitext(filename)[0] + '.html'
+    if not num_docs:
+        num_docs = len(filtered_df['doc_name'])
+    for filename in tqdm(filtered_df['doc_name'][:num_docs]):
+        filename = os.path.splitext(filename)[0]
         results.append(process_html(
             filename, protocols_html_path, client, prompt))
 
     # add metadata to dataframe
     for pdf_name, metadata in results:
         if metadata and metadata != "LLM Error!":
-            df.loc[df['doc_name'] == pdf_name, 'agenda_metadata'] = metadata
-
+            df.loc[df['doc_name'] == pdf_name, 'agenda_metadata'] = json.dumps(
+                metadata, ensure_ascii=False)
+            df['agenda_metadata'] = df['agenda_metadata'].astype(str)
     return df
 
 
-def main():
+def main(num_docs=None):
 
     PROTOCOLS_HTML_PATH = os.getenv("PROTOCOLS_HTML_PATH")
     METADATA_FILE = os.getenv("METADATA_FILE")
@@ -70,11 +74,9 @@ def main():
     with open(AGENDA_EXTRACTION_PROMPT_PATH, 'r') as file:
         prompt = file.read()
 
-    print(prompt)
-
-    df = pd.read_csv(METADATA_FILE)
+    df = pd.read_csv(METADATA_FILE, index_col=0)
     df = extract_meeting_agenda(
-        df, DOC_TITLES_WITHOUT_AGENDA, PROTOCOLS_HTML_PATH, client, prompt)
+        df, DOC_TITLES_WITHOUT_AGENDA, PROTOCOLS_HTML_PATH, client, prompt, num_docs)
 
     # Save the updated DataFrame
     df.to_csv(METADATA_FILE)

@@ -3,15 +3,15 @@ You are a JSON data extractor who ALWAYS gives valid JSON as output from given t
 You ALWAYS focus on current reference. ALWAYS follow the following JSON schema:
 {
     'references': array of strings # list of historical or previous references for eg: Stadsfullmäktige 15.6.2023, 28 § (if any. DO NOT INCLUDE current reference)
-    'protocol_context': string # discription of current reference (if any. it might come after the decision of last previous reference. do not include anything from Beslutshistorik or Tidigare behandling)   
+    'protocolContext': string # description of current reference (if any. it might come after the decision of last previous reference. do not include anything from Beslutshistorik or Tidigare behandling)   
     'beredare': array of objects # list of people who prepared the current reference (if any. do not include proposal maker)
         'name': string # name of the person who prepared the current reference
         'role': string # role of the person who prepared the current reference
-    'beredare_description': string # description of the current reference (if any. this is NOT the title. it comes after beredare)
+    'beredareDescription': string # description of the current reference (if any. this is NOT the title. it comes after beredare)
     'förslagsställare': array of objects # list of people/entity who made current proposal (if any)
         'name': string # name of the person/entity who made proposal (if any)
         'role': string # role of the person who made last proposal (if any)
-    'förslag_description': string # description of the current proposal (if any. its at the end)
+    'förslagDescription': string # description of the current proposal (if any. its at the end)
     'beslut': string # current decision
 }
 
@@ -44,11 +44,11 @@ extract data from reference =  Stadsfullmäktige 28.9.2023 48 §
 ```json
 {
     'references': ['Stadsstyrelsen 25.9.2023 § 210'],
-    'protocol_context': '',
+    'protocolContext': '',
     'beredare': [],
-    'beredare_description': '',
+    'beredareDescription': '',
     'förslagsställare': [],
-    'förslag_description': '',
+    'förslagDescription': '',
     'beslut': 'Stadsfullmäktige beslöt i enlighet med stadsstyrelsens förslag.'
 }
 ```
@@ -88,16 +88,16 @@ extract data from reference = Stadsfullmäktge 15.12.2022 67 §
 ```json
 {
     'references': ['Tekniska nämnden 15.11.2022, § 139', 'Stadsstyrelsen 28.11.2022, 254 §'],
-    'protocol_context': '',
+    'protocolContext': '',
     'beredare': [],
-    'beredare_description': '',
+    'beredareDescription': '',
     'förslagsställare': [
         {
             'name': 'Anna Martin',
             'role': 'Stadsdirektör'
         }
     ],
-    'förslag_description': 'Stadsstyrelsen antecknar delårsrapporten för kännedom och sänder rapporten till stadsfullmäktige.',
+    'förslagDescription': 'Stadsstyrelsen antecknar delårsrapporten för kännedom och sänder rapporten till stadsfullmäktige.',
     'beslut': 'Stadsfullmäktges beslut i enlighet med stadsstyrelsens förslag.'
 }
 ```

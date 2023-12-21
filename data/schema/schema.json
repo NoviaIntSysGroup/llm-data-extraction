@@ -4,164 +4,216 @@
     "properties": {
         "verksamhetsorgan": {
             "type": "array",
+            "description": "List of organs of the municipality",
             "items": {
                 "type": "object",
+                "description": "Organ of the municipality",
                 "properties": {
                     "name": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "The name of the organ."
                     },
                     "meetings": {
                         "type": "array",
+                        "description": "List of meetings held by the organ. <Relationship to Parent>: HOSTED",
                         "items": {
                             "type": "object",
+                            "description": "Meeting held by the organ",
                             "properties": {
                                 "meetingDate": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "The date of the meeting in the format DD.MM.YYYY."
                                 },
                                 "startTime": {
-                                    "type": "string"
-                                },
-                                "rubrik": {
-                                    "type": "string"
-                                },
-                                "section": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "The start time of the meeting in the format HH:MM."
                                 },
                                 "meetingReference": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Reference identifier for the meeting."
                                 },
                                 "endTime": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "The end time of the meeting in the format HH:MM."
                                 },
                                 "meetingPlace": {
-                                    "type": "string"
-                                },
-                                "parentLink": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "The location where the meeting is held."
                                 },
                                 "members": {
                                     "type": "array",
+                                    "description": "List of persons participating in the meeting. <Relationship to Parent>: HAS_MEMBER",
                                     "items": {
                                         "type": "object",
+                                        "description": "Person participating in the meeting",
                                         "properties": {
                                             "name": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Name of the person."
                                             },
                                             "role": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Role or title, e.g., ordförande, vice ordförande, medlem etc"
                                             },
                                             "attendance": {
-                                                "type": "boolean"
+                                                "type": "boolean",
+                                                "description": "Indicating if the person was present or absent, if available, maybe indicated by [X]"
                                             }
                                         }
                                     }
                                 },
                                 "substitutes": {
                                     "type": "array",
+                                    "description": "List of persons attending in place of members. <Relationship to Parent>: HAS_SUBSTITUTE_MEMBER",
                                     "items": {
                                         "type": "object",
+                                        "description": "Person attending in place of a member",
                                         "properties": {
                                             "name": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Name of the person."
                                             },
                                             "substitutedFor": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Name of the person for whom the substitute is attending."
                                             }
                                         }
                                     }
                                 },
                                 "additionalAttendees": {
                                     "type": "array",
+                                    "description": "List of additional persons not part of the regular members. <Relationship to Parent>: HAS_ADDITIONAL_ATTENDEE",
                                     "items": {
                                         "type": "object",
+                                        "description": "Additional person not part of the regular members",
                                         "properties": {
                                             "name": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Name of the additional person."
                                             },
                                             "role": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Role of the additional person in the meeting."
                                             }
                                         }
                                     }
                                 },
                                 "protocolSignatories": {
                                     "type": "array",
+                                    "description": "List of persons who sign the meeting protocol. <Relationship to Parent>: HAS_PROTOCOL_SIGNATORY",
                                     "items": {
                                         "type": "object",
+                                        "description": "Person who signs the meeting protocol",
                                         "properties": {
                                             "name": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Name of the person."
                                             },
                                             "role": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Role of the person in the meeting."
                                             }
                                         }
                                     }
                                 },
-                                "protocolAdjustment": {
-                                    "type": "object",
-                                    "properties": {
-                                        "adjustedBy": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string"
-                                            }
-                                        },
-                                        "adjustmentDate": {
-                                            "type": "string"
-                                        }
+                                "adjustedBy": {
+                                    "type": "array",
+                                    "description": "List of persons who made adjustments to the meeting details. <Relationship to Parent>: HAS_ADJUSTER",
+                                    "items": {
+                                        "type": "string"
                                     }
+                                },
+                                "adjustmentDate": {
+                                    "type": "string",
+                                    "description": "Date when adjustments were made in the format DD.MM.YYYY"
                                 },
                                 "meetingItems": {
                                     "type": "array",
+                                    "description": "List of items discussed in the meeting. <Relationship to Parent>: HAS_MEETING_ITEM",
                                     "items": {
                                         "type": "object",
                                         "properties": {
+                                            "rubrik": {
+                                                "type": "string",
+                                                "description": "Title or heading of the meeting item."
+                                            },
+                                            "section": {
+                                                "type": "string",
+                                                "description": "Section of the meeting where the item is discussed."
+                                            },
                                             "references": {
                                                 "type": "array",
+                                                "description": "List of historical or previous references; for eg: Stadsfullmäktige 15.6.2023. <Relationship to Parent>: HAS_REFERENCE",
                                                 "items": {
                                                     "type": "string"
                                                 }
                                             },
                                             "protocolContext": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Context or details pertaining to the meeting protocol."
                                             },
                                             "beredare": {
                                                 "type": "array",
+                                                "description": "List of persons preparing the meeting item. <Relationship to Parent>: HAS_PREPARER",
                                                 "items": {
                                                     "type": "object",
                                                     "properties": {
                                                         "name": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "description": "Name of the person."
                                                         },
                                                         "role": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "description": "Role of the person in preparing the item."
                                                         }
                                                     }
                                                 }
                                             },
                                             "beredareDescription": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Description of the preparation process for the meeting item."
                                             },
                                             "förslagsställare": {
                                                 "type": "array",
+                                                "description": "List of persons proposing items for discussion. <Relationship to Parent>: HAS_PROPOSER",
                                                 "items": {
                                                     "type": "object",
                                                     "properties": {
                                                         "name": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "description": "Name of the person."
                                                         },
                                                         "role": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "description": "Role of the person."
                                                         }
                                                     }
                                                 }
                                             },
                                             "förslagDescription": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Description of the proposal."
                                             },
                                             "beslut": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "description": "Decision made regarding the meeting item."
+                                            },
+                                            "attachments": {
+                                                "type": "array",
+                                                "description": "List of attachments related to the meeting item. <Relationship to Parent>: HAS_ATTACHMENT",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "rubrik": {
+                                                            "type": "string",
+                                                            "description": "Title of the attachment."
+                                                        },
+                                                        "link": {
+                                                            "type": "string",
+                                                            "description": "Link to the attachment."
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }

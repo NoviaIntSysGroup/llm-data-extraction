@@ -31,8 +31,9 @@ def download_pdf(url, protocols_pdf_path):
             # Create a filename if not found in the header
             filename = url.split('/')[-1]
 
-        # Save the PDF in 'protocols' folder
+        # Save the PDF in 'protocols_pdf' folder
         filepath = os.path.join(protocols_pdf_path, filename)
+
         with open(filepath, 'wb') as f:
             f.write(response.content)
 

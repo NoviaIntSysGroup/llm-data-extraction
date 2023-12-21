@@ -2,6 +2,7 @@
 config/secrets.env
 data/protocols_pdf
 data/protocols_html
+data/extracted_json
 
 ## Boilerplates
 

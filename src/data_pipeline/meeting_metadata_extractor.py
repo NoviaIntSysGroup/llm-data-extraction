@@ -75,15 +75,15 @@ def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, cli
             df.loc[df['doc_name'] == pdf_name,
                    'meeting_place'] = metadata['meetingPlace']
             df.loc[df['doc_name'] == pdf_name,
-                   'members'] = json.dumps(metadata['members'])
+                   'members'] = json.dumps(metadata['members'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'substitutes'] = json.dumps(
-                metadata['substitutes'] if 'substitutes' in metadata.keys() else [])
+                metadata['substitutes'] if 'substitutes' in metadata.keys() else [], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'additional_attendees'] = json.dumps(
-                metadata['additionalAttendees'])
+                metadata['additionalAttendees'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'protocol_signatories'] = json.dumps(
-                metadata['protocolSignatories'])
+                metadata['protocolSignatories'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'protocol_adjusters'] = json.dumps(
-                metadata['protocolAdjustment']['adjustedBy'])
+                metadata['protocolAdjustment']['adjustedBy'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name,
                    'protocol_adjustment_date'] = metadata['protocolAdjustment']['adjustmentDate']
 
