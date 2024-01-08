@@ -45,7 +45,8 @@ def download_pdf(url, protocols_pdf_path):
 
 def download_pdfs(df, protocols_pdf_path):
     """
-    Downloads PDFs from the given dataframe and saves them in the directory defined in PROTOCOLS_PDF_PATH in environment file.
+    Downloads PDFs from the provided dataframe and saves them in the specified directory. 
+    Updates the dataframe with the 'doc_name' column.
 
     Args:
         df (pandas.DataFrame): The dataframe containing the PDF links.
@@ -57,14 +58,27 @@ def download_pdfs(df, protocols_pdf_path):
     # Create the 'protocols' directory if it doesn't exist
     os.makedirs(protocols_pdf_path, exist_ok=True)
 
-    # Add the 'doc_name' column to the dataframe
-    tqdm.pandas(desc="Downloading PDFs...")
-    df['doc_name'] = df['doc_link'].progress_apply(
-        lambda download_link: download_pdf(download_link, protocols_pdf_path))
+    # Initialize 'doc_name' column
+    if 'doc_name' not in df.columns:
+        df['doc_name'] = ''
 
-    # sort columns
-    df = df[['doc_name', 'doc_link', 'rubrik', 'section', 'meeting_date', 'meeting_time', 'meeting_reference',
-             'verksamhetsorgan', 'parent_link']]
+    # Function to update dataframe with downloaded file name
+    def update_df(row):
+        doc_link = row['doc_link']
+        filename = row['doc_name']
+        if not filename:
+            filename = download_pdf(doc_link, protocols_pdf_path)
+            row['doc_name'] = filename
+        return row
+
+    # Update dataframe with downloaded file names
+    tqdm.pandas(desc="Downloading PDFs...")
+    df = df.progress_apply(update_df, axis=1)
+
+    # Reordering columns for better readability
+    column_order = ['doc_name', 'doc_link', 'rubrik', 'section', 'meeting_date',
+                    'meeting_time', 'meeting_reference', 'verksamhetsorgan', 'parent_link']
+    df = df[column_order]
 
     return df
 
