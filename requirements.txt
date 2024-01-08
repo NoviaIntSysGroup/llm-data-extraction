@@ -19,3 +19,6 @@ chromadb
 
 # UI
 streamlit
+
+# Knowledge Graph Database
+neo4j

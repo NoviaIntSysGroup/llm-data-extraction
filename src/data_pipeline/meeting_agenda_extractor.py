@@ -24,7 +24,7 @@ def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, clien
 
     # filter to only agenda items documents
     filtered_df = df[~df['rubrik'].isin(meeting_agenda_filter)]
-    filtered_df = filtered_df[(filtered_df['parent_link'] != "") & (
+    filtered_df = filtered_df[(filtered_df['parent_link'] == "") & (
         ~filtered_df['section'].isin(["", "§ 0"])) & (filtered_df['verksamhetsorgan'] == 'Stadsfullmäktige')]
 
     results = []
@@ -75,6 +75,7 @@ def main(num_docs=None):
         prompt = file.read()
 
     df = pd.read_csv(METADATA_FILE, index_col=0)
+    df.fillna("", inplace=True)
     df = extract_meeting_agenda(
         df, DOC_TITLES_WITHOUT_AGENDA, PROTOCOLS_HTML_PATH, client, prompt, num_docs)
 
