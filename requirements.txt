@@ -9,7 +9,7 @@ mammoth
 pymupdf
 
 # Packages for LLMs
-langchain
+langchain==0.0.342
 huggingface_hub
 tiktoken
 together

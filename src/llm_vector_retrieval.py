@@ -1,10 +1,5 @@
 import os
-import streamlit as st
-from typing import Any, Dict
-from langchain.pydantic_v1 import Extra, root_validator
-from langchain.llms.base import LLM
-from langchain.utils import get_from_dict_or_env
-from langchain.chains import RetrievalQA, HypotheticalDocumentEmbedder
+from langchain.chains import RetrievalQA
 from langchain.vectorstores import Chroma
 from langchain.prompts import PromptTemplate
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
@@ -17,13 +12,13 @@ import textwrap
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
-TOGETHER_API_KEY = st.secrets["TOGETHER_API_KEY"]
-COHERE_API_KEY = st.secrets["COHERE_API_KEY"]
-ARIZE_SPACE_KEY = st.secrets["ARIZE_SPACE_KEY"]
-ARIZE_API_KEY = st.secrets["ARIZE_API_KEY"]
+TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
+ARIZE_SPACE_KEY = os.getenv("ARIZE_SPACE_KEY")
+ARIZE_API_KEY = os.getenv("ARIZE_API_KEY")
 
 
-class LLMQueryProcessor:
+class VectorRAG:
     def __init__(self, db_path='db'):
         self.db_path = db_path
 
@@ -102,7 +97,7 @@ class LLMQueryProcessor:
 
 
 if __name__ == "__main__":
-    processor = LLMQueryProcessor()
+    processor = VectorRAG()
     result, sources = processor.process_prompt("Who are the authors of ReAct?")
     print(result)
     print(sources)
