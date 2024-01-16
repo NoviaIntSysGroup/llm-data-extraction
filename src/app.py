@@ -100,7 +100,7 @@ def main():
     processor = llm_kg_retrieval.KnowledgeGraphRAG(
         url=os.getenv("NEO4J_URI"),
         username=os.getenv("NEO4J_USERNAME"),
-        password=os.getenv("NEO4J_PASSWORD")
+        password=os.getenv("NEO4J_PASSWORD"),
     )
 
     # add embeddings chart
@@ -161,8 +161,6 @@ def main():
                     # response, query, context = "Hi! I am a document chatbot", None, [
                     #     "a.pdf", "b.pdf"]
 
-                    print(response, query, context)
-
                 # add context provided to the llm to streamlit expander
                 message = {"role": "assistant",
                            "content": response, "intermediate_steps": {}}
@@ -196,6 +194,15 @@ def main():
 
                 # Add response to message history
                 st.session_state.messages.append(message)
+
+                if context:
+                    with st.spinner("Generating figure..."):
+                        figure = processor.get_diagram(prompt, context)
+                        print(figure)
+                        if figure and "base64" in figure:
+                            st.image(figure, use_column_width=True)
+                        elif figure and "html" in figure:
+                            st.components.v1.html(figure, height=500)
 
 
 if __name__ == "__main__":
