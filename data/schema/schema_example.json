@@ -1,5 +1,5 @@
 {
-    "verksamhetsorgan": [
+    "body": [
         {
             "name": "Stadsfullmäktige",
             "meetings": [
@@ -8,8 +8,8 @@
                     "startTime": "14:00",
                     "meetingReference": "5/2023",
                     "endTime": "16:00",
-                    "meetingPlace": "Stadshuset, stora konferensrummet",
-                    "members": [
+                    "meetingLocation": "Stadshuset, stora konferensrummet",
+                    "participants": [
                         {
                             "name": "Anna Korhonen",
                             "role": "Ordförande",
@@ -38,7 +38,7 @@
                             "role": "Ekonomidirektör"
                         }
                     ],
-                    "protocolSignatories": [
+                    "signedBy": [
                         {
                             "name": "Anna Korhonen",
                             "role": "Ordförande"
@@ -55,57 +55,33 @@
                     "adjustmentDate": "2023-12-02",
                     "meetingItems": [
                         {
-                            "rubrik": "Mötets öppnande",
+                            "title": "Mötets öppnande",
                             "section": "§ 27",
                             "references": [
                                 "Stadsstyrelsen 27.11.2023 § 269",
                                 "Stadsstyrelsen 27.11.2023 § 270"
                             ],
-                            "protocolContext": "Budgetförslag 2024",
-                            "beredare": [
+                            "context": "Budgetförslag 2024",
+                            "preparedBy": [
                                 {
                                     "name": "Sara Lind",
                                     "role": "Ekonom"
                                 }
                             ],
-                            "beredareDescription": "Presentation av budgetförslag",
-                            "förslagsställare": [
+                            "proposalBy": [
                                 {
                                     "name": "Lars Andersson",
                                     "role": "Stadsdirektör"
                                 }
                             ],
-                            "förslagDescription": "Förslag till stadens budget för 2024",
-                            "beslut": "Godkänd med ändringar",
+                            "proposal": "Förslag till stadens budget för 2024",
+                            "decision": "Godkänd med ändringar",
                             "attachments": [
                                 {
-                                    "rubrik": "Bilaga 1",
+                                    "description": "Bilaga 1",
                                     "link": "www.example.fi/bilaga1.pdf"
                                 }
                             ]
-                        },
-                        {
-                            "rubrik": "Mötets avslutande",
-                            "section": "§ 28",
-                            "references": [
-                                "Stadsstyrelsen 27.11.2023 § 269"
-                            ],
-                            "protocolContext": "Investeringar i infrastruktur",
-                            "beredare": [
-                                {
-                                    "name": "Karl Eriksson",
-                                    "role": "Teknisk chef"
-                                }
-                            ],
-                            "beredareDescription": "Framläggning av infrastrukturprojekt",
-                            "förslagsställare": [
-                                {
-                                    "name": "Maria Johansson",
-                                    "role": "Stadsplanerare"
-                                }
-                            ],
-                            "förslagDescription": "Investeringar i ny väginfrastruktur",
-                            "beslut": "Skjuts upp till nästa möte"
                         }
                     ]
                 }
