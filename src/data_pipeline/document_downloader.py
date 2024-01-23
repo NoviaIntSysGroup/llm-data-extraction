@@ -73,7 +73,7 @@ def download_pdfs(df, protocols_pdf_path):
     def update_df(row):
         doc_link = row['doc_link']
         filename = row['doc_name']
-        if file_exists(filename):
+        if not file_exists(filename):
             filename = download_pdf(doc_link, protocols_pdf_path)
             row['doc_name'] = filename
         return row
