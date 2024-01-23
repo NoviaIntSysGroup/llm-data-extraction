@@ -96,13 +96,6 @@ def main():
                        layout="wide", initial_sidebar_state="auto", menu_items=None)
     col1, col2, col3 = st.columns([0.3, 0.4, 0.3], gap="medium")
 
-    # Initialize the LLM Query Processor
-    processor = llm_kg_retrieval.KnowledgeGraphRAG(
-        url=os.getenv("NEO4J_URI"),
-        username=os.getenv("NEO4J_USERNAME"),
-        password=os.getenv("NEO4J_PASSWORD"),
-    )
-
     # add embeddings chart
     # with col1:
     #     st.write("Embeddings chart")
@@ -125,6 +118,8 @@ def main():
     # Prompt for user input and save to chat history
     if prompt := st.chat_input("Your question"):
         st.session_state.messages.append({"role": "user", "content": prompt})
+
+    enable_graph = st.toggle("Enable Graph")
 
     with col2:
         # Display the prior chat messages
@@ -152,10 +147,20 @@ def main():
         # If last message is not from assistant, generate a new response
         if st.session_state.messages[-1]["role"] != "assistant":
             with st.chat_message("assistant"):
+                intermediate_placeholder = st.empty()
+                answer_placeholder = st.empty()
+                # Initialize the LLM Query Processor
                 with st.spinner("Thinking..."):
+                    processor = llm_kg_retrieval.KnowledgeGraphRAG(
+                        url=os.getenv("NEO4J_URI"),
+                        username=os.getenv("NEO4J_USERNAME"),
+                        password=os.getenv("NEO4J_PASSWORD"),
+                        intermediate_placeholder=intermediate_placeholder,
+                        answer_placeholder=answer_placeholder,
+                        streamlit_=st
+                    )
                     # get response from LLM
-                    response, query, context = processor.process_prompt(
-                        prompt)
+                    response, query, context = processor.process_prompt(prompt)
 
                     # mock response
                     # response, query, context = "Hi! I am a document chatbot", None, [
@@ -168,7 +173,7 @@ def main():
                     query = query.replace(
                         "cypher", "").replace("```", "").strip()
                     message["intermediate_steps"]["query"] = query
-                    with st.expander("Intermediate Steps", expanded=False):
+                    with intermediate_placeholder.expander("Intermediate Steps", expanded=False):
                         st.markdown(
                             f"""
                             Generated Cypher Query:    
@@ -180,22 +185,16 @@ def main():
                             message["intermediate_steps"]["context"] = context
                             st.markdown(
                                 f"""
-                                Retrieved Context from Knowledge Graph:      
+                                Retrieved Context from Knowledge Graph:
                                 ```python
                                 {context}
                                 ```
                                 """)
-                placeholder = st.empty()
-                full_response = ""
-                for char in response:
-                    full_response += char
-                    placeholder.markdown(full_response)
-                    time.sleep(0.01)
 
                 # Add response to message history
                 st.session_state.messages.append(message)
 
-                if context:
+                if context and enable_graph:
                     with st.spinner("Generating figure..."):
                         figure = processor.get_diagram(prompt, context)
                         print(figure)
