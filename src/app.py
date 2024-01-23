@@ -3,11 +3,8 @@ import streamlit as st
 import llm_kg_retrieval
 import os
 import re
-import time
 import requests
 import base64
-import plotly.express as px
-import umap
 from dotenv import load_dotenv
 
 # load secrets
