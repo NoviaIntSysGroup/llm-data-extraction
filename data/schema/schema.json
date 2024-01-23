@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "properties": {
-        "verksamhetsorgan": {
+        "body": {
             "type": "array",
             "description": "List of organs of the municipality",
             "items": {
@@ -36,11 +36,11 @@
                                     "type": "string",
                                     "description": "The end time of the meeting in the format HH:MM."
                                 },
-                                "meetingPlace": {
+                                "meetingLocation": {
                                     "type": "string",
                                     "description": "The location where the meeting is held."
                                 },
-                                "members": {
+                                "participants": {
                                     "type": "array",
                                     "description": "List of persons participating in the meeting. <Relationship to Parent>: HAS_MEMBER",
                                     "items": {
@@ -98,7 +98,7 @@
                                         }
                                     }
                                 },
-                                "protocolSignatories": {
+                                "signedBy": {
                                     "type": "array",
                                     "description": "List of persons who sign the meeting protocol. <Relationship to Parent>: HAS_PROTOCOL_SIGNATORY",
                                     "items": {
@@ -133,7 +133,7 @@
                                     "items": {
                                         "type": "object",
                                         "properties": {
-                                            "rubrik": {
+                                            "title": {
                                                 "type": "string",
                                                 "description": "Title or heading of the meeting item."
                                             },
@@ -148,11 +148,11 @@
                                                     "type": "string"
                                                 }
                                             },
-                                            "protocolContext": {
+                                            "context": {
                                                 "type": "string",
                                                 "description": "Context or details pertaining to the meeting protocol."
                                             },
-                                            "beredare": {
+                                            "preparedBy": {
                                                 "type": "array",
                                                 "description": "List of persons preparing the meeting item. <Relationship to Parent>: HAS_PREPARER",
                                                 "items": {
@@ -169,11 +169,7 @@
                                                     }
                                                 }
                                             },
-                                            "beredareDescription": {
-                                                "type": "string",
-                                                "description": "Description of the preparation process for the meeting item."
-                                            },
-                                            "förslagsställare": {
+                                            "proposalBy": {
                                                 "type": "array",
                                                 "description": "List of persons proposing items for discussion. <Relationship to Parent>: HAS_PROPOSER",
                                                 "items": {
@@ -190,11 +186,11 @@
                                                     }
                                                 }
                                             },
-                                            "förslagDescription": {
+                                            "proposal": {
                                                 "type": "string",
                                                 "description": "Description of the proposal."
                                             },
-                                            "beslut": {
+                                            "decision": {
                                                 "type": "string",
                                                 "description": "Decision made regarding the meeting item."
                                             },
@@ -204,9 +200,9 @@
                                                 "items": {
                                                     "type": "object",
                                                     "properties": {
-                                                        "rubrik": {
+                                                        "description": {
                                                             "type": "string",
-                                                            "description": "Title of the attachment."
+                                                            "title": "Title of the attachment."
                                                         },
                                                         "link": {
                                                             "type": "string",

@@ -4,26 +4,25 @@ You are an expert JSON metadata extractor. You extract data from given user prom
 
 ## Basic Meeting Information
 - `endTime`: string (The ending time of the meeting in form hour:min, if available)
-- `meetingPlace`: string (The location of the meeting)
+- `meetingLocation`: string (The location of the meeting)
 
-## Members and Attendance
-- `members`: array of objects
+## Participants and Attendance
+- `participants`: array of objects
   - `name`: string (The name of the member)
   - `role`: string (Their role or title, e.g., ordförande, vice ordförande, medlem etc)
   - `attendance`: boolean (Indicating if they were present or absent, if available, maybe indicated by [X] )
-- `substitutes`:
+- `substitutes`: array of objects
   - `name`: string (The name of the substitute member)
   - `substitutedFor`: string (The name of who was substituted)
 - `additionalAttendees`: array of objects
   - `name`: string (The name of the attendee)
   - `role`: string (Their role or title, e.g., director, expert)
 
-## Protocol Signatories (do not include adjusters)
-- `protocolSignatories`: array of objects
+## Protocol Signed By (do not include adjusters)
+- `signedBy`: array of objects
   - `name`: string (The name of the signatory)
   - `role`: string (Their role in the signing process, e.g., chairman, secretary)
 
-## Protocol Adjustment
-- `protocolAdjustment`: object
-  - `adjustedBy`: array of strings (Names of those who adjusted the protocol)
-  - `adjustmentDate`: string (The date of adjustment, exact date string as appears in document)
+## Protocol Adjusted By
+- `adjustedBy`: array of strings (Names of those who adjusted the protocol)
+- `adjustmentDate`: string (The date of adjustment, exact date string as appears in document)

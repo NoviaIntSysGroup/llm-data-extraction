@@ -78,7 +78,7 @@
                             "decision": "Godkänd med ändringar",
                             "attachments": [
                                 {
-                                    "description": "Bilaga 1",
+                                    "title": "Bilaga 1",
                                     "link": "www.example.fi/bilaga1.pdf"
                                 }
                             ]
