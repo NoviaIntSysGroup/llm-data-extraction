@@ -3,6 +3,7 @@ import re
 from typing import Any, Dict, List, Optional
 import types
 import retry
+from time import sleep
 
 from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
@@ -15,6 +16,7 @@ from langchain.chains import GraphCypherQAChain
 from langchain.graphs import Neo4jGraph
 from langchain_core.prompts.prompt import PromptTemplate
 from langchain.chains import LLMChain
+from langchain.callbacks.base import BaseCallbackHandler
 
 
 def extract_cypher(text: str) -> str:
@@ -124,7 +126,8 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
             intermediate_steps.append({"context": context})
 
             result = self.qa_chain(
-                {"question": question, "context": context},
+                {"question": question, "context": context,
+                    "query": generated_cypher},
                 callbacks=callbacks,
             )
             final_result = result[self.qa_chain.output_key]
@@ -136,8 +139,18 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
         return chain_result
 
 
+class StreamHandler(BaseCallbackHandler):
+    def __init__(self, container, initial_text=""):
+        self.container = container
+        self.text = initial_text
+
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        self.text += token
+        self.container.markdown(self.text)
+
+
 class KnowledgeGraphRAG:
-    def __init__(self, url, username, password):
+    def __init__(self, url, username, password, intermediate_placeholder, answer_placeholder, streamlit_):
 
         driver = GraphDatabase.driver(url, auth=(username, password))
         self.index_info = self.get_index_info(driver)
@@ -174,7 +187,7 @@ Rules:
 - Include similarity score
 - Use date format DD.MM.YYYY and time format HH:MM.
 - ALWAYS Include organ name where relevant.
-- ALWAYS return top 10 items unless explicitly specified by the user.
+- ALWAYS return top 20 items unless explicitly specified by the user.
 - ALWAYS return a meaningful alias.
 Question:
 {{question}}
@@ -185,14 +198,17 @@ Question:
         )
 
         CYPHER_QA_TEMPLATE = """
-As a document question answering chatbot for Nykrleby, Finland, you specialize in extracting information from meeting protocol PDFs converted into a knowledge graph. Your responses should be based solely on the context provided from this graph, without doubting its accuracy or using internal knowledge. 
+As a document question answering chatbot for Nykrleby, Finland, you specialize in extracting information from meeting protocol PDFs converted into a knowledge graph. Your responses should be based solely on the data provided from this graph, without doubting its accuracy or using internal knowledge. 
 
 - If the context is empty, state your lack of information on the topic and, if relevant, suggest the user rephrase their question.
-- By default, your context includes the top 10 results unless explocitly specified by user (ALWAYS inform the user about this).
+- By default, the data includes the top 20 results unless explocitly specified by user (ALWAYS inform the user about this).
 - Only respond to questions related to meeting protocols.
-- ALWAYS assume given context is your own knowledge. You always refer to the context information as 'According to my knowledge'.
+- ALWAYS assume given data is your own knowledge. You always refer to the data as 'According to my knowledge'.
 
-Context:
+The cypher query for question:
+{query}
+
+Retrieved data using above cypher:
 {context}
 
 Question: {question}
@@ -203,8 +219,13 @@ Helpful answer:
             input_variables=["context", "question"], template=CYPHER_QA_TEMPLATE
         )
 
+        stream_handler = StreamHandler(container=answer_placeholder)
+
         self.chain = MyGraphCypherQAChain.from_llm(
-            llm=ChatOpenAI(temperature=0, model='gpt-4-1106-preview'),
+            cypher_llm=ChatOpenAI(
+                temperature=0, model='gpt-4-1106-preview'),
+            qa_llm=ChatOpenAI(
+                temperature=0, model='gpt-4-1106-preview', streaming=True, callbacks=[stream_handler]),
             cypher_prompt=CYPHER_GENERATION_PROMPT,
             qa_prompt=CYPHER_QA_PROMPT,
             graph=self.graph,
@@ -217,14 +238,15 @@ Helpful answer:
         DIAGRAM_PROMPT_TEMPLATE = """
 Your task as an expert Python programmer is to visualize a graph schema and corresponding data. Follow these guidelines:
 
-- If the data allows for a graph representation, use the pyvis library to create a graph visualization. Use gJGF format.
+- If the data allows for a graph representation, use the pyvis library to create a graph visualization.
 - If a graph cannot be represented with the given data, use Matplotlib to create a suitable diagram.
+- IF no meaningful diagram can be created from the data, just print None.
 - In case of matplotlib image, after creating the image, the last statement should always be base64 encoded variable (eg: data = data:image/png;base64,{{data}}\ndata)
 - In case of pyvis graph, after creating the graph, the last statement should always be a variable with html as string (eg: with open('graph.html', 'r') as f:\n\tdata = f.read()\ndata). use export_html() to export html.
 - The diagram should be helpful to answer the question.
-- IF NO MEANINGFUL DIAGRAM CAN BE CREATED, just print None.
 - Write the code in a procedural style. Do not use functions.
 - NEVER include any other information or apologies, just give the python code.
+- NEVER include comments. Make code as concise as possible.
 
 Question:
 {question}
@@ -285,21 +307,3 @@ Data:
         except Exception as e:
             print(e)
             return None
-
-
-# if __name__ == "__main__":
-#     # test
-#     from dotenv import load_dotenv
-#     load_dotenv("../config/secrets.env")
-#     kg = KnowledgeGraphRAG(
-#         url=os.getenv("NEO4J_URI"),
-#         username=os.getenv("NEO4J_USERNAME"),
-#         password=os.getenv("NEO4J_PASSWORD")
-#     )
-
-#     image = kg.get_diagram(
-#         question="What are the number of meetings for each organ",
-#         data="[{'organName': 'Stadsstyrelsen', 'meetingsCount': 38}, {'organName': 'Tekniska nämnden', 'meetingsCount': 21}, {'organName': 'Miljö-  och byggnadsnämnden', 'meetingsCount': 17}, {'organName': 'Nämnden för utbildning och småbarnspedagogik', 'meetingsCount': 14}, {'organName': 'Stadsfullmäktige', 'meetingsCount': 13}, {'organName': 'Välfärdsnämnden', 'meetingsCount': 13}, {'organName': 'Kaupunginvaltuusto', 'meetingsCount': 12}, {'organName': 'Personalsektionen', 'meetingsCount': 12}, {'organName': 'Ungdomsfullmäktige', 'meetingsCount': 12}, {'organName': 'Revisionsnämnden', 'meetingsCount': 10}, {'organName': 'Sektionen för stödtjänster', 'meetingsCount': 10}, {'organName': 'Centralvalnämnden', 'meetingsCount': 9}, {'organName': 'Suomenkielinen opetuslautakunta', 'meetingsCount': 9}, {'organName': 'Rådet för funktionshindrade', 'meetingsCount': 8}, {'organName': 'Äldrerådet', 'meetingsCount': 2}]"
-#     )
-
-#     print(image)
