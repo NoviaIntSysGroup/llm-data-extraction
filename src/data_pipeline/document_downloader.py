@@ -62,11 +62,18 @@ def download_pdfs(df, protocols_pdf_path):
     if 'doc_name' not in df.columns:
         df['doc_name'] = ''
 
+    def file_exists(filename):
+        if filename:
+            filepath = os.path.join(protocols_pdf_path, filename)
+            print(filepath, os.path.exists(filepath))
+            return os.path.exists(filepath)
+        return False
+
     # Function to update dataframe with downloaded file name
     def update_df(row):
         doc_link = row['doc_link']
         filename = row['doc_name']
-        if not filename:
+        if file_exists(filename):
             filename = download_pdf(doc_link, protocols_pdf_path)
             row['doc_name'] = filename
         return row
@@ -76,8 +83,8 @@ def download_pdfs(df, protocols_pdf_path):
     df = df.progress_apply(update_df, axis=1)
 
     # Reordering columns for better readability
-    column_order = ['doc_name', 'doc_link', 'rubrik', 'section', 'meeting_date',
-                    'meeting_time', 'meeting_reference', 'verksamhetsorgan', 'parent_link']
+    column_order = ['doc_name', 'doc_link', 'title', 'section', 'meeting_date',
+                    'start_time', 'meeting_reference', 'body', 'parent_link']
     df = df[column_order]
 
     return df
@@ -90,6 +97,7 @@ def main():
     os.makedirs(PROTOCOLS_PDF_PATH, exist_ok=True)
     METADATA_FILE = os.getenv("METADATA_FILE")
     df = pd.read_csv(METADATA_FILE)
+    df.fillna("", inplace=True)
     df = download_pdfs(df, PROTOCOLS_PDF_PATH)
 
     # Save the updated DataFrame

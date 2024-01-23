@@ -88,8 +88,8 @@ def convert_to_df(json_data):
         pandas.DataFrame: DataFrame containing the converted data.
     """
     # Define the columns for the DataFrame
-    columns = ['doc_link', 'rubrik', 'section', 'meeting_date',
-               'meeting_time', 'meeting_reference', 'verksamhetsorgan', 'parent_link']
+    columns = ['doc_link', 'title', 'section', 'meeting_date',
+               'meeting_time', 'meeting_reference', 'body', 'parent_link']
 
     # Create an empty DataFrame with the defined columns
     df = pd.DataFrame(columns=columns)
@@ -103,12 +103,12 @@ def convert_to_df(json_data):
                 # Create a parent row with the relevant data
                 parent_row = {
                     'doc_link': doc['Rubrik'][0]['doc_url'],
-                    'rubrik': doc['Rubrik'][0]['title'],
+                    'title': doc['Rubrik'][0]['title'],
                     'section': "" if not doc['§'] else f"§ {doc['§']}",
                     'meeting_date': meeting['Datum'][0]['title'].split(' ')[0].strip(),
-                    'meeting_time': meeting['Datum'][0]['title'].split(' ')[1].strip(),
+                    'start_time': meeting['Datum'][0]['title'].split(' ')[1].strip(),
                     'meeting_reference': find_meeting_reference(meeting['Verksamhetsorgan']),
-                    'verksamhetsorgan': meeting['Verksamhetsorgan'].split(":")[0].strip(),
+                    'body': meeting['Verksamhetsorgan'].split(":")[0].strip(),
                     'parent_link': ""
                 }
                 # Concatenate the parent row DataFrame with the main DataFrame
@@ -122,18 +122,18 @@ def convert_to_df(json_data):
                         # Create an attachment row with the relevant data
                         attachment_row = {
                             'doc_link': attachment['Cell_0'][0]['doc_url'],
-                            'rubrik': attachment['Cell_0'][0]['title'],
+                            'title': attachment['Cell_0'][0]['title'],
                             'section': "",
                             'meeting_date': meeting['Datum'][0]['title'].split(' ')[0].strip(),
-                            'meeting_time': meeting['Datum'][0]['title'].split(' ')[1].strip(),
+                            'start_time': meeting['Datum'][0]['title'].split(' ')[1].strip(),
                             'meeting_reference': find_meeting_reference(meeting['Verksamhetsorgan']),
-                            'verksamhetsorgan': meeting['Verksamhetsorgan'].split(":")[0].strip(),
+                            'body': meeting['Verksamhetsorgan'].split(":")[0].strip(),
                             'parent_link': parent_row['doc_link']
                         }
                         # Concatenate the attachment row DataFrame with the main DataFrame
                         df = pd.concat(
                             [df, pd.DataFrame([attachment_row])], ignore_index=True)
-
+    df.fillna('', inplace=True)
     return df
 
 

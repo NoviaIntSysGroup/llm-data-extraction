@@ -4,6 +4,7 @@ data/protocols_pdf
 data/protocols_html
 data/extracted_json
 data/metadata.csv
+data/scraped_data.json
 .vscode
 ## Boilerplates
 

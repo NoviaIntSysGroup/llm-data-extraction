@@ -59,7 +59,7 @@ def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, cli
     """
 
     # Filter documents that contain meeting metadata
-    filtered_df = df[df['rubrik'].isin(meeting_titles_filter)]
+    filtered_df = df[df['title'].isin(meeting_titles_filter)]
 
     results = []
     for filename in tqdm(filtered_df['doc_name']):
@@ -71,21 +71,21 @@ def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, cli
     for pdf_name, metadata in results:
         if metadata and metadata != "LLM Error!":
             df.loc[df['doc_name'] == pdf_name,
-                   'meeting_end_time'] = metadata['endTime']
+                   'end_time'] = metadata['endTime']
             df.loc[df['doc_name'] == pdf_name,
-                   'meeting_place'] = metadata['meetingPlace']
+                   'meeting_location'] = metadata['meetingLocation']
             df.loc[df['doc_name'] == pdf_name,
-                   'members'] = json.dumps(metadata['members'], ensure_ascii=False)
+                   'participants'] = json.dumps(metadata['participants'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'substitutes'] = json.dumps(
                 metadata['substitutes'] if 'substitutes' in metadata.keys() else [], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'additional_attendees'] = json.dumps(
                 metadata['additionalAttendees'], ensure_ascii=False)
-            df.loc[df['doc_name'] == pdf_name, 'protocol_signatories'] = json.dumps(
-                metadata['protocolSignatories'], ensure_ascii=False)
-            df.loc[df['doc_name'] == pdf_name, 'protocol_adjusters'] = json.dumps(
-                metadata['protocolAdjustment']['adjustedBy'], ensure_ascii=False)
+            df.loc[df['doc_name'] == pdf_name, 'signed_by'] = json.dumps(
+                metadata['signedBy'], ensure_ascii=False)
+            df.loc[df['doc_name'] == pdf_name, 'adjusted_by'] = json.dumps(
+                metadata['adjustedBy'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name,
-                   'protocol_adjustment_date'] = metadata['protocolAdjustment']['adjustmentDate']
+                   'adjustment_date'] = metadata['adjustmentDate']
 
     return df
 
