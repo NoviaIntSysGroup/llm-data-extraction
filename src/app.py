@@ -69,38 +69,10 @@ def display_pdf(doc_id, col):
                     unsafe_allow_html=True)
 
 
-@st.cache_data
-def display_embeddings_chart(vectorstore):
-    """Displays the embeddings chart in streamlit."""
-
-    # format of vectorstore: {'embeddings': [], 'metadatas': [{'page':0}], 'documents': []}
-    # calculate umap of the embeddings, plot the embeddings and associate page number and document to each point as hover index
-
-    umap_embeddings = umap.UMAP(n_neighbors=15, n_components=2).fit_transform(
-        vectorstore['embeddings'])
-
-    plotly_figure = px.scatter(
-        umap_embeddings, x=0,
-        y=1,
-        hover_data={
-            'page': [metadata['page'] for metadata in vectorstore['metadatas']],
-            'source': [metadata['source'] for metadata in vectorstore['metadatas']],
-            'document': vectorstore['documents'],
-        }
-    )
-    st.plotly_chart(plotly_figure, use_container_width=True)
-
-
 def main():
     st.set_page_config(page_title="Democracy Chatbot", page_icon="🗳",
                        layout="wide", initial_sidebar_state="auto", menu_items=None)
     col1, col2, col3 = st.columns([0.3, 0.4, 0.3], gap="medium")
-
-    # add embeddings chart
-    # with col1:
-    #     st.write("Embeddings chart")
-    #     display_embeddings_chart(processor.vectordb.get(
-    #         include=["embeddings", "metadatas", "documents"]))
 
     # center the title
     with col2:
@@ -161,10 +133,6 @@ def main():
                     )
                     # get response from LLM
                     response, query, context = processor.process_prompt(prompt)
-
-                    # mock response
-                    # response, query, context = "Hi! I am a document chatbot", None, [
-                    #     "a.pdf", "b.pdf"]
 
                 # add context provided to the llm to streamlit expander
                 message = {"role": "assistant",
