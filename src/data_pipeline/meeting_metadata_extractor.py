@@ -6,43 +6,6 @@ from tqdm import tqdm
 from .utils import process_html
 
 
-# def extract_data_with_llm(text, pdf_name, client, assistant_id):
-#     '''Extract data from a PDF file using the LLM.
-
-#     Args:
-#         text (str): The extracted text from the PDF file.
-#         pdf_name (str): The filename of the PDF file.
-#         assistant_id (str): The ID of the OpenAI assistant.
-
-#     Returns:
-#         str: The extracted data as a JSON string.
-#     '''
-#     # Create a thread, send the extracted text, and run the assistant
-#     thread = client.beta.threads.create()
-#     message = client.beta.threads.messages.create(
-#         thread_id=thread.id,
-#         role="user",
-#         content=text
-#     )
-#     run = client.beta.threads.runs.create(
-#         thread_id=thread.id,
-#         assistant_id=assistant_id
-#     )
-#     while run.status != 'completed':
-#         run = client.beta.threads.runs.retrieve(
-#             thread_id=thread.id,
-#             run_id=run.id
-#         )
-#         print(f'Status for {pdf_name}:', run.status)
-#         time.sleep(5)
-
-#     # Retrieve messages from the thread
-#     messages = client.beta.threads.messages.list(
-#         thread_id=thread.id
-#     )
-#     return messages.data[0].content[0].text.value.replace('```json', '').replace('```', '')
-
-
 def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, client, prompt):
     """
     Extracts meeting metadata from a meeting documents.
@@ -63,7 +26,7 @@ def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, cli
 
     results = []
     for filename in tqdm(filtered_df['doc_name']):
-        filename = os.path.splitext(filename)[0] + '.html'
+        filename = os.path.splitext(filename)[0]
         results.append(process_html(
             filename, protocols_html_path, client, prompt))
 
@@ -71,21 +34,21 @@ def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, cli
     for pdf_name, metadata in results:
         if metadata and metadata != "LLM Error!":
             df.loc[df['doc_name'] == pdf_name,
-                   'end_time'] = metadata['endTime']
+                   'end_time'] = metadata['end_time']
             df.loc[df['doc_name'] == pdf_name,
-                   'meeting_location'] = metadata['meetingLocation']
+                   'meeting_location'] = metadata['meeting_location']
             df.loc[df['doc_name'] == pdf_name,
                    'participants'] = json.dumps(metadata['participants'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'substitutes'] = json.dumps(
                 metadata['substitutes'] if 'substitutes' in metadata.keys() else [], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'additional_attendees'] = json.dumps(
-                metadata['additionalAttendees'], ensure_ascii=False)
+                metadata['additional_attendees'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'signed_by'] = json.dumps(
-                metadata['signedBy'], ensure_ascii=False)
+                metadata['signed_by'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name, 'adjusted_by'] = json.dumps(
-                metadata['adjustedBy'], ensure_ascii=False)
+                metadata['adjusted_by'], ensure_ascii=False)
             df.loc[df['doc_name'] == pdf_name,
-                   'adjustment_date'] = metadata['adjustmentDate']
+                   'adjustment_date'] = metadata['adjustment_date']
 
     return df
 
@@ -107,6 +70,7 @@ def main():
         prompt = file.read()
 
     df = pd.read_csv(METADATA_FILE)
+    df.fillna('', inplace=True)
     df = extract_meeting_metadata(
         df, DOC_TITLES_WITH_METADATA, PROTOCOLS_HTML_PATH, client, prompt)
 

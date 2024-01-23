@@ -4,11 +4,13 @@ You ALWAYS focus on current reference. ALWAYS follow the following JSON schema:
 {
     'references': array of strings # list of historical or previous references for eg: Stadsfullmäktige 15.6.2023, 28 § (if any. DO NOT INCLUDE current reference)
     'context': string # description of current reference (if any. it might come after the decision of last previous reference. do not include anything from Beslutshistorik or Tidigare behandling)   
-    'preparedBy': array of objects # list of people who prepared the current reference (if any. do not include proposal maker)
-        'name': string # name of the person who prepared the current reference
+    'prepared_by': array of objects # list of people who prepared the current reference (if any. do not include proposal maker)
+        'fname': string # first name of the person who prepared the current reference
+        'lname': string # last name of the person who prepared the current reference
         'role': string # role of the person who prepared the current reference
-    'proposalBy': array of objects # list of people/entity who made current proposal (if any)
-        'name': string # name of the person/entity who made proposal (if any)
+    'proposal_by': array of objects # list of people/entity who made current proposal (if any)
+        'fname': string # first name of the person/entity who made proposal (if any)
+        'lname': string # last name of the person who made proposal (if any)
         'role': string # role of the person who made last proposal (if any)
     'proposal': string # description of the current proposal (if any. its at the end)
     'decision': string # current decision
@@ -44,8 +46,8 @@ extract data from reference =  Stadsfullmäktige 28.9.2023 48 §
 {
     'references': ['Stadsstyrelsen 25.9.2023 § 210'],
     'context': '',
-    'preparedBy': [],
-    'proposalBy': [],
+    'prepared_by': [],
+    'proposal_by': [],
     'proposal': '',
     'decision': 'Stadsfullmäktige beslöt i enlighet med stadsstyrelsens förslag.'
 }
@@ -87,10 +89,11 @@ extract data from reference = Stadsfullmäktge 15.12.2022 67 §
 {
     'references': ['Tekniska nämnden 15.11.2022, § 139', 'Stadsstyrelsen 28.11.2022, 254 §'],
     'context': '',
-    'preparedBy': [],
-    'proposalBy': [
+    'prepared_by': [],
+    'proposal_by': [
         {
-            'name': 'Anna Martin',
+            'fname': 'Anna',
+            'lname': 'Martin',
             'role': 'Stadsdirektör'
         }
     ],

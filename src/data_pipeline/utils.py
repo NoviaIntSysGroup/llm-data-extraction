@@ -1,6 +1,7 @@
 import json
 import os
 from openai import OpenAI
+import retry
 
 
 def extract_data_with_llm(text, client, prompt):
@@ -46,17 +47,13 @@ def process_html(filename, filepath, client, prompt):
     with open(os.path.join(filepath, filename + '.html')) as doc:
         text = doc.read()
 
-    json_response = extract_data_with_llm(text, client, prompt)
+    @retry.retry(tries=3)
+    def return_json_response():
+        json_response = extract_data_with_llm(text, client, prompt)
+        return json.loads(json_response)
 
-    # Check if the response is valid JSON; retry if not
-    for _ in range(3):  # Retry up to 3 times
-        try:
-            response_data = json.loads(json_response)
-            return filename + ".pdf", response_data
-        except json.JSONDecodeError:
-            print("Invalid JSON response. Retrying...")
-            json_response = extract_data_with_llm(
-                text, client, prompt)
-
-    print(f"Failed to get valid JSON response for {filename} after retries.")
-    return filename + ".pdf", "LLM Error!"
+    response_data = return_json_response()
+    if not response_data:
+        print(f"LLM Error after 3 retries! for {filename}")
+        return filename + ".pdf", "LLM Error!"
+    return filename + ".pdf", response_data

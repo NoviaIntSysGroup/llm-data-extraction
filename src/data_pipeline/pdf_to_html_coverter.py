@@ -24,9 +24,6 @@ def convert_pdfs_to_html(df, protocols_pdf_path, protocols_html_path, output_typ
     # Create the output directory if it doesn't exist
     os.makedirs(protocols_html_path, exist_ok=True)
 
-    # Fill any NaN values in the DataFrame with empty strings
-    df.fillna("", inplace=True)
-
     # Initialize the text variable
     text = ""
 
@@ -35,6 +32,16 @@ def convert_pdfs_to_html(df, protocols_pdf_path, protocols_html_path, output_typ
         filename = row['doc_name']
         file_rootname, file_extension = os.path.splitext(filename)
         file_path = os.path.join(protocols_pdf_path, filename)
+
+        # Determine the file extension based on the output type
+        extension = 'html' if output_type == 'xhtml' else 'txt'
+
+        # Define the output file path
+        output_file = os.path.join(
+            protocols_html_path, f'{file_rootname}.{extension}')
+
+        if os.path.exists(output_file):
+            continue
 
         # Check the file extension and process accordingly
         if file_extension == ".pdf":
@@ -51,13 +58,6 @@ def convert_pdfs_to_html(df, protocols_pdf_path, protocols_html_path, output_typ
         # unescape the html special swedish chars
         text = html.unescape(text)
 
-        # Determine the file extension based on the output type
-        extension = 'html' if output_type == 'xhtml' else 'txt'
-
-        # Define the output file path
-        output_file = os.path.join(
-            protocols_html_path, f'{file_rootname}.{extension}')
-
         # Write the text to the output file
         with open(output_file, "w") as file:
             file.write(text)
@@ -72,6 +72,7 @@ def main():
 
     os.makedirs(PROTOCOLS_HTML_PATH, exist_ok=True)
     df = pd.read_csv(METADATA_FILE)
+    df.fillna("", inplace=True)
     convert_pdfs_to_html(df, PROTOCOLS_PDF_PATH, PROTOCOLS_HTML_PATH)
 
 

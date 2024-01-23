@@ -18,12 +18,12 @@ def download_pdf(url, protocols_pdf_path):
         str: The filename of the downloaded PDF file, or None if there was an error.
     """
     try:
-        response = requests.get(url, allow_redirects=True)
-        response.raise_for_status()  # Raise an error for bad status codes
+        header = requests.head(url).headers
 
         # Extract filename from Content-Disposition header
-        cd = response.headers.get('content-disposition', '')
+        cd = header.get('content-disposition', '')
         filename = re.findall('filename=(.+)', cd)
+
         if filename:
             # Decoding any URL encoded characters
             filename = unquote(filename[0])
@@ -33,6 +33,13 @@ def download_pdf(url, protocols_pdf_path):
 
         # Save the PDF in 'protocols_pdf' folder
         filepath = os.path.join(protocols_pdf_path, filename)
+
+        # check if file exists
+        if os.path.exists(filepath):
+            return filename
+
+        response = requests.get(url, allow_redirects=True)
+        response.raise_for_status()  # Raise an error for bad status codes
 
         with open(filepath, 'wb') as f:
             f.write(response.content)
@@ -62,20 +69,61 @@ def download_pdfs(df, protocols_pdf_path):
     if 'doc_name' not in df.columns:
         df['doc_name'] = ''
 
-    def file_exists(filename):
+    def extract_id_from_url(url):
+        # Use regular expression to find the 'docid' parameter in the URL
+        match = re.search(r'docid=([^\&]+)', url)
+        if match:
+            # Extract the docid value
+            return match.group(1)
+        else:
+            return None
+
+    def title_to_filename_with_id_from_url(title, url):
+        # Extract the document ID from the URL
+        doc_id = extract_id_from_url(url)
+        if not doc_id:
+            return "Document ID not found in URL"
+
+        # Replace Swedish characters with their closest English equivalents
+        replacements = {
+            'ä': 'a',
+            'å': 'a',
+            'ö': 'o',
+            'Ä': 'A',
+            'Å': 'A',
+            'Ö': 'O'
+        }
+        for swedish_char, english_char in replacements.items():
+            title = title.replace(swedish_char, english_char)
+
+        # Replace spaces with underscores and convert to lowercase
+        filename = title.replace(" ", "_").lower()
+        # remove special chars
+        filename = re.sub(r'[^a-zA-Z0-9_]', '', filename)[:99]
+        # Add the document ID and the .pdf extension
+        filename += f"_{doc_id}.pdf"
+        return filename
+
+    def file_exists(title, url, filename):
         if filename:
             filepath = os.path.join(protocols_pdf_path, filename)
-            print(filepath, os.path.exists(filepath))
-            return os.path.exists(filepath)
+            if os.path.exists(filepath):
+                return filename
+        filename = title_to_filename_with_id_from_url(title, url)
+        if filename:
+            filepath = os.path.join(protocols_pdf_path, filename)
+            if os.path.exists(filepath):
+                return filename
         return False
 
     # Function to update dataframe with downloaded file name
     def update_df(row):
         doc_link = row['doc_link']
         filename = row['doc_name']
-        if not file_exists(filename):
+        filename = file_exists(row['title'], doc_link, filename)
+        if not filename:
             filename = download_pdf(doc_link, protocols_pdf_path)
-            row['doc_name'] = filename
+        row['doc_name'] = filename
         return row
 
     # Update dataframe with downloaded file names
