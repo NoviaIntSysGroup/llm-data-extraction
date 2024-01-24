@@ -1,12 +1,24 @@
 import json
 import os
-from openai import OpenAI
+from openai import AsyncOpenAI as OpenAI
 import pandas as pd
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 from .utils import process_html
+import asyncio
 
 
-def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, client, prompt, num_docs):
+async def process_html_with_rate_limiting(filename, filepath, client, prompt):
+    max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))
+
+    if max_calls_per_minute <= 0:
+        max_calls_per_minute = 100
+
+    semaphore = asyncio.Semaphore(max_calls_per_minute)
+    async with semaphore:
+        return await process_html(filename, filepath, client, prompt)
+
+
+async def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, client, prompt, num_docs):
     """
     Extracts meeting metadata from a meeting documents.
 
@@ -27,13 +39,18 @@ def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, clien
     filtered_df = filtered_df[(filtered_df['parent_link'] == "") & (
         ~filtered_df['section'].isin(["", "§ 0"])) & (filtered_df['body'] == 'Stadsfullmäktige')]
 
-    results = []
+    tasks = []
     if not num_docs:
         num_docs = len(filtered_df['doc_name'])
-    for filename in tqdm(filtered_df['doc_name'][:num_docs]):
+    for filename in filtered_df['doc_name'][:num_docs]:
         filename = os.path.splitext(filename)[0]
-        results.append(process_html(
-            filename, protocols_html_path, client, prompt))
+        task = process_html_with_rate_limiting(
+            filename, protocols_html_path, client, prompt)
+        tasks.append(task)
+
+    results = []
+    async for result in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+        results.append(await result)
 
     # add metadata to dataframe
     for pdf_name, metadata in results:
@@ -44,7 +61,7 @@ def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, clien
     return df
 
 
-def main(num_docs=None):
+async def main(num_docs=None):
 
     PROTOCOLS_HTML_PATH = os.getenv("PROTOCOLS_HTML_PATH")
     METADATA_FILE = os.getenv("METADATA_FILE")
@@ -76,11 +93,11 @@ def main(num_docs=None):
 
     df = pd.read_csv(METADATA_FILE, index_col=0)
     df.fillna("", inplace=True)
-    df = extract_meeting_agenda(
+    df = await extract_meeting_agenda(
         df, DOC_TITLES_WITHOUT_AGENDA, PROTOCOLS_HTML_PATH, client, prompt, num_docs)
 
     # Save the updated DataFrame
-    df.to_csv(METADATA_FILE)
+    df.to_csv(METADATA_FILE, index=False)
 
     return df
 

@@ -1,10 +1,9 @@
 import json
 import os
-from openai import OpenAI
-import retry
+import aiofiles
 
 
-def extract_data_with_llm(text, client, prompt):
+async def extract_data_with_llm(text, client, prompt):
     '''Extract data from a HTML file using the LLM.
 
     Args:
@@ -15,8 +14,7 @@ def extract_data_with_llm(text, client, prompt):
     Returns:
         str: The extracted data as a JSON string.
     '''
-    # print(text)
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model="gpt-4-1106-preview",
         response_format={"type": "json_object"},
         messages=[
@@ -25,11 +23,11 @@ def extract_data_with_llm(text, client, prompt):
             {"role": "user", "content": text}
         ]
     )
-    # print(response.choices[0].message.content)
+
     return response.choices[0].message.content.replace('```json', '').replace('```', '')
 
 
-def process_html(filename, filepath, client, prompt):
+async def process_html(filename, filepath, client, prompt):
     '''
     Process a single HTML file and return the file name and metadata as a tuple.
 
@@ -44,16 +42,19 @@ def process_html(filename, filepath, client, prompt):
     '''
 
     # Open and read the html file
-    with open(os.path.join(filepath, filename + '.html')) as doc:
-        text = doc.read()
+    async with aiofiles.open(os.path.join(filepath, filename + '.html')) as doc:
+        text = await doc.read()
 
-    @retry.retry(tries=3)
-    def return_json_response():
-        json_response = extract_data_with_llm(text, client, prompt)
-        return json.loads(json_response)
+    async def return_json_response():
+        for _ in range(3):
+            try:
+                json_response = await extract_data_with_llm(text, client, prompt)
+                return json.loads(json_response)
+            except:
+                continue
 
-    response_data = return_json_response()
+    response_data = await return_json_response()
     if not response_data:
-        print(f"LLM Error after 3 retries! for {filename}")
+        print(f"LLM Error after 3 retries! for {filename}.pdf")
         return filename + ".pdf", "LLM Error!"
     return filename + ".pdf", response_data
