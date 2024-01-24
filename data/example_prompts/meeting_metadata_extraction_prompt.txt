@@ -29,4 +29,4 @@ You are an expert JSON metadata extractor. You extract data from given user prom
 
 ## Protocol Adjusted By
 - `adjusted_by`: array of strings (Names of those who adjusted the protocol in format "fname lname")
-- `adjustment_date`: string (The date of adjustment, exact date string as appears in document, exclude url)
+- `adjustment_date`: string (The date of adjustment, exact date string as appears in document ALWAYS in format dd.mm.yyyy)
