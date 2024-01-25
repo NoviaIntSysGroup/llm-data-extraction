@@ -55,11 +55,9 @@ async def process_html(filename, filepath, client, prompt):
                 error = e
                 continue
         if error:
-            print("LLM Error after 3 retries! for {filename}.pdf:")
+            print(f"LLM Error after 3 retries! for {filename}.pdf:")
             print(error)
             return None
 
     response_data = await return_json_response(filename)
-    if not response_data:
-        return filename + ".pdf", "LLM Error!"
     return filename + ".pdf", response_data
