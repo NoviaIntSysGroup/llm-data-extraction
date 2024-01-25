@@ -115,3 +115,9 @@ This workflow transforms unstructured data into structured knowledge that is eas
 
 - ✅ **Relevant Data + Usery Query**: The relevant data and user query is then sent to the llm.
 - ✅ **LLM Answer Based on Data**: The llm then generates an answer to the user query based on the relevant data.
+
+
+## Future Improvements:
+
+- [ ] Improve the rate limiting logic for LLM calls
+- [ ] Save the LLM extracted data in intermediate files to avoid re-extraction
