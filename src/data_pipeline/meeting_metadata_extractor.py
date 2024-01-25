@@ -85,7 +85,7 @@ async def extract_meeting_metadata_rate_limited(df, meeting_titles_filter, proto
     return updated_df
 
 
-async def main(max_calls_per_minute=100):
+async def main():
 
     PROTOCOLS_HTML_PATH = os.getenv("PROTOCOLS_HTML_PATH")
     METADATA_FILE = os.getenv("METADATA_FILE")
