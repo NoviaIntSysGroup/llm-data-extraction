@@ -4,56 +4,63 @@
             "name": "Stadsfullmäktige",
             "meetings": [
                 {
-                    "meetingDate": "2023-12-01",
-                    "startTime": "14:00",
-                    "meetingReference": "5/2023",
-                    "endTime": "16:00",
-                    "meetingLocation": "Stadshuset, stora konferensrummet",
+                    "meeting_date": "2023-12-01",
+                    "start_time": "14:00",
+                    "meeting_reference": "5/2023",
+                    "end_time": "16:00",
+                    "meeting_location": "Stadshuset, stora konferensrummet",
                     "participants": [
                         {
-                            "name": "Anna Korhonen",
+                            "fname": "Anna",
+                            "lname": "Korhonen",
                             "role": "Ordförande",
                             "attendance": true
                         },
                         {
-                            "name": "Mikael Virtanen",
+                            "fname": "Mikael",
+                            "lname": "Virtanen",
                             "role": "Ledamot",
                             "attendance": true
                         },
                         {
-                            "name": "Liisa Laaksonen",
+                            "fname": "Liisa",
+                            "lname": "Laaksonen",
                             "role": "Sekreterare",
                             "attendance": false
                         }
                     ],
                     "substitutes": [
                         {
-                            "name": "Johan Backman",
+                            "fname": "Johan",
+                            "lname": "Backman",
                             "substitutedFor": "Liisa Laaksonen"
                         }
                     ],
-                    "additionalAttendees": [
+                    "additional_attendees": [
                         {
-                            "name": "Erik Nyman",
+                            "fname": "Erik",
+                            "lname": "Nyman",
                             "role": "Ekonomidirektör"
                         }
                     ],
-                    "signedBy": [
+                    "signed_by": [
                         {
-                            "name": "Anna Korhonen",
+                            "fname": "Anna",
+                            "lname": "Korhonen",
                             "role": "Ordförande"
                         },
                         {
-                            "name": "Mikael Virtanen",
+                            "fname": "Mikael",
+                            "lname": "Virtanen",
                             "role": "Ledamot"
                         }
                     ],
-                    "adjustedBy": [
+                    "adjusted_by": [
                         "Anna Korhonen",
                         "Mikael Virtanen"
                     ],
-                    "adjustmentDate": "2023-12-02",
-                    "meetingItems": [
+                    "adjustment_date": "2023-12-02",
+                    "meeting_items": [
                         {
                             "title": "Mötets öppnande",
                             "section": "§ 27",
@@ -62,15 +69,17 @@
                                 "Stadsstyrelsen 27.11.2023 § 270"
                             ],
                             "context": "Budgetförslag 2024",
-                            "preparedBy": [
+                            "prepared_by": [
                                 {
-                                    "name": "Sara Lind",
+                                    "fname": "Sara",
+                                    "lname": "Lind",
                                     "role": "Ekonom"
                                 }
                             ],
-                            "proposalBy": [
+                            "proposal_by": [
                                 {
-                                    "name": "Lars Andersson",
+                                    "fname": "Lars",
+                                    "lname": "Andersson",
                                     "role": "Stadsdirektör"
                                 }
                             ],

@@ -20,36 +20,40 @@
                             "type": "object",
                             "description": "Meeting held by the organ",
                             "properties": {
-                                "meetingDate": {
+                                "meeting_date": {
                                     "type": "string",
                                     "description": "The date of the meeting in the format DD.MM.YYYY."
                                 },
-                                "startTime": {
+                                "start_time": {
                                     "type": "string",
                                     "description": "The start time of the meeting in the format HH:MM."
                                 },
-                                "meetingReference": {
+                                "meeting_reference": {
                                     "type": "string",
                                     "description": "Reference identifier for the meeting."
                                 },
-                                "endTime": {
+                                "end_time": {
                                     "type": "string",
                                     "description": "The end time of the meeting in the format HH:MM."
                                 },
-                                "meetingLocation": {
+                                "meeting_location": {
                                     "type": "string",
                                     "description": "The location where the meeting is held."
                                 },
                                 "participants": {
                                     "type": "array",
-                                    "description": "List of persons participating in the meeting. <Relationship to Parent>: HAS_MEMBER",
+                                    "description": "List of persons participating in the meeting. <Relationship to Parent>: ATTENDED",
                                     "items": {
                                         "type": "object",
                                         "description": "Person participating in the meeting",
                                         "properties": {
-                                            "name": {
+                                            "fname": {
                                                 "type": "string",
-                                                "description": "Name of the person."
+                                                "description": "First ame of the person."
+                                            },
+                                            "lname": {
+                                                "type": "string",
+                                                "description": "Last name of the person."
                                             },
                                             "role": {
                                                 "type": "string",
@@ -64,32 +68,40 @@
                                 },
                                 "substitutes": {
                                     "type": "array",
-                                    "description": "List of persons attending in place of members. <Relationship to Parent>: HAS_SUBSTITUTE_MEMBER",
+                                    "description": "List of persons attending in place of members. <Relationship to Parent>: SUBSTITUTE_ATTENDEE",
                                     "items": {
                                         "type": "object",
                                         "description": "Person attending in place of a member",
                                         "properties": {
-                                            "name": {
+                                            "fname": {
                                                 "type": "string",
-                                                "description": "Name of the person."
+                                                "description": "First ame of the person."
                                             },
-                                            "substitutedFor": {
+                                            "lname": {
+                                                "type": "string",
+                                                "description": "Last name of the person."
+                                            },
+                                            "substituted_for": {
                                                 "type": "string",
                                                 "description": "Name of the person for whom the substitute is attending."
                                             }
                                         }
                                     }
                                 },
-                                "additionalAttendees": {
+                                "additional_attendees": {
                                     "type": "array",
-                                    "description": "List of additional persons not part of the regular members. <Relationship to Parent>: HAS_ADDITIONAL_ATTENDEE",
+                                    "description": "List of additional persons not part of the regular members. <Relationship to Parent>: ADDITIONAL_ATTENDEE",
                                     "items": {
                                         "type": "object",
                                         "description": "Additional person not part of the regular members",
                                         "properties": {
-                                            "name": {
+                                            "fname": {
                                                 "type": "string",
-                                                "description": "Name of the additional person."
+                                                "description": "First ame of the person."
+                                            },
+                                            "lname": {
+                                                "type": "string",
+                                                "description": "Last name of the person."
                                             },
                                             "role": {
                                                 "type": "string",
@@ -98,16 +110,20 @@
                                         }
                                     }
                                 },
-                                "signedBy": {
+                                "signed_by": {
                                     "type": "array",
-                                    "description": "List of persons who sign the meeting protocol. <Relationship to Parent>: HAS_PROTOCOL_SIGNATORY",
+                                    "description": "List of persons who sign the meeting protocol. <Relationship to Parent>: SIGNED",
                                     "items": {
                                         "type": "object",
                                         "description": "Person who signs the meeting protocol",
                                         "properties": {
-                                            "name": {
+                                            "fname": {
                                                 "type": "string",
-                                                "description": "Name of the person."
+                                                "description": "First ame of the person."
+                                            },
+                                            "lname": {
+                                                "type": "string",
+                                                "description": "Last name of the person."
                                             },
                                             "role": {
                                                 "type": "string",
@@ -116,9 +132,9 @@
                                         }
                                     }
                                 },
-                                "adjustedBy": {
+                                "adjusted_by": {
                                     "type": "array",
-                                    "description": "List of persons who made adjustments to the meeting details. <Relationship to Parent>: HAS_ADJUSTER",
+                                    "description": "List of persons who made adjustments to the meeting details. <Relationship to Parent>: ADJUSTED",
                                     "items": {
                                         "type": "string"
                                     }
@@ -129,7 +145,7 @@
                                 },
                                 "meetingItems": {
                                     "type": "array",
-                                    "description": "List of items discussed in the meeting. <Relationship to Parent>: HAS_MEETING_ITEM",
+                                    "description": "List of items discussed in the meeting. <Relationship to Parent>: HAS_ITEM",
                                     "items": {
                                         "type": "object",
                                         "properties": {
@@ -152,9 +168,9 @@
                                                 "type": "string",
                                                 "description": "Context or details pertaining to the meeting protocol."
                                             },
-                                            "preparedBy": {
+                                            "prepared_by": {
                                                 "type": "array",
-                                                "description": "List of persons preparing the meeting item. <Relationship to Parent>: HAS_PREPARER",
+                                                "description": "List of persons preparing the meeting item. <Relationship to Parent>: PREPARED",
                                                 "items": {
                                                     "type": "object",
                                                     "properties": {
@@ -169,9 +185,9 @@
                                                     }
                                                 }
                                             },
-                                            "proposalBy": {
+                                            "proposal_by": {
                                                 "type": "array",
-                                                "description": "List of persons proposing items for discussion. <Relationship to Parent>: HAS_PROPOSER",
+                                                "description": "List of persons proposing items for discussion. <Relationship to Parent>: PROPOSED",
                                                 "items": {
                                                     "type": "object",
                                                     "properties": {
