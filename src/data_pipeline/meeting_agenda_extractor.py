@@ -36,7 +36,7 @@ async def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path,
     # filter to only agenda items documents
     filtered_df = df[~df['title'].isin(meeting_agenda_filter)]
     filtered_df = filtered_df[(filtered_df['parent_link'] == "") & (
-        ~filtered_df['section'].isin(["", "§ 0"])) & (filtered_df['body'] == 'Stadsfullmäktige')]
+        ~filtered_df['section'].isin(["", "§ 0"]))]
 
     tasks = []
     if not num_docs:
