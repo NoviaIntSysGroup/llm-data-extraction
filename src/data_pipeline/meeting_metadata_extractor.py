@@ -6,14 +6,14 @@ from tqdm.asyncio import tqdm
 from .utils import process_html
 import asyncio
 
+max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))
+if max_calls_per_minute <= 0:
+    max_calls_per_minute = 100
+semaphore = asyncio.Semaphore(max_calls_per_minute)
+
 
 async def process_html_with_rate_limiting(filename, filepath, client, prompt):
-    max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))
 
-    if max_calls_per_minute <= 0:
-        max_calls_per_minute = 100
-
-    semaphore = asyncio.Semaphore(max_calls_per_minute)
     async with semaphore:
         return await process_html(filename, filepath, client, prompt)
 
@@ -101,6 +101,7 @@ async def main():
     with open(METADATA_EXTRACTION_PROMPT_PATH, 'r') as file:
         prompt = file.read()
 
+    # Extract meeting metadata
     df = pd.read_csv(METADATA_FILE)
     df.fillna('', inplace=True)
     df = await extract_meeting_metadata_rate_limited(
