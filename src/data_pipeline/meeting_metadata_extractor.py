@@ -47,10 +47,6 @@ async def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_pat
     async for result in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
         results.append(await result)
 
-    # match string with regex to date format dd.mm.yyyy
-    df['date'] = df['date'].str.extract(
-        r'(\d{1,2}\.\d{1,2}\.\d{4})', expand=False)
-
     # add metadata to dataframe
     for pdf_name, metadata in results:
         if metadata and metadata != "LLM Error!":
