@@ -21,17 +21,40 @@ To set up the project, follow the steps below:
     ```bash
     pip install -e .
     ```
+1. Create a secrets.env file in the config folder and add the following environment variables:
+    ```bash
+    OPENAI_API_KEY = "<api_key>"
+    COHERE_API_KEY = "<api_key>"
+    NEO4J_URI = "<uri>"
+    NEO4J_USERNAME = "<username>"
+    NEO4J_PASSWORD = "<password>"
+    ```
 
 ## Running the Project
 
-To run the project, perform the following steps:
+> To run the data extraction pipeline, perform the following steps:
 
 1. Navigate to the project directory.
+    ```bash
+    cd llm-data-extraction
+    ```
 
 1. Open the `notebooks/unstructured_to_structured_data_pipeline.ipynb` file.
 
-1. Execute the notebook to run the project.
+2. Execute the notebook
 
+> To run the chatbot app, perform the following steps:
+
+1. Navigate to the src directory.
+    ```bash
+    cd llm-data-extraction/src
+    ```
+
+2. Run the streamlit app:
+    ```bash
+    streamlit run app.py
+    ```
+3. Open the app in your browser with the url shown in the terminal.
 
 ## Project Structure
 
@@ -41,7 +64,9 @@ The project directory contains the following files and folders:
 - `src/`: Contains the source code of the project.
 - `data/`: Contains the data used in the project. PDFs and HTML files downloaded by the scripts are stored here.
 - `data/example_prompts/`: Contains the prompts used for LLMs.
+- `data/schema/`: Contains the schema for the JSON data.
 - `assets/`: Contains the images used in the project.
+- `config/`: Contains the configuration files used in the project.
 
 ---
 
@@ -53,7 +78,7 @@ The project directory contains the following files and folders:
 
 This figure outlines the workflow for converting unstructured data from meeting protocols into structured data suitable for creating a knowledge graph. The idea is to use a Large Language Model (LLM) to extract the necessary information from the meeting protocols, and then convert the extracted data into a knowledge graph so that data can be retrieved and queried quickly and reliably.
 
-> Note: The workflow is currently incomplete, and the steps that have been implemented is marked with ✅
+> Note: The steps that works well right now is marked with ✅
 
 #### Data Acquisition and Pre-processing
 
@@ -68,8 +93,8 @@ This figure outlines the workflow for converting unstructured data from meeting 
 ![Meeting Protocol Structure](assets/meeting_protocols_structure.png)        
 
 1. ✅ **Extract Meeting Metadata with LLM**: Utilize a Large Language Model to extract metadata from the meetings documented in the HTML files. The JSON schema and prompt can be found in the [example prompts folder](data/example_prompts/meeting_metadata_extraction_prompt.txt).
-1. **Extract Agenda with LLM**: Further extract the agenda from the meeting data using the LLM. The JSON schema and prompt can be found in the [example prompts folder](data/example_prompts/agenda_prompt_stadsfullm%C3%A4ktige.txt). One might need to make different prompts for each organ as the pdf structure for organs vary slightly.
-1. **Convert to JSON**: The extracted data is then converted into JSON (hierarchical format) from DataFrame (flat format), making it easier to create knowledge graph.
+1. ⭕ **Extract Agenda with LLM**: Further extract the agenda from the meeting data using the LLM. The JSON schema and prompt can be found in the [example prompts folder](data/example_prompts/agenda_prompt_stadsfullm%C3%A4ktige.txt). One might need to make different prompts for each organ as the pdf structure for organs vary slightly.
+1. ✅ **Convert to JSON**: The extracted data is then converted into JSON (hierarchical format) from DataFrame (flat format), making it easier to create knowledge graph.
 
 #### Knowledge Graph (KG) Conversion
 
@@ -77,13 +102,16 @@ This figure outlines the workflow for converting unstructured data from meeting 
 
 ![KG Schema](assets/knowledge_graph_schema.png)
 
-1. **Cypher Script for JSON to KG**: Convert the JSON formatted data into a knowledge graph using a Cypher script.
-2. **User Query to Cypher with LLM**: Convert the user query into cypher query using a LLM.
-3. **Retrieved Relevant Data**: The result of the user query is the retrieval of relevant data from the knowledge graph.
+1. ✅ **Cypher Script for JSON to KG**: Convert the JSON formatted data into a knowledge graph using a Cypher script.
+2. ✅ **User Query to Cypher with LLM**: Convert the user query into cypher query using a LLM.
+3. ✅ **Retrieved Relevant Data**: The result of the user query is the retrieval of relevant data from the knowledge graph.
 
 This workflow transforms unstructured data into structured knowledge that is easily accessible and queryable by end-users.
 
-### Further Work
+#### Intelligent Document Chatbot
 
-- [ ] **Chatbot Interface**: Create a chatbot interface for the knowledge graph so that users can query the meeting protocols easily.
-- [ ] **Display Knowledge Graph**: Display the knowledge graph in the interface so that users can easily understand the data.
+![Chatbot](assets/chatbot.gif)
+
+
+- ✅ **Relevant Data + Usery Query**: The relevant data and user query is then sent to the llm.
+- ✅ **LLM Answer Based on Data**: The llm then generates an answer to the user query based on the relevant data.
