@@ -110,7 +110,3 @@ async def main():
     df.to_csv(METADATA_FILE, index=False)
 
     return df
-
-
-if __name__ == '__main__':
-    main()
