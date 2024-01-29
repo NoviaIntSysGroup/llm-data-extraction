@@ -1,3 +1,8 @@
+# Democracy Chatbot
+![Chatbot](assets/chatbot.gif)
+
+Democracy Chatbot is a project that aims to extract structured data from unstructured meeting protocols and create a knowledge graph for efficient data retrieval and querying. The project utilizes a Large Language Model (LLM) to extract metadata from PDF files obtained by scraping the website of the city of nykerleby. The extracted data is then converted into a knowledge graph, enabling quick access to the information. Additionally, the project includes a chatbot app that allows users to interact with the extracted data. 
+
 ## Project Setup
 
 To set up the project, follow the steps below:
@@ -109,9 +114,6 @@ This figure outlines the workflow for converting unstructured data from meeting 
 This workflow transforms unstructured data into structured knowledge that is easily accessible and queryable by end-users.
 
 #### Intelligent Document Chatbot
-
-![Chatbot](assets/chatbot.gif)
-
 
 - ✅ **Relevant Data + Usery Query**: The relevant data and user query is then sent to the llm.
 - ✅ **LLM Answer Based on Data**: The llm then generates an answer to the user query based on the relevant data.
