@@ -26,6 +26,9 @@ To set up the project, follow the steps below:
     ```bash
     pip install -e .
     ```
+
+1. Register or Login in to [Neo4j Aura](https://console.neo4j.io/) and create a free neo4j instance. Save the login credentials as it will be given only once.
+
 1. Create a secrets.env file in the config folder and add the following environment variables:
     ```bash
     OPENAI_API_KEY = "<api_key>"
@@ -34,6 +37,7 @@ To set up the project, follow the steps below:
     NEO4J_USERNAME = "<username>"
     NEO4J_PASSWORD = "<password>"
     ```
+
 
 ## Running the Project
 
