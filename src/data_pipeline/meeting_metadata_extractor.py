@@ -49,7 +49,10 @@ async def extract_meeting_metadata(df, meeting_titles_filter, client, prompt, in
 
     results = []
     async for result in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
-        results.append(await result)
+        try:
+            results.append(await result)
+        except Exception as e:
+            print("Error while extracting metadata: ", e)
 
     # add metadata to dataframe
     for pdf_name, metadata in results:
