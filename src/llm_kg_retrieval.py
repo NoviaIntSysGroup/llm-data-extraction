@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import types
 import retry
 from time import sleep
+import logging
 
 from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
@@ -79,44 +80,61 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
         intermediate_steps: List = []
 
-        generated_cypher = self.cypher_generation_chain.run(
-            {"question": question, "schema": self.graph_schema}, callbacks=callbacks
-        )
+        def generate_cypher():
+            # Generate Cypher code with LLM
+            generated_cypher = self.cypher_generation_chain.run(
+                {"question": question, "schema": self.graph_schema}, callbacks=callbacks
+            )
 
-        # Extract Cypher code if it is wrapped in backticks
-        generated_cypher = extract_cypher(generated_cypher).strip()
+            # Extract Cypher code if it is wrapped in backticks
+            generated_cypher = extract_cypher(generated_cypher).strip()
 
-        # replace query text with embeddings
-        generated_cypher_with_embedding = replace_query_with_embedding(
-            generated_cypher)
+            # replace query text with embeddings
+            generated_cypher_with_embedding = replace_query_with_embedding(
+                generated_cypher)
 
-        # Correct Cypher query if enabled
-        if self.cypher_query_corrector:
-            generated_cypher_with_embedding = self.cypher_query_corrector(
-                generated_cypher_with_embedding)
+            # Correct Cypher query if enabled
+            if self.cypher_query_corrector:
+                generated_cypher_with_embedding = self.cypher_query_corrector(
+                    generated_cypher_with_embedding)
 
+            return generated_cypher
+
+        # logger that just prints to console
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.INFO)
+        logger.addHandler(handler)
+
+        # Retrieve and limit the number of results
+        # Generated Cypher be null if query corrector identifies invalid schema
+        @retry.retry(exceptions=Exception, tries=5, logger=logger)
+        def execute_query():
+            query = generate_cypher()
+            context = self.graph.query(query)[: self.top_k]
+            return context, query
+
+        try:
+            context, generated_cypher = execute_query()
+        except:
+            context = "!!Cannot fetch data from database!!"
+            generated_cypher = "Invalid Cypher Query"
+
+        # Display the generated Cypher code
         _run_manager.on_text("Generated Cypher:",
                              end="\n", verbose=self.verbose)
         _run_manager.on_text(
             generated_cypher, color="green", end="\n", verbose=self.verbose
         )
 
+        # Add the generated Cypher code to the intermediate steps
         intermediate_steps.append({"query": generated_cypher})
 
-        # Retrieve and limit the number of results
-        # Generated Cypher be null if query corrector identifies invalid schema
-        @retry.retry(exceptions=Exception, tries=3)
-        def execute_query(query):
-            if query:
-                context = self.graph.query(query)[: self.top_k]
-            else:
-                context = []
-            return context
-
-        context = execute_query(generated_cypher_with_embedding)
         if self.return_direct:
             final_result = context
         else:
+            # Display the retrieved data
             _run_manager.on_text("Full Context:", end="\n",
                                  verbose=self.verbose)
             _run_manager.on_text(
