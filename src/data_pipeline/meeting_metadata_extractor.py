@@ -3,7 +3,7 @@ import os
 from openai import AsyncOpenAI as OpenAI
 import pandas as pd
 from tqdm.asyncio import tqdm
-from .utils import process_html
+from .utils import process_html, get_file_path
 import asyncio
 
 max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))
@@ -18,29 +18,33 @@ async def process_html_with_rate_limiting(filename, filepath, client, prompt):
         return await process_html(filename, filepath, client, prompt)
 
 
-async def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, client, prompt):
+async def extract_meeting_metadata(df, meeting_titles_filter, client, prompt, indexes):
     """
     Extracts meeting metadata from a meeting documents.
 
     Args:
         df (pandas.DataFrame): The DataFrame containing the meeting data.
         meeting_titles_filter (list): List of meeting titles to filter documents.
-        protocols_html_path (str): Path to the protocols HTML files.
         client (OpenAI): OpenAI client object.
         prompt (str): The prompt to use for the LLM.
+        indexes (list): List of indexes to process.
 
     Returns:
         pandas.DataFrame: The updated DataFrame with extracted metadata.
     """
+    filtered_df = df.copy()
+
+    if indexes:
+        filtered_df = df.iloc[indexes]
 
     # Filter documents that contain meeting metadata
-    filtered_df = df[df['title'].isin(meeting_titles_filter)]
+    filtered_df = filtered_df[filtered_df['title'].isin(meeting_titles_filter)]
 
     tasks = []
-    for filename in filtered_df['doc_name']:
-        filename = os.path.splitext(filename)[0]
+    for index, row in filtered_df.iterrows():
+        filename = os.path.splitext(row['doc_name'])[0]
         task = process_html_with_rate_limiting(
-            filename, protocols_html_path, client, prompt)
+            filename, get_file_path(df, index, filetype='html'), client, prompt)
         tasks.append(task)
 
     results = []
@@ -73,10 +77,10 @@ async def extract_meeting_metadata(df, meeting_titles_filter, protocols_html_pat
     return df
 
 
-async def extract_meeting_metadata_rate_limited(df, meeting_titles_filter, protocols_html_path, client, prompt):
+async def extract_meeting_metadata_rate_limited(df, meeting_titles_filter, client, prompt, indexes):
     start_time = asyncio.get_event_loop().time()
 
-    updated_df = await extract_meeting_metadata(df, meeting_titles_filter, protocols_html_path, client, prompt)
+    updated_df = await extract_meeting_metadata(df, meeting_titles_filter, client, prompt, indexes)
 
     elapsed_time = asyncio.get_event_loop().time() - start_time
     if elapsed_time < 60:
@@ -85,9 +89,17 @@ async def extract_meeting_metadata_rate_limited(df, meeting_titles_filter, proto
     return updated_df
 
 
-async def main():
+async def main(indexes=None):
+    """
+    Extracts meeting metadata from a meeting documents.
 
-    PROTOCOLS_HTML_PATH = os.getenv("PROTOCOLS_HTML_PATH")
+    Args:
+        indexes (list): List of indexes to process.
+
+    Returns:
+        pandas.DataFrame: The updated DataFrame with extracted metadata.
+    """
+
     METADATA_FILE = os.getenv("METADATA_FILE")
     DOC_TITLES_WITH_METADATA = ['Beslutande', 'Sammanträdesuppgifter och deltagande',
                                 'Kokoustiedot ja osallistujat', 'Vln:Beslutande', 'Päättäjät']
@@ -105,7 +117,7 @@ async def main():
     df = pd.read_csv(METADATA_FILE)
     df.fillna('', inplace=True)
     df = await extract_meeting_metadata_rate_limited(
-        df, DOC_TITLES_WITH_METADATA, PROTOCOLS_HTML_PATH, client, prompt)
+        df, DOC_TITLES_WITH_METADATA, client, prompt, indexes)
 
     # Save the updated DataFrame
     df.to_csv(METADATA_FILE, index=False)

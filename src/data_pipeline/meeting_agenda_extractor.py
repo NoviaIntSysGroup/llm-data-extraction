@@ -3,7 +3,7 @@ import os
 from openai import AsyncOpenAI as OpenAI
 import pandas as pd
 from tqdm.asyncio import tqdm
-from .utils import process_html
+from .utils import process_html, get_file_path
 import asyncio
 
 max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))
@@ -17,34 +17,38 @@ async def process_html_with_rate_limiting(filename, filepath, client, prompt):
         return await process_html(filename, filepath, client, prompt)
 
 
-async def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path, client, prompt, num_docs):
+async def extract_meeting_agenda(df, meeting_agenda_filter, client, prompt, indexes):
     """
     Extracts meeting metadata from a meeting documents.
 
     Args:
         df (pandas.DataFrame): The DataFrame containing the meeting data.
         meeting_agenda_filter (list): List of meeting titles to filter documents.
-        protocols_html_path (str): Path to the protocols HTML files.
         client (OpenAI): OpenAI client object.
         prompt (str): The prompt to use for the LLM.
-        num_docs (int): Number of documents to process.
+        indexes (list): List of indexes to process.
 
     Returns:
         pandas.DataFrame: The updated DataFrame with extracted metadata.
     """
+    filtered_df = df.copy()
+
+    # filter by indexes
+    if indexes:
+        filtered_df = df.iloc[indexes]
 
     # filter to only agenda items documents
-    filtered_df = df[~df['title'].isin(meeting_agenda_filter)]
+    filtered_df = filtered_df[~filtered_df['title'].isin(
+        meeting_agenda_filter)]
     filtered_df = filtered_df[(filtered_df['parent_link'] == "") & (
         ~filtered_df['section'].isin(["", "§ 0"]))]
 
     tasks = []
-    if not num_docs:
-        num_docs = len(filtered_df['doc_name'])
-    for filename in filtered_df['doc_name'][:num_docs]:
-        filename = os.path.splitext(filename)[0]
+
+    for index, row in filtered_df.iterrows():
+        filename = os.path.splitext(row['doc_name'])[0]
         task = process_html_with_rate_limiting(
-            filename, protocols_html_path, client, prompt)
+            filename, get_file_path(df, index, filetype='html'), client, prompt)
         tasks.append(task)
 
     results = []
@@ -60,9 +64,17 @@ async def extract_meeting_agenda(df, meeting_agenda_filter, protocols_html_path,
     return df
 
 
-async def main(num_docs=None):
+async def main(indexes=None):
+    """
+    Extracts agenda from a meeting documents.
 
-    PROTOCOLS_HTML_PATH = os.getenv("PROTOCOLS_HTML_PATH")
+    Args:
+        indexes (list): List of indexes to process.
+
+    Returns:
+        pandas.DataFrame: The updated DataFrame with extracted agenda.
+    """
+
     METADATA_FILE = os.getenv("METADATA_FILE")
     DOC_TITLES_WITHOUT_AGENDA = [
         'Sammanträdets laglighet och beslutsförhet',
@@ -90,10 +102,10 @@ async def main(num_docs=None):
     with open(AGENDA_EXTRACTION_PROMPT_PATH, 'r') as file:
         prompt = file.read()
 
-    df = pd.read_csv(METADATA_FILE, index_col=0)
+    df = pd.read_csv(METADATA_FILE)
     df.fillna("", inplace=True)
     df = await extract_meeting_agenda(
-        df, DOC_TITLES_WITHOUT_AGENDA, PROTOCOLS_HTML_PATH, client, prompt, num_docs)
+        df, DOC_TITLES_WITHOUT_AGENDA, client, prompt, indexes)
 
     # Save the updated DataFrame
     df.to_csv(METADATA_FILE, index=False)
