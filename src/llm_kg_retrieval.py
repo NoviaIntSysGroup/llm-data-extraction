@@ -269,9 +269,9 @@ Helpful answer:
 
         self.chain = MyGraphCypherQAChain.from_llm(
             cypher_llm=ChatOpenAI(
-                temperature=0, model='gpt-4-1106-preview'),
+                temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
             qa_llm=ChatOpenAI(
-                temperature=0, model='gpt-4-1106-preview', streaming=True, callbacks=[stream_handler]),
+                temperature=0, model=os.getenv("OPENAI_MODEL_NAME"), streaming=True, callbacks=[stream_handler]),
             cypher_prompt=CYPHER_GENERATION_PROMPT,
             qa_prompt=CYPHER_QA_PROMPT,
             graph=self.graph,
@@ -308,7 +308,7 @@ Data:
         )
 
         self.diagram_chain = LLMChain(
-            llm=ChatOpenAI(temperature=0, model='gpt-4-1106-preview'),
+            llm=ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
             prompt=DIAGRAM_PROMPT,
             verbose=True,
         )
