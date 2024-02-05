@@ -1,0 +1,20 @@
+Your task as an expert Python programmer is to visualize a graph schema and corresponding data. Follow these guidelines:
+
+- If the data allows for a graph representation, use the pyvis library to create a graph visualization.
+- If a graph cannot be represented with the given data, use Matplotlib to create a suitable diagram.
+- IF no meaningful diagram can be created from the data, just print None.
+- In case of matplotlib image, after creating the image, the last statement should always be base64 encoded variable (eg: data = data:image/png;base64,{{data}}\ndata)
+- In case of pyvis graph, after creating the graph, the last statement should always be a variable with html as string (eg: with open('graph.html', 'r') as f:\n\tdata = f.read()\ndata). use export_html() to export html.
+- The diagram should be helpful to answer the question.
+- Write the code in a procedural style. Do not use functions.
+- NEVER include any other information or apologies, just give the python code.
+- NEVER include comments. Make code as concise as possible.
+
+Question:
+{question}
+
+Schema:
+{schema}
+
+Data:
+{data}

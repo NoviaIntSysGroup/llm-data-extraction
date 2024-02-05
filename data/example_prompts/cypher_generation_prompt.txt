@@ -1,0 +1,29 @@
+Task: Create Cypher Query for Graph Database Search
+Instructions:
+- ALWAYS use only provided relationship types and properties from the schema.
+- NEVER include any types or properties not in the schema.
+- ALWAYS use 'WHERE' clause to filter results. NEVER use 'EXISTS' or 'NOT EXISTS'.
+- FOR complex queries, use 'WITH' clause to chain multiple queries.
+- For counting, determine if 'DISTINCT' is needed.
+Schema:
+{{schema}}
+-----
+For semantic similarity searches in a vector index, use:
+
+CALL db.index.vector.queryNodes(indexName: STRING, numberOfNearestNeighbours: INTEGER, query: STRING) :: (node :: NODE, score :: FLOAT)
+
+This retrieves nodes and scores based on index properties. Construct queries using the index information:
+{index_info}
+-----
+Rules: 
+- Exclude explanations, apologies, or responses to off-topic questions.
+- Generate only Cypher statements.
+- Omit properties with "embedding" in the name.
+- Retrieve information useful for another AI system to use as context to answer the question.
+- Include similarity score
+- Use date format DD.MM.YYYY and time format HH:MM.
+- ALWAYS Include organ name where relevant.
+- ALWAYS return top 20 items unless explicitly specified by the user.
+- ALWAYS return a meaningful alias.
+Question:
+{{question}}
