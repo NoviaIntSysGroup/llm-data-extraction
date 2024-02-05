@@ -22,7 +22,7 @@ def fetch_and_parse(url):
     return BeautifulSoup(response.text, 'html.parser')
 
 
-def get_header_keys(header_row):
+def get_headers(header_row):
     """
     Extracts the text from each <th> element and returns a list of headers.
 
@@ -55,19 +55,27 @@ def scrape_table(table, base_url, depth=1):
         list: A list of dictionaries containing the scraped data.
     """
     data = []
-    # Find the header row and the caption of the table
+    # Find the header row of the table
     header_row = table.find('tr', class_='colheader')
+
+    # Extract the caption of the table and replace any newline, tab, or carriage return characters
     caption = table.find('caption').get_text().replace(
         '\n', '').replace('\t', '').replace('\r', '')
+
+    # Truncate the caption to 50 characters and add an ellipsis if it's longer
     caption = caption[:50] + ('...' if len(caption) > 50 else '')
-    headers = get_header_keys(header_row)
+
+    # Get the header keys from the header row
+    headers = get_headers(header_row)
+
+    # Find all the rows in the table
     rows = table.find_all('tr')
 
     # Determine the starting index of data rows
     # If there is a header row, data starts after it
     data_row_start = rows.index(header_row) + 1 if header_row else 0
 
-    # Display the depth and number of items found for informational purposes
+    # Display the depth and number of items found
     print("\t"*(depth-1), '├─',
           f'Depth: {depth}. Found {len(rows[data_row_start:])} items. Heading: {caption.strip()}')
 
@@ -78,7 +86,7 @@ def scrape_table(table, base_url, depth=1):
         cells = row.find_all('td')
         # Loop through each cell in the row
         for index, cell in enumerate(cells):
-            # Use header for key if available, otherwise create a generic key
+            # Use header for key if available (for saving cell data in dict), otherwise create a generic key
             cell_key = headers[index] if index < len(
                 headers) else f'Cell_{index}'
             links = cell.find_all('a', href=True)  # Find all links in the cell
