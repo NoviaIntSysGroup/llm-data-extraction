@@ -35,7 +35,7 @@ def extract_cypher(text: str) -> str:
     # Find all matches in the input text
     matches = re.findall(pattern, text, re.DOTALL)
 
-    return matches[0] if matches else text
+    return matches[0].replace("cypher", "").strip() if matches else text
 
 
 def replace_query_with_embedding(cypher):
@@ -43,9 +43,11 @@ def replace_query_with_embedding(cypher):
     Replaces the query text in cypher query with embeddings
     """
 
+    # Regular expression pattern to find the query text in the cypher code
     regex = r"vector\.queryNodes\s*\(\s*['\"]\s*.+?\s*['\"]\s*,\s*\d+\s*,\s*['\"]\s*(.+?)\s*['\"]\s*\)"
     query_text = re.search(regex, cypher)
 
+    # If no query text is found, return the original cypher code
     if not query_text:
         return cypher
 
@@ -54,7 +56,10 @@ def replace_query_with_embedding(cypher):
     if not query_text:
         return cypher
 
+    # Generate embeddings for the query text
     embedding = generate_embeddings([query_text])[0]
+
+    # Replace the query text with the embedding in the cypher code
     cypher = cypher.replace(f"'{query_text}'", str(embedding)).replace(
         f'"{query_text}"', str(embedding))
 
@@ -70,10 +75,13 @@ def generate_embeddings(texts):
         texts=texts, model='embed-multilingual-v3.0', input_type="search_document")
     return response.embeddings
 
-# Modify Langchain's GraphCypherQAChain for our use case
-
 
 class MyGraphCypherQAChain(GraphCypherQAChain):
+    """
+    A modified version of the GraphCypherQAChain class that uses the cohere API to generate embeddings for vector search
+    and injects the LLM response into the streamlit app.
+    """
+
     def _call(
         self,
         inputs: Dict[str, Any],
@@ -136,9 +144,8 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
             generated_cypher, generated_cypher_with_embeddings = generate_cypher()
 
             if is_cypher_query_safe(generated_cypher):
-                # context = self.graph.query(generated_cypher_with_embeddings)[
-                #     : self.top_k]
-                context = "Tell the test passed"
+                context = self.graph.query(generated_cypher_with_embeddings)[
+                    : self.top_k]
                 return context, generated_cypher
             else:
                 return "Warning: Let users know manipulation of the database is not permitted", generated_cypher
@@ -196,7 +203,16 @@ class StreamHandler(BaseCallbackHandler):
 
 
 class KnowledgeGraphRAG:
-    def __init__(self, url, username, password, intermediate_placeholder, answer_placeholder, streamlit_):
+    def __init__(self, url, username, password, answer_placeholder=None, run_environment="script"):
+        """Initialize the KnowledgeGraphRAG class
+
+        Args:
+            url: URL of the Neo4j database
+            username: Username of the Neo4j database
+            password: Password of the Neo4j database
+            answer_placeholder: Streamlit placeholder for the LLM answer
+            run_environment: The environment in which the code is running. Can be "script" or "notebook"        
+        """
 
         driver = GraphDatabase.driver(url, auth=(username, password))
         self.index_info = self.get_index_info(driver)
@@ -207,108 +223,70 @@ class KnowledgeGraphRAG:
             password=password,
         )
 
-        CYPHER_GENERATION_TEMPLATE = f"""
-Task: Create Cypher Query for Graph Database Search
-Instructions:
-- ALWAYS use only provided relationship types and properties from the schema.
-- NEVER include any types or properties not in the schema.
-- ALWAYS use 'WHERE' clause to filter results. NEVER use 'EXISTS' or 'NOT EXISTS'.
-- FOR complex queries, use 'WITH' clause to chain multiple queries.
-- For counting, determine if 'DISTINCT' is needed.
-Schema:
-{{schema}}
------
-For semantic similarity searches in a vector index, use:
+        # open cypher generation prompt template file
+        with open(os.getenv("CYPHER_GENERATION_PROMPT_PATH"), "r") as file:
+            CYPHER_GENERATION_TEMPLATE = file.read()
 
-CALL db.index.vector.queryNodes(indexName: STRING, numberOfNearestNeighbours: INTEGER, query: STRING) :: (node :: NODE, score :: FLOAT)
-
-This retrieves nodes and scores based on index properties. Construct queries using the index information:
-{self.index_info}
------
-Rules: 
-- Exclude explanations, apologies, or responses to off-topic questions.
-- Generate only Cypher statements.
-- Omit properties with "embedding" in the name.
-- Retrieve information useful for another AI system to use as context to answer the question.
-- Include similarity score
-- Use date format DD.MM.YYYY and time format HH:MM.
-- ALWAYS Include organ name where relevant.
-- ALWAYS return top 20 items unless explicitly specified by the user.
-- ALWAYS return a meaningful alias.
-Question:
-{{question}}
-"""
+            # fstring replace index info in the template
+            CYPHER_GENERATION_TEMPLATE = CYPHER_GENERATION_TEMPLATE.format(
+                index_info=self.index_info)
 
         CYPHER_GENERATION_PROMPT = PromptTemplate(
             input_variables=["schema", "question"], template=CYPHER_GENERATION_TEMPLATE
         )
 
-        CYPHER_QA_TEMPLATE = """
-As a document question answering chatbot for Nykrleby, Finland, you specialize in extracting information from meeting protocol PDFs converted into a knowledge graph. Your responses should be based solely on the data provided from this graph, without doubting its accuracy or using internal knowledge. 
-
-- If the context is empty, state your lack of information on the topic and, if relevant, suggest the user rephrase their question.
-- By default, the data includes the top 20 results unless explocitly specified by user (ALWAYS inform the user about this).
-- Only respond to questions related to meeting protocols.
-- ALWAYS assume given data is your own knowledge. You always refer to the data as 'According to my knowledge'.
-
-The cypher query for question:
-{query}
-
-Retrieved data using above cypher:
-{context}
-
-Question: {question}
-Helpful answer:
-"""
+        with open(os.getenv("CYPHER_QA_PROMPT_PATH"), "r") as file:
+            CYPHER_QA_TEMPLATE = file.read()
 
         CYPHER_QA_PROMPT = PromptTemplate(
             input_variables=["context", "question"], template=CYPHER_QA_TEMPLATE
         )
 
-        stream_handler = StreamHandler(container=answer_placeholder)
+        # Initialize the LLM Chain based on if the code is running in a script or notebook
+        # If running in a script, use StreamHandler to stream the output to the streamlit answer placeholder if available
+        if run_environment == "script" and answer_placeholder:
+            stream_handler = StreamHandler(container=answer_placeholder)
+            self.chain = MyGraphCypherQAChain.from_llm(
+                cypher_llm=ChatOpenAI(
+                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
+                qa_llm=ChatOpenAI(
+                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME"), streaming=True, callbacks=[stream_handler]),
+                cypher_prompt=CYPHER_GENERATION_PROMPT,
+                qa_prompt=CYPHER_QA_PROMPT,
+                graph=self.graph,
+                verbose=True,
+                validate_cypher=True,
+                return_intermediate_steps=True,
+                top_k=100,
+            )
+        else:
+            self.chain = MyGraphCypherQAChain.from_llm(
+                cypher_llm=ChatOpenAI(
+                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
+                qa_llm=ChatOpenAI(
+                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
+                cypher_prompt=CYPHER_GENERATION_PROMPT,
+                qa_prompt=CYPHER_QA_PROMPT,
+                graph=self.graph,
+                verbose=True,
+                validate_cypher=True,
+                return_intermediate_steps=True,
+                top_k=100,
+            )
 
-        self.chain = MyGraphCypherQAChain.from_llm(
-            cypher_llm=ChatOpenAI(
-                temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
-            qa_llm=ChatOpenAI(
-                temperature=0, model=os.getenv("OPENAI_MODEL_NAME"), streaming=True, callbacks=[stream_handler]),
-            cypher_prompt=CYPHER_GENERATION_PROMPT,
-            qa_prompt=CYPHER_QA_PROMPT,
-            graph=self.graph,
-            verbose=True,
-            validate_cypher=True,
-            return_intermediate_steps=True,
-            top_k=100,
-        )
+        # open diagram prompt template file
+        with open(os.getenv("DIAGRAM_GENERATION_PROMPT_PATH"), "r") as file:
+            DIAGRAM_PROMPT_TEMPLATE = file.read()
 
-        DIAGRAM_PROMPT_TEMPLATE = """
-Your task as an expert Python programmer is to visualize a graph schema and corresponding data. Follow these guidelines:
-
-- If the data allows for a graph representation, use the pyvis library to create a graph visualization.
-- If a graph cannot be represented with the given data, use Matplotlib to create a suitable diagram.
-- IF no meaningful diagram can be created from the data, just print None.
-- In case of matplotlib image, after creating the image, the last statement should always be base64 encoded variable (eg: data = data:image/png;base64,{{data}}\ndata)
-- In case of pyvis graph, after creating the graph, the last statement should always be a variable with html as string (eg: with open('graph.html', 'r') as f:\n\tdata = f.read()\ndata). use export_html() to export html.
-- The diagram should be helpful to answer the question.
-- Write the code in a procedural style. Do not use functions.
-- NEVER include any other information or apologies, just give the python code.
-- NEVER include comments. Make code as concise as possible.
-
-Question:
-{question}
-
-Schema:
-{schema}
-
-Data:
-{data}
-"""
+        # Create a prompt template for diagram generation
         DIAGRAM_PROMPT = PromptTemplate(
             input_variables=["schema", "data"], template=DIAGRAM_PROMPT_TEMPLATE
         )
 
+        # Initialize the LLM Chain for diagram generation
         self.diagram_chain = LLMChain(
-            llm=ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
+            llm=ChatOpenAI(temperature=0, model=os.getenv(
+                "OPENAI_MODEL_NAME")),
             prompt=DIAGRAM_PROMPT,
             verbose=True,
         )
@@ -317,7 +295,7 @@ Data:
         """Process a prompt and return the response, query, and context"""
         try:
             result = self.chain(prompt)
-        except SessionExpired as e:
+        except SessionExpired:
             self.graph = Neo4jGraph(
                 url=self.graph.url,
                 username=self.graph.username,
@@ -339,7 +317,15 @@ Data:
 
     @retry.retry(exceptions=Exception, tries=3)
     def get_diagram(self, question, data):
-        """Generate a diagram from a prompt"""
+        """Generate a diagram from a prompt
+
+        Args:
+            question (str): The question to ask the LLM
+            data (str): The data to use in the diagram
+
+        Returns:
+            diagram (str): base64 encoded image of the diagram
+        """
         try:
             code = self.diagram_chain(
                 {"question": question, "schema": self.graph.schema, "data": data})

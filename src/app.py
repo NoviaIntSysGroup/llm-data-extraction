@@ -124,10 +124,8 @@ def main():
                         url=os.getenv("NEO4J_URI"),
                         username=os.getenv("NEO4J_USERNAME"),
                         password=os.getenv("NEO4J_PASSWORD"),
-                        intermediate_placeholder=intermediate_placeholder,
                         answer_placeholder=answer_placeholder,
-                        streamlit_=st
-                    )
+                        run_environment="script")
                     # get response from LLM
                     response, query, context = processor.process_prompt(prompt)
 
