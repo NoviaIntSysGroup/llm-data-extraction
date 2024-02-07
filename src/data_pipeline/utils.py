@@ -1,68 +1,91 @@
 import json
 import os
 import aiofiles
+import pandas as pd
 
 
-def get_file_path(df, index, filetype='pdf'):
+def convert_file_path(filepath, filetype='pdf'):
     '''
-    Get the file path for a given filename.
+    Convert the file path of a document to given filetype.
 
     Args:
-        df (DataFrame): The DataFrame containing the file paths.
-        index (int): The index of the row to get the path for.
-        filetype (str): The file type (extension) to get the path for. Defaults to 'pdf'.
+        filepath (str): The file path of the document.
+        filetype (str): The type of file.
+    Returns:
+        str: The file path of the document.
+    '''
+    filename, _ = os.path.splitext(os.path.basename(filepath))
+    filepath = os.path.join(os.path.dirname(
+        filepath), f'{filename}.{filetype}')
+    return filepath
+
+
+def get_documents_dataframe(type):
+    '''
+    Get the documents dataframe by fetching information from protocols folder and scraped_data.json file.
+
+    Args:
+        type (str): The type of documents to fetch. Can be 'metadata' or 'agenda'.
 
     Returns:
-        str: The file path for the given filename.
+        pandas.DataFrame: The documents dataframe.
     '''
 
-    row = df.iloc[index]
+    PROTOCOLS_PATH = os.getenv("PROTOCOLS_PATH")
+    SCRAPED_DATA_FILE_PATH = os.getenv("SCRAPED_DATA_FILE_PATH")
+    if not PROTOCOLS_PATH:
+        raise ValueError("Environmental variable 'PROTOCOLS_PATH' is not set")
+    if not os.path.exists(PROTOCOLS_PATH):
+        raise ValueError(
+            "Path in environmental variable 'PROTOCOLS_PATH' does not exist")
+    with open(SCRAPED_DATA_FILE_PATH, 'r', encoding='utf-8') as file:
+        scraped_data = json.load(file)
 
-    # replace file extension if html
-    fname, _ = os.path.splitext(row['doc_name'])
+    if type not in ['metadata', 'agendas']:
+        raise ValueError("type must be either 'metadata' or 'agenda'")
 
-    filename = f"{fname}.{filetype}"
+    # make an empty dataframe
+    columns = ['doc_link', 'title', 'section', 'meeting_date',
+               'meeting_time', 'meeting_reference', 'body', 'parent_link']
+    documents_df = pd.DataFrame(columns=columns)
 
-    if len(row) == 0:
-        print(f"No row found at index {index}")
-        return None
+    for body in scraped_data:
+        for meeting in body['meetings']:
+            for document in meeting['documents']:
+                parent_row = {
+                    "doc_link": document['doc_link'],
+                    "title": document['title'],
+                    "section": document['section'],
+                    "filepath": document['filepath'],
+                    'meeting_date': meeting['meeting_date'],
+                    'meeting_time': meeting['meeting_time'],
+                    'meeting_reference': meeting['meeting_reference'],
+                    'body': body['body'],
+                    'parent_link': ""
+                }
 
-    if not filename:
-        print(f"No 'doc_name' found at index {index}")
-        return None
+                # Concatenate the parent row DataFrame with the main DataFrame
+                documents_df = pd.concat(
+                    [documents_df, pd.DataFrame([parent_row])], ignore_index=True)
+                if document['attachments']:
+                    for attachment in document['attachments']:
+                        attachment_row = {
+                            "doc_link": attachment['doc_link'],
+                            "title": attachment['title'],
+                            "section": "",
+                            "filepath": attachment['filepath'],
+                            'meeting_date': meeting['meeting_date'],
+                            'meeting_time': meeting['meeting_time'],
+                            'meeting_reference': meeting['meeting_reference'],
+                            'body': body['body'],
+                            'parent_link': parent_row['doc_link']
+                        }
+                        # Concatenate the attachment row DataFrame with the main DataFrame
+                        documents_df = pd.concat(
+                            [documents_df, pd.DataFrame([attachment_row])], ignore_index=True)
+    documents_df.fillna('', inplace=True)
 
-    env_var = f'PROTOCOLS_{filetype.upper()}_PATH' if filetype not in [
-        'pdf', 'docx'] else 'PROTOCOLS_PDF_PATH'
-
-    # Fetch the base path from the environment variables
-    base_path = os.getenv(env_var)
-
-    if not base_path:
-        print(
-            f'Evironment variable {env_var} not set for filetype {filetype}. Cannot get file path for {filename}')
-        return None
-
-    # Extract necessary information from the row
-    body = row['body']
-    meeting_date = row['meeting_date']
-    parent_link = row['parent_link']
-
-    # Determine the base path
-    base_path = os.path.join(base_path, body, meeting_date)
-
-    # If there's a parent link, modify the path accordingly
-    if parent_link:
-        parent_filename = df[df['doc_link'] ==
-                             parent_link]['doc_name'].values[0]
-        base_path = os.path.join(
-            base_path, parent_filename.split('.')[0], 'attachments')
-    else:
-        base_path = os.path.join(base_path, filename.split('.')[0])
-
-    # Check if file exists; if not, download and update the DataFrame
-    full_path = os.path.join(base_path, filename)
-
-    return full_path
+    return documents_df
 
 
 async def extract_data_with_llm(text, client, prompt):
@@ -89,25 +112,24 @@ async def extract_data_with_llm(text, client, prompt):
     return response.choices[0].message.content.replace('```json', '').replace('```', '')
 
 
-async def process_html(filename, filepath, client, prompt):
+async def process_html(filepath, client, prompt):
     '''
     Process a single HTML file and return the file name and metadata as a tuple.
 
     Args:
-        filename (str): The filename (without extension) to be processed.
-        filepath (str): The path to the directory containing the HTML file.
+        filepath (str): The file path of the file to be inserted into LLM as a context.
         client (OpenAI): OpenAI client object.
         prompt (str): The prompt to use for the LLM.
 
     Returns:
-        tuple: A tuple containing the PDF filename and the extracted metadata.
+        tuple: A tuple containing the document filepath and the extracted metadata.
     '''
 
     # Open and read the html file
-    async with aiofiles.open(os.path.join(filepath, filename + '.html')) as doc:
+    async with aiofiles.open(convert_file_path(filepath, filetype="html")) as doc:
         text = await doc.read()
 
-    async def return_json_response(filename):
+    async def return_json_response():
         error = None
         for _ in range(3):
             try:
@@ -117,9 +139,10 @@ async def process_html(filename, filepath, client, prompt):
                 error = e
                 continue
         if error:
-            print(f"LLM Error after 3 retries! for {filename}.pdf:")
+            print(
+                f"LLM Error after 3 retries! for '{filepath}'")
             print(error)
             return None
 
-    response_data = await return_json_response(filename)
-    return filename + ".pdf", response_data
+    response_data = await return_json_response()
+    return filepath, response_data
