@@ -3,7 +3,7 @@ import os
 from openai import AsyncOpenAI as OpenAI
 import pandas as pd
 from tqdm.asyncio import tqdm
-from .utils import process_html, get_file_path
+from .utils import process_html
 import asyncio
 
 max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))

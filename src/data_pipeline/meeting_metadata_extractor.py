@@ -3,8 +3,9 @@ import os
 from openai import AsyncOpenAI as OpenAI
 import pandas as pd
 from tqdm.asyncio import tqdm
-from .utils import process_html, get_file_path
+from .utils import process_html, convert_file_path
 import asyncio
+
 
 max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))
 if max_calls_per_minute <= 0:
@@ -18,7 +19,7 @@ async def process_html_with_rate_limiting(filename, filepath, client, prompt):
         return await process_html(filename, filepath, client, prompt)
 
 
-async def extract_meeting_metadata(df, meeting_titles_filter, client, prompt, indexes):
+async def extract_meeting_metadata(df, meeting_titles_filter, client, prompt, indexes=None):
     """
     Extracts meeting metadata from a meeting documents.
 
@@ -41,10 +42,10 @@ async def extract_meeting_metadata(df, meeting_titles_filter, client, prompt, in
     filtered_df = filtered_df[filtered_df['title'].isin(meeting_titles_filter)]
 
     tasks = []
-    for index, row in filtered_df.iterrows():
-        filename = os.path.splitext(row['doc_name'])[0]
+    for _, row in filtered_df.iterrows():
+        filepath = row['filepath']
         task = process_html_with_rate_limiting(
-            filename, get_file_path(df, index, filetype='html'), client, prompt)
+            filepath, client, prompt)
         tasks.append(task)
 
     results = []
@@ -55,27 +56,27 @@ async def extract_meeting_metadata(df, meeting_titles_filter, client, prompt, in
             print("Error while extracting metadata: ", e)
 
     # add metadata to dataframe
-    for pdf_name, metadata in results:
+    for filepath, metadata in results:
         if metadata and metadata != "LLM Error!":
-            df.loc[df['doc_name'] == pdf_name,
+            df.loc[df['filepath'] == filepath,
                    'end_time'] = metadata.get('end_time', '')
-            df.loc[df['doc_name'] == pdf_name,
+            df.loc[df['filepath'] == filepath,
                    'meeting_location'] = metadata.get('meeting_location', '')
-            df.loc[df['doc_name'] == pdf_name,
+            df.loc[df['filepath'] == filepath,
                    'participants'] = json.dumps(metadata.get('participants', []), ensure_ascii=False)
-            df.loc[df['doc_name'] == pdf_name, 'substitutes'] = json.dumps(
+            df.loc[df['filepath'] == filepath, 'substitutes'] = json.dumps(
                 metadata.get('substitutes', []), ensure_ascii=False)
-            df.loc[df['doc_name'] == pdf_name, 'additional_attendees'] = json.dumps(
+            df.loc[df['filepath'] == filepath, 'additional_attendees'] = json.dumps(
                 metadata.get('additional_attendees', []), ensure_ascii=False)
-            df.loc[df['doc_name'] == pdf_name, 'signed_by'] = json.dumps(
+            df.loc[df['filepath'] == filepath, 'signed_by'] = json.dumps(
                 metadata.get('signed_by', []), ensure_ascii=False)
-            df.loc[df['doc_name'] == pdf_name, 'adjusted_by'] = json.dumps(
+            df.loc[df['filepath'] == filepath, 'adjusted_by'] = json.dumps(
                 metadata.get('adjusted_by', []), ensure_ascii=False)
-            df.loc[df['doc_name'] == pdf_name,
+            df.loc[df['filepath'] == filepath,
                    'adjustment_date'] = metadata.get('adjustment_date', '')
-            df['adjustment_date'] = df['adjustment_date'].str.extract(
-                r'(\d{1,2}\.\d{1,2}\.\d{4})', expand=False)
-            df.fillna('', inplace=True)
+    df['adjustment_date'] = df['adjustment_date'].str.extract(
+        r'(\d{4}\.\d{1,2}\.\d{1,2})', expand=False)
+    df.fillna('', inplace=True)
 
     return df
 
