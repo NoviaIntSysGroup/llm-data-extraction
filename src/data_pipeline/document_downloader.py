@@ -1,24 +1,23 @@
-import pandas as pd
 import requests
 import os
 from urllib.parse import unquote
 import re
 from tqdm import tqdm
-import shutil
+import json
 
 
-def download_pdf(url, save_path):
+def get_file_name_from_url(url):
     """
-    Downloads a PDF file from the given URL and saves it in the 'protocols' folder.
+    Extracts the filename from the given URL.
 
     Args:
-        url (str): The URL of the PDF file to download.
-        save_path (str): The path to the directory where the PDF will be saved.
+        url (str): The URL to extract the filename from.
 
     Returns:
-        str: The filename of the downloaded PDF file, or None if there was an error.
+        str: The filename extracted from the URL.
     """
     try:
+        print(f"Getting filename from {url}")
         header = requests.head(url).headers
 
         # Extract filename from Content-Disposition header
@@ -27,169 +26,233 @@ def download_pdf(url, save_path):
 
         if filename:
             # Decoding any URL encoded characters
-            filename = unquote(filename[0])
+            return unquote(filename[0])
         else:
-            # Create a filename if not found in the header
-            filename = url.split('/')[-1]
-
-        # Save the PDF in 'protocols_pdf' folder
-        filepath = os.path.join(save_path, filename)
-
-        # check if file exists
-        if os.path.exists(filepath):
-            return filename
-
-        response = requests.get(url, allow_redirects=True)
-        response.raise_for_status()  # Raise an error for bad status codes
-
-        os.makedirs(save_path, exist_ok=True)
-        with open(filepath, 'wb') as f:
-            f.write(response.content)
-
-        return filename
-    except Exception as e:
-        print(f"Error downloading {url}: {str(e)}")
+            return None
+    except:
         return None
 
 
-def download_pdfs(df, protocols_pdf_path):
+def download_file(url, save_path):
     """
-    Downloads PDFs from the provided dataframe and saves them in the specified directory. 
-    Updates the dataframe with the 'doc_name' column.
+    Downloads a PDF file from the given URL and saves it in the given path
 
     Args:
-        df (pandas.DataFrame): The dataframe containing the PDF links.
-        protocols_pdf_path (str): The path to the directory where the PDFs will be saved.
+        url (str): The URL of the PDF file to download.
+        save_path (str): The path where the file will be saved.
 
     Returns:
-        pandas.DataFrame: The updated dataframe with the 'doc_name' column added.
+        bool: True if the file was downloaded successfully, False otherwise.
     """
-    # Create the 'protocols' directory if it doesn't exist
-    os.makedirs(protocols_pdf_path, exist_ok=True)
+    try:
+        response = requests.get(url, allow_redirects=True)
+        response.raise_for_status()  # Raise an error for bad status codes
 
-    # Initialize 'doc_name' column
-    if 'doc_name' not in df.columns:
-        df['doc_name'] = ''
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, 'wb') as f:
+            f.write(response.content)
+        return True
+    except Exception as e:
+        print(f"Error downloading {url}: {str(e)}")
+        return False
 
-    def extract_id_from_url(url):
-        # Use regular expression to find the 'docid' parameter in the URL
-        match = re.search(r'docid=([^\&]+)', url)
-        if match:
-            # Extract the docid value
-            return match.group(1)
-        else:
-            return None
 
-    def title_to_filename_with_id_from_url(title, url):
-        """
-        Converts the title to a filename and appends the document ID to it.
-        (Attempt to reverse engineer how the filenames are generated on the website)
+def get_doc_save_path(protocols_path, body, meeting_date, section, filename):
+    """
+    Generates the path where the document will be saved.
 
-        Args:
-            title (str): The title of the document.
-            url (str): The URL of the document.
+    Args:
+        protocols_path (str): The path to the directory where the file will be saved.
+        body (str): The name of the body that the protocol belongs to.
+        meeting_date (str): The date of the meeting that the protocol belongs to.
+        section (str): The section of the protocol.
+        filename (str): The name of the file.
+    Returns:
+        str: The path where the file will be saved.
+    """
 
-        Returns:
-            str: The filename of the document.
-        """
-        # Extract the document ID from the URL
-        doc_id = extract_id_from_url(url)
-        if not doc_id:
-            return None
+    # seperate filename and extension from filename
+    fname, _ = os.path.splitext(filename)
+    # delete file id from filename
+    folder_name = re.sub(r'(_\d+)$', "", fname)
 
-        # Replace Swedish characters with their closest English equivalents
-        replacements = {
-            'ä': 'a',
-            'å': 'a',
-            'ö': 'o',
-            'Ä': 'A',
-            'Å': 'A',
-            'Ö': 'O'
-        }
-        for swedish_char, english_char in replacements.items():
-            title = title.replace(swedish_char, english_char)
+    # add section number to the beginning of the filename
+    folder_name = f"{section}_{folder_name}"
 
-        # Replace spaces with underscores and convert to lowercase
-        filename = title.replace(" ", "_").lower()
-        # remove special chars
-        filename = re.sub(r'[^a-zA-Z0-9_]', '', filename)[:99]
-        # Add the document ID and the .pdf extension
-        filename += f"_{doc_id}.pdf"
-        return filename
+    # change meeting date from dd.mm.yyyy to yyyy.mm.dd
+    meeting_date = re.sub(
+        r'(\d{1,2})\.(\d{1,2})\.(\d{4})', r'\3.\2.\1', meeting_date)
 
-    def update_df(row):
-        """
-        Update the DataFrame row with the downloaded file name.
+    save_path = os.path.join(protocols_path, body,
+                             meeting_date, folder_name)
 
-        This function checks if the document already exists in the specified path.
-        If not, it downloads the document and updates the DataFrame with the new file name.
-        """
-        # Extract necessary information from the row
-        doc_link = row['doc_link']
-        filename = row['doc_name'] or title_to_filename_with_id_from_url(
-            row['title'], doc_link) or "dummy.pdf"
-        body = row['body']
-        meeting_date = row['meeting_date']
-        parent_link = row['parent_link']
+    # Join the path components and return the full path
+    return save_path
 
-        # Determine the base save path
-        save_path = os.path.join(protocols_pdf_path, body, meeting_date)
 
-        # If there's a parent link, modify the save path accordingly
-        if parent_link:
-            parent_filename = df[df['doc_link'] ==
-                                 parent_link]['doc_name'].values[0]
-            save_path = os.path.join(
-                save_path, parent_filename.split('.')[0], 'attachments')
-        else:
-            save_path = os.path.join(save_path, filename.split('.')[0])
+def get_attachment_save_path(parent_folder, filename):
+    """
+    Generates the path where the attachment will be saved.
 
-        # Check if file exists; if not, download and update the DataFrame
-        full_path = os.path.join(save_path, filename)
-        if not (os.path.exists(full_path) or os.path.exists(os.path.join(protocols_pdf_path, filename))):
-            filename = download_pdf(doc_link, save_path)
-            row['doc_name'] = filename
-        elif os.path.exists(os.path.join(protocols_pdf_path, filename)):
-            # copy file to save path using shutil
-            os.makedirs(save_path, exist_ok=True)
-            shutil.copy(os.path.join(protocols_pdf_path, filename),
-                        os.path.join(save_path, filename))
+    Args:
+        parent_folder (str): The path to the parent folder where the attachment will be saved.
+        filename (str): The name of the file.
+    Returns:
+        str: The path where the file will be saved.
+    """
 
-        return row
+    # seperate filename and extension from filename
+    fname, _ = os.path.splitext(filename)
+    # delete file id from filename
+    folder_name = re.sub(r'(_\d+)$', "", fname)
 
-    # Update dataframe with downloaded file names
-    tqdm.pandas(desc="Downloading PDFs...")
+    save_path = os.path.join(
+        parent_folder, "attachments", folder_name)
 
-    # push attachment pdfs to the end of the list so that we can download them inside the meeting agenda folder
-    sorted_df = df.sort_values('parent_link', ascending=True)
-    sorted_df = sorted_df.progress_apply(update_df, axis=1)
+    # Join the path components and return the full path
+    return save_path
 
-    # Reorder the dataframe to match the original order
-    df = sorted_df.sort_index()
 
-    # Reordering columns for better readability
-    column_order = ['doc_name', 'doc_link', 'title', 'section', 'meeting_date',
-                    'start_time', 'meeting_reference', 'body', 'parent_link']
-    df = df[column_order]
+def save_scraped_data(count_downloaded, scraped_data, scraped_data_file_path):
+    """
+    Saves the scraped data to the specified file path.
 
-    return df
+    Args:
+        count_downloaded (int): The number of documents that have been downloaded.
+        scraped_data (dict): The scraped data to save.
+        scraped_data_file_path (str): The file path to save the scraped data to.
+    """
+    # Save the updated data to the same file after every 20 document,
+    # when the download is cancelled and resumed, we will not re-download the files
+    if count_downloaded % 20 == 0:
+        with open(scraped_data_file_path, 'w', encoding="utf-8") as file:
+            json.dump(scraped_data, file,
+                      ensure_ascii=False, indent=4)
+
+
+def download_files(scraped_data, protocols_path, scraped_data_file_path):
+    """
+    Downloads files from the provided scraped data and saves them in the specified directory, 
+    with multi-level tqdm progress bars.
+
+    Args:
+        scraped_data (dict): The scraped data in the form of a dictionary.
+        protocols_path (str): The path to the directory where the PDFs will be saved.
+        scraped_data_file_path (str): The path to the file where the scraped data is saved.
+
+    Returns:
+        scraped_data (dict): The scraped data with the filenames of the downloaded PDFs added.
+    """
+    # Count the number of documents to download
+    document_count = 0
+    meeting_count = 0
+    for body in scraped_data:
+        for meeting in body['meetings']:
+            meeting_count += 1
+            for document in meeting['documents']:
+                document_count += 1
+                for attachment in document['attachments']:
+                    document_count += 1
+
+    # Iterate through the scraped data with tqdm for progress tracking
+    progress = tqdm(scraped_data, total=document_count,
+                    desc=f"Downloading files from {meeting_count} meetings")
+    for body in progress:
+        # Iterate through the meetings and protocols
+        for meeting in body['meetings']:
+            # Iterate through the documents and download the files
+            for document in meeting['documents']:
+                # Skip if the file already exists
+                if not ('filepath' in document.keys() and os.path.exists(document['filepath'])):
+                    # get the link to the document
+                    doc_link = document['doc_link']
+                    # get the filename from the link
+                    filename = get_file_name_from_url(doc_link)
+                    if filename:
+                        save_path = get_doc_save_path(
+                            protocols_path, body['body'], meeting['meeting_date'], document['section'], filename)
+                        save_path = os.path.normpath(
+                            os.path.join(save_path, filename))
+                        # Check if the file already exists and download it if it doesn't
+                        if not os.path.exists(save_path):
+                            is_download_successful = download_file(
+                                doc_link, save_path)
+                            # If the download was successful, update the file path in the scraped data
+                            if is_download_successful:
+                                document['filepath'] = save_path
+                                print(f"File downloaded: {save_path}")
+                        else:
+                            document['filepath'] = save_path
+                        # update scraped data file
+                        save_scraped_data(progress.n, scraped_data,
+                                          scraped_data_file_path)
+                    else:
+                        print(f"Error: Could not download file {doc_link}")
+                else:
+                    save_path = document['filepath']
+                # add the completed file to the progress bar
+                progress.update(1)
+
+                # Iterate through the attachments and download the files
+                for attachment in document['attachments']:
+                    # Skip if the file already exists
+                    if not ('filepath' in attachment.keys() and os.path.exists(attachment['filepath'])):
+                        attachment_link = attachment['doc_link']
+                        # get the filename from the link
+                        attachment_filename = get_file_name_from_url(
+                            attachment_link)
+
+                        if attachment_filename:
+                            attachment_save_path = get_attachment_save_path(
+                                os.path.dirname(save_path), attachment_filename)
+                            attachment_save_path = os.path.normpath(os.path.join(
+                                attachment_save_path, attachment_filename))
+                            # Check if the file already exists and download it if it doesn't
+                            if not os.path.exists(attachment_save_path):
+                                is_download_successful = download_file(
+                                    attachment_link, attachment_save_path)
+                                # If the download was successful, update the file path in the scraped data
+                                if is_download_successful:
+                                    attachment['filepath'] = attachment_save_path
+                                    print(
+                                        f"File downloaded: {attachment_save_path}")
+                            else:
+                                attachment['filepath'] = attachment_save_path
+                            # update scraped data file
+                            save_scraped_data(progress.n, scraped_data,
+                                              scraped_data_file_path)
+                        else:
+                            print(
+                                f"Error: Could not download file {attachment_link}")
+                    progress.update(1)
+
+    # save the final scraped data, passing 20 as the count_downloaded so that it is saved
+    save_scraped_data(20, scraped_data, scraped_data_file_path)
+    progress.close()
+    return scraped_data
 
 
 def main():
 
     # Constants
-    PROTOCOLS_PDF_PATH = os.getenv("PROTOCOLS_PDF_PATH")
+    PROTOCOLS_PATH = os.getenv("PROTOCOLS_PATH")
+    SCRAPED_DATA_FILE_PATH = os.getenv("SCRAPED_DATA_FILE_PATH")
 
-    METADATA_FILE = os.getenv("METADATA_FILE")
-    df = pd.read_csv(METADATA_FILE)
-    df.fillna("", inplace=True)
-    df = download_pdfs(df, PROTOCOLS_PDF_PATH)
+    if not PROTOCOLS_PATH:
+        raise ValueError("Environmental variable 'PROTOCOLS_PATH' is not set")
+    if not os.path.exists(PROTOCOLS_PATH):
+        raise ValueError(
+            "Path in environmental variable 'PROTOCOLS_PATH' does not exist")
 
-    # Save the updated DataFrame
-    df.to_csv(METADATA_FILE, index=False)
+    # load scraped data json
+    with open(SCRAPED_DATA_FILE_PATH, 'r', encoding="utf-8") as file:
+        scraped_data = file.read()
+        scraped_data = json.loads(scraped_data)
 
-    return df
+    download_files(scraped_data, PROTOCOLS_PATH, SCRAPED_DATA_FILE_PATH)
 
 
 if __name__ == '__main__':
+    from dotenv import load_dotenv
+    load_dotenv('config/config.env')
     main()
