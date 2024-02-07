@@ -4,6 +4,7 @@ import json
 import pandas as pd
 import os
 import re
+from urllib.parse import urlparse
 
 
 def fetch_and_parse(url):
@@ -45,6 +46,7 @@ def get_headers(header_row):
 def scrape_table(table, base_url, depth=1):
     """
     Recursively scrapes data from tables, including nested tables, and returns the data as a list of dictionaries.
+    The JSON output has a generic structure to facilitate recursive scraping. It is a JSON representation of the table in the website.
 
     Args:
         table (bs4.element.Tag): The <table> element to scrape.
@@ -135,6 +137,63 @@ def find_meeting_reference(s):
     return match.group() if match else None
 
 
+def process_scraped_data(json_data):
+    """
+    Process scraped JSON data and convert it to more comprisable format.
+
+    Args:
+        json_data (list): List of JSON objects containing scraped meeting data 
+
+    Returns:
+        list: List of JSON objects containing processed meeting data
+    """
+    grouped_data = {}
+
+    # Iterate over each meeting in the JSON data
+    for meeting in json_data:
+        body_name = meeting['Verksamhetsorgan'].split(":")[0].strip()
+        meeting_reference = find_meeting_reference(meeting['Verksamhetsorgan'])
+        meeting_entry = {
+            'meeting_date': meeting['Datum'][0]['title'].split(' ')[0].strip(),
+            'meeting_time': meeting['Datum'][0]['title'].split(' ')[1].strip(),
+            'meeting_reference': meeting_reference,
+            'documents': []
+        }
+
+        # Iterate over each document in the meeting
+        for doc in meeting['Datum'][0]['nested_data']:
+            if 'Rubrik' in doc and isinstance(doc['Rubrik'][0], dict) and 'doc_url' in doc['Rubrik'][0]:
+                doc_entry = {
+                    'doc_link': doc['Rubrik'][0]['doc_url'],
+                    'title': doc['Rubrik'][0]['title'],
+                    'section': "0" if not doc.get('§') else f"{doc['§']}",
+                    'attachments': []
+                }
+
+                # Check for attachments
+                if 'Bilagor' in doc and doc['Bilagor'] and doc['Bilagor'] != '-':
+                    for attachment in doc['Bilagor'][0]['nested_data']:
+                        attachment_entry = {
+                            'doc_link': attachment['Cell_0'][0]['doc_url'],
+                            'title': attachment['Cell_0'][0]['title'],
+                        }
+                        doc_entry['attachments'].append(attachment_entry)
+
+                meeting_entry['documents'].append(doc_entry)
+
+        # Add meeting entry to the appropriate body
+        if body_name not in grouped_data:
+            grouped_data[body_name] = {
+                'body': body_name, 'meetings': [meeting_entry]}
+        else:
+            grouped_data[body_name]['meetings'].append(meeting_entry)
+
+    # Convert the dictionary to a list format
+    grouped_list = list(grouped_data.values())
+
+    return grouped_list
+
+
 def convert_to_df(json_data):
     """
     Converts JSON data into a pandas DataFrame.
@@ -200,17 +259,20 @@ def main():
     # Load environment variables
     DATA_PATH = os.getenv('DATA_PATH')
     SCRAPING_START_URL = os.getenv('SCRAPING_START_URL')
-    SCRAPING_BASE_URL = os.getenv('SCRAPING_BASE_URL')
+    parsed_url = urlparse(SCRAPING_START_URL)
+    SCRAPING_BASE_URL = f"{parsed_url.scheme}://{parsed_url.netloc}"
     SCRAPED_DATA_FILE_PATH = os.getenv('SCRAPED_DATA_FILE_PATH')
-    METADATA_FILE = os.getenv('METADATA_FILE')
 
     print('Scraping in progress...')
 
     # Fetch and parse the start URL
     soup = fetch_and_parse(SCRAPING_START_URL)
     tables = soup.find_all('table')  # Find all tables in the page
-    # Scrape the first table
+    # Start recursive scraping of the found table
     result = scrape_table(tables[0], SCRAPING_BASE_URL)
+
+    print('Processing scraped data...')
+    result = process_scraped_data(result)
 
     print(f'Saving scraped data to {SCRAPED_DATA_FILE_PATH}...')
 
@@ -218,15 +280,6 @@ def main():
     os.makedirs(DATA_PATH, exist_ok=True)
     with open(SCRAPED_DATA_FILE_PATH, 'w', encoding='utf-8') as f:
         json.dump(result, f, ensure_ascii=False, indent=4)
-
-    print('Converting scraped JSON to DataFrame...')
-
-    # Convert the scraped JSON data to a DataFrame
-    df = convert_to_df(result)
-    print(f'Saving DataFrame as CSV to {METADATA_FILE}')
-    df.to_csv(METADATA_FILE, index=False)
-
-    return df
 
 
 if __name__ == '__main__':
