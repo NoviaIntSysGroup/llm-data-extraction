@@ -5,6 +5,7 @@ halo==0.0.31
 pydantic==1.10.9
 retry==0.9.2
 aiofiles==23.2.1
+aiolimiter==1.1.0
 
 # Document processing
 mammoth==1.6.0
