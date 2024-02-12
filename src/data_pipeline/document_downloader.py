@@ -4,6 +4,7 @@ from urllib.parse import unquote
 import re
 from tqdm import tqdm
 import json
+from .utils import read_json_file
 
 
 def get_file_name_from_url(url):
@@ -48,7 +49,10 @@ def download_file(url, save_path):
         response = requests.get(url, allow_redirects=True)
         response.raise_for_status()  # Raise an error for bad status codes
 
+        # make dir is not exists
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        # save the file
         with open(save_path, 'wb') as f:
             f.write(response.content)
         return True
@@ -238,6 +242,7 @@ def main():
     PROTOCOLS_PATH = os.getenv("PROTOCOLS_PATH")
     SCRAPED_DATA_FILE_PATH = os.getenv("SCRAPED_DATA_FILE_PATH")
 
+    # check if env variables is set and path exists
     if not PROTOCOLS_PATH:
         raise ValueError("Environmental variable 'PROTOCOLS_PATH' is not set")
     if not os.path.exists(PROTOCOLS_PATH):
@@ -245,10 +250,14 @@ def main():
             "Path in environmental variable 'PROTOCOLS_PATH' does not exist")
 
     # load scraped data json
-    with open(SCRAPED_DATA_FILE_PATH, 'r', encoding="utf-8") as file:
-        scraped_data = file.read()
-        scraped_data = json.loads(scraped_data)
+    scraped_data = read_json_file(SCRAPED_DATA_FILE_PATH)
 
+    # check if the data is empty
+    if not scraped_data:
+        raise ValueError(
+            f"Scraped data file is empty: {SCRAPED_DATA_FILE_PATH}")
+
+    # download the files
     download_files(scraped_data, PROTOCOLS_PATH, SCRAPED_DATA_FILE_PATH)
 
 
