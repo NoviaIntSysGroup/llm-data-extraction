@@ -10,6 +10,7 @@ aiolimiter==1.1.0
 # Document processing
 mammoth==1.6.0
 pymupdf==1.23.6
+jsonschema==4.20.0
 
 # Packages for LLMs
 langchain==0.0.342
