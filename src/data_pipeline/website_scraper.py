@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import re
 from urllib.parse import urlparse
+from .utils import convert_date_to_yyyymmdd
 
 
 def fetch_and_parse(url):
@@ -139,7 +140,7 @@ def find_meeting_reference(s):
 
 def process_scraped_data(json_data):
     """
-    Process scraped JSON data and convert it to more comprisable format.
+    Process scraped JSON data and convert it to more understandable format.
 
     Args:
         json_data (list): List of JSON objects containing scraped meeting data 
@@ -154,7 +155,7 @@ def process_scraped_data(json_data):
         body_name = meeting['Verksamhetsorgan'].split(":")[0].strip()
         meeting_reference = find_meeting_reference(meeting['Verksamhetsorgan'])
         meeting_entry = {
-            'meeting_date': meeting['Datum'][0]['title'].split(' ')[0].strip(),
+            'meeting_date': convert_date_to_yyyymmdd(meeting['Datum'][0]['title'].split(' ')[0].strip()),
             'meeting_time': meeting['Datum'][0]['title'].split(' ')[1].strip(),
             'meeting_reference': meeting_reference,
             'documents': []
@@ -196,7 +197,7 @@ def process_scraped_data(json_data):
 
 def convert_to_df(json_data):
     """
-    Converts JSON data into a pandas DataFrame.
+    Converts scraped JSON data into a pandas DataFrame.
 
     Args:
         json_data (list): List of JSON objects containing meeting data.
