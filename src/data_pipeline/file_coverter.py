@@ -1,6 +1,5 @@
 import fitz
 import os
-import pandas as pd
 from mammoth import convert_to_html
 import os
 from tqdm import tqdm
