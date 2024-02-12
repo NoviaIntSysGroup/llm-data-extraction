@@ -5,6 +5,31 @@ import pandas as pd
 import re
 
 
+def validate_json_schema(json_data, json_schema=None):
+    """
+    Validates the JSON schema for the aggregate meeting JSON data.
+
+    Args:
+        json_data: JSON data to validate
+        json_schema: JSON schema to validate against. If not provided, it will be read from JSON_SCHEMA_PATH in config file.
+
+    Returns:
+        None
+    """
+    import jsonschema
+
+    # Read the JSON schema from the config file if not provided
+    if not json_schema:
+        json_schema_path = os.getenv("JSON_SCHEMA_PATH")
+        if not os.path.exists(json_schema_path):
+            raise FileNotFoundError(
+                "JSON_SCHEMA_PATH does not exist. Please check if the path is correct in the config file.")
+        json_schema = read_json_file(json_schema_path)
+
+    # Validate the JSON data against the schema
+    jsonschema.validate(json_data, json_schema)
+
+
 def convert_file_path(filepath, filetype='pdf'):
     '''
     Convert the file path of a document to given filetype.
@@ -92,6 +117,55 @@ def filter_agenda(df):
     return filtered_df.drop(columns=['parent_link'])
 
 
+def is_data_extracted(filepath, doc_type, extraction_type):
+    """
+    Check if the meeting data of given type has been already extracted.
+
+    Args:
+        filepath (str): The file path of the current file.
+        doc_type (str): The type of meeting document to check. Can be 'metadata' or 'agenda'
+        extraction_type (str): The mode of data extraction. Can be 'manual' or 'llm'.
+
+    Returns:
+        bool: True if the meeting metadata has been manually extracted, False otherwise.
+    """
+    # Get the directory name of the file
+    dir_name = os.path.dirname(filepath)
+
+    # Convert the type to lowercase
+    doc_type = doc_type.lower()
+    if doc_type not in ['metadata', 'agenda']:
+        raise ValueError("'doc_type' must be either 'metadata' or 'agenda'")
+
+    extraction_type = extraction_type.lower()
+    if extraction_type not in ['manual', 'llm']:
+        raise ValueError("'extraction_type' must be either 'manual' or 'llm'")
+
+    # Create the filename based on the type
+    filename = f'{extraction_type}_meeting_{doc_type}.json'
+
+    # Create the path to check by joining the directory name and filename
+    path_to_check = os.path.join(dir_name, filename)
+
+    # Check if the path exists
+    return os.path.exists(path_to_check)
+
+
+def read_json_file(filepath):
+    """
+    Reads a JSON file in utf-9 encoding and returns the data.
+    """
+    with open(filepath, 'r', encoding='utf-8') as f:
+        data = f.read()
+    if data:
+        try:
+            return json.loads(data)
+        except:
+            print(f'Error loading: {filepath}')
+    else:
+        print(f'Empty file: {filepath}')
+
+
 def get_documents_dataframe(type=None):
     '''
     Get the documents dataframe by fetching information from protocols folder and scraped_data.json file.
@@ -103,24 +177,35 @@ def get_documents_dataframe(type=None):
         pandas.DataFrame: The documents dataframe.
     '''
 
+    # Check if the 'PROTOCOLS_PATH' environmental variable is set
     PROTOCOLS_PATH = os.getenv("PROTOCOLS_PATH")
-    SCRAPED_DATA_FILE_PATH = os.getenv("SCRAPED_DATA_FILE_PATH")
     if not PROTOCOLS_PATH:
         raise ValueError("Environmental variable 'PROTOCOLS_PATH' is not set")
+
+    # Check if the path specified in 'PROTOCOLS_PATH' exists
     if not os.path.exists(PROTOCOLS_PATH):
         raise ValueError(
             "Path in environmental variable 'PROTOCOLS_PATH' does not exist")
-    with open(SCRAPED_DATA_FILE_PATH, 'r', encoding='utf-8') as file:
-        scraped_data = json.load(file)
 
+    # Read the scraped data from the JSON file
+    SCRAPED_DATA_FILE_PATH = os.getenv("SCRAPED_DATA_FILE_PATH")
+    scraped_data = read_json_file(SCRAPED_DATA_FILE_PATH)
+
+    # Check if the scraped data is empty
+    if not scraped_data:
+        raise ValueError(
+            f"Scraped Data File is Empty: {SCRAPED_DATA_FILE_PATH}")
+
+    # Check if the 'type' parameter is valid
     if type not in ['metadata', 'agenda', None]:
-        raise ValueError("type must be either 'metadata', 'agenda' or None")
+        raise ValueError("'type' must be either 'metadata', 'agenda' or None")
 
     # make an empty dataframe
     columns = ['doc_link', 'title', 'section', 'meeting_date',
                'meeting_time', 'meeting_reference', 'body', 'parent_link']
     documents_df = pd.DataFrame(columns=columns)
 
+    # Iterate over the meetings and agendas
     for body in scraped_data:
         for meeting in body['meetings']:
             for document in meeting['documents']:
@@ -157,10 +242,38 @@ def get_documents_dataframe(type=None):
                             [documents_df, pd.DataFrame([attachment_row])], ignore_index=True)
     documents_df.fillna('', inplace=True)
 
+    # filter metadata and agenda documents
     if type == 'metadata':
-        return filter_metadata(documents_df)
+        documents_df = filter_metadata(documents_df)
     elif type == 'agenda':
-        return filter_agenda(documents_df)
+        documents_df = filter_agenda(documents_df)
+
+    # check if data has been already extracted
+    def insert_data_extraction_status(df, doc_type):
+        """
+        Inserts columns that track if data has been already extracted manually and with llm for given document type (metadata or agenda).
+
+        Args:
+            df (pandas.DataFrame): DataFrame containing document data.
+            doc_type (str): The type of meeting document to check. Can be 'metadata' or 'agenda'
+
+        Returns:
+            pandas.DataFrame: DataFrame with inserted columns for tracking data extraction status
+        """
+        # add columns that track if data has been already extracted manually and with llm
+        for mode in ['llm', 'manual']:
+            df[f'is_{mode}_{doc_type}_extracted'] = df['filepath'].apply(
+                lambda filepath: is_data_extracted(filepath, doc_type, mode))
+        return df
+
+    # if type is None, check if both metadata and agenda has been extracted
+    if not type:
+        for doc_type in ['metadata', 'agenda']:
+            documents_df = insert_data_extraction_status(
+                documents_df, doc_type)
+    else:
+        # if type is provided, only check for given type of document
+        documents_df = insert_data_extraction_status(documents_df, type)
 
     return documents_df
 
@@ -176,117 +289,19 @@ async def extract_data_with_llm(text, client, prompt):
     Returns:
         str: The extracted data as a JSON string.
     '''
-    # response = await client.chat.completions.create(
-    #     model=os.getenv('OPENAI_MODEL_NAME'),
-    #     response_format={"type": "json_object"},
-    #     messages=[
-    #         {"role": "system",
-    #             "content": prompt},
-    #         {"role": "user", "content": text}
-    #     ]
-    # )
-
-    # response = {
-    #     "meeting_date": "8.3.2023",
-    #     "start_time": "10:00",
-    #     "meeting_reference": "1/2023",
-    #     "end_time": "10:57",
-    #     "meeting_location": "Stadshuset, Topeliusesplanaden 7",
-    #     "participants": [
-    #         {
-    #             "fname": "Ralf",
-    #             "lname": "Skåtar",
-    #             "role": "ordförande",
-    #             "attendance": True
-    #         },
-    #         {
-    #             "fname": "Görel",
-    #             "lname": "Ahlnäs",
-    #             "role": "medlem",
-    #             "attendance": True
-    #         },
-    #         {
-    #             "fname": "Bo-Erik",
-    #             "lname": "Hermans",
-    #             "role": "medlem",
-    #             "attendance": True
-    #         },
-    #         {
-    #             "fname": "Marita",
-    #             "lname": "Lillström",
-    #             "role": "medlem",
-    #             "attendance": False
-    #         },
-    #         {
-    #             "fname": "Marléne",
-    #             "lname": "Lindgrén",
-    #             "role": "stadsstyrelsens repr.",
-    #             "attendance": True
-    #         },
-    #         {
-    #             "fname": "Gun-Brit",
-    #             "lname": "Nyholm",
-    #             "role": "medlem",
-    #             "attendance": True
-    #         },
-    #         {
-    #             "fname": "Armas",
-    #             "lname": "Tiitanen",
-    #             "role": "medlem",
-    #             "attendance": True
-    #         }
-    #     ],
-    #     "substitutes": [],
-    #     "additional_attendees": [
-    #         {
-    #             "fname": "Johan",
-    #             "lname": "Svenlin",
-    #             "role": "äldrerådets sekreterare"
-    #         }
-    #     ],
-    #     "signed_by": [
-    #         {
-    #             "fname": "Ralf",
-    #             "lname": "Skåtar",
-    #             "role": "ordförande"
-    #         },
-    #         {
-    #             "fname": "Johan",
-    #             "lname": "Svenlin",
-    #             "role": "protokollförare"
-    #         }
-    #     ],
-    #     "adjusted_by": [
-    #         "Gun-Brit Nyholm",
-    #         "Armas Tiitanen"
-    #     ],
-    #     "adjustment_date": "2023.3.5",
-    #     "meeting_items": []
-    # }
-
-    response = {
-        "references": [
-            "Revisionsnämnden 20.11.2023 § 54"
-        ],
-        "context": "",
-        "prepared_by": [],
-        "proposal_by": [],
-        "proposal": "",
-        "decision": "Antecknades för kännedom.",
-        "title": "Bindningar, inkomna uppgifter 20.11.2023",
-        "section": "§ 65",
-        "attachments": [
-            {
-                "title": "Bil. Inlämnade bindningar  20.11.2023",
-                "link": "https://kungorelse.nykarleby.fi:8443/ktwebbin/ktproxy2.dll?doctype=3&docid=182694&version=1"
-            }
+    response = await client.chat.completions.create(
+        model=os.getenv('OPENAI_MODEL_NAME'),
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system",
+                "content": prompt},
+            {"role": "user", "content": text}
         ]
-    }
+    )
 
     response = json.dumps(response)
 
-    # return response.choices[0].message.content.replace('```json', '').replace('```', '')
-    return response
+    return response.choices[0].message.content.replace('```json', '').replace('```', '')
 
 
 async def save_json_file(filepath, data):
@@ -315,8 +330,22 @@ def extract_date(text):
     match = re.search(
         r'(\d{4}\.\d{1,2}\.\d{1,2}|\d{1,2}\.\d{1,2}\.\d{4})', text)
     if match:
-        return match.group(0)
+        # convert the date to yyyy.mm.dd format
+        return convert_date_to_yyyymmdd(match.group(0))
     return None
+
+
+def convert_date_to_yyyymmdd(date):
+    '''
+    Convert the date in dd.mm.yyyy to yyyy.mm.dd format. Return same date if it's already in yyyy.mm.dd format.
+
+    Args:
+        date (str): The date to convert.
+
+    Returns:
+        str: The date in yyyy.mm.dd format.
+    '''
+    return re.sub(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', r'\3.\2.\1', date)
 
 
 async def combine_and_save_data(response_json, filepath, df, type):
@@ -378,7 +407,7 @@ async def process_html(filepath, df, client, prompt, limiter, type):
         type (str): The type of documents to process. Can be 'metadata' or 'agenda'.
 
     Returns:
-        tuple: A tuple containing the document filepath and the extracted metadata.
+        None
     '''
 
     # Open and read the html file
