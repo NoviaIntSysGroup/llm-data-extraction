@@ -8,6 +8,7 @@ import base64
 from dotenv import load_dotenv
 
 # load secrets
+load_dotenv("../config/config.env")
 load_dotenv("../config/secrets.env")
 
 try:
