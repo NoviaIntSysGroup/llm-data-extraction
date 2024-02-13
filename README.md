@@ -103,9 +103,9 @@ This figure outlines the workflow for converting unstructured data from meeting 
 
 ![Meeting Protocol Structure](assets/meeting_protocols_structure.png)        
 
-1. ✅ **Extract Meeting Metadata with LLM**: Utilize a Large Language Model to extract metadata from the meetings documented in the HTML files. The JSON schema and prompt can be found in the [example prompts folder](data/example_prompts/meeting_metadata_extraction_prompt.txt).
-1. ⭕ **Extract Agenda with LLM**: Further extract the agenda from the meeting data using the LLM. The JSON schema and prompt can be found in the [example prompts folder](data/example_prompts/agenda_prompt_stadsfullm%C3%A4ktige.txt). One might need to make different prompts for each organ as the pdf structure for organs vary slightly.
-1. ✅ **Convert to JSON**: The extracted data is then converted into JSON (hierarchical format) from DataFrame (flat format), making it easier to create knowledge graph.
+1. ✅ **Extract Meeting Metadata with LLM**: Utilize a Large Language Model to extract metadata from the meetings documented in the HTML files. The JSON schema and prompt can be found in the [llm prompts folder](data/llm_prompts/meeting_metadata_extraction_prompt.txt).
+1. ⭕ **Extract Agenda with LLM**: Further extract the agenda from the meeting data using the LLM. The JSON schema and prompt can be found in the [llm_prompts folder](data/llm_prompts/agenda_extraction_prompt.txt). One might need to make different prompts for each organ as the pdf structure for organs vary slightly.
+2. ✅ **Convert to JSON**: The extracted data is then converted into JSON (hierarchical format) from DataFrame (flat format). DataFrames are useful for quick filtering and manipulation of the data whereas JSON format is useful for creating a knowledge graph.
 
 #### Knowledge Graph (KG) Conversion
 
