@@ -27,7 +27,12 @@ def validate_json_schema(json_data, json_schema=None):
         json_schema = read_json_file(json_schema_path)
 
     # Validate the JSON data against the schema
-    jsonschema.validate(json_data, json_schema)
+    try:
+        jsonschema.validate(json_data, json_schema)
+        return True
+    except Exception as e:
+        print(f"JSON schema validation failed: {e}")
+        return False
 
 
 def convert_file_path(filepath, filetype='pdf'):
@@ -299,8 +304,6 @@ async def extract_data_with_llm(text, client, prompt):
         ]
     )
 
-    response = json.dumps(response)
-
     return response.choices[0].message.content.replace('```json', '').replace('```', '')
 
 
@@ -312,8 +315,9 @@ async def save_json_file(filepath, data):
         filepath (str): The file path of the JSON file.
         data (dict): The data to save into the JSON file.
     '''
+    data = json.dumps(data, ensure_ascii=False, indent=4)
     async with aiofiles.open(filepath, 'w', encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
+        await file.write(data)
 
 
 def extract_date(text):
@@ -348,6 +352,12 @@ def convert_date_to_yyyymmdd(date):
     return re.sub(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', r'\3.\2.\1', date)
 
 
+# define the original dataframe outside the function as we use it to get attachments in the combine_and_save_data function.
+# its a little hack to not fetch it again and again on the fly as it takes 3s to fetch it each time.
+# cuts the function execution time by 3n seconds where n is the number of times the function is called.
+original_df = get_documents_dataframe()
+
+
 async def combine_and_save_data(response_json, filepath, df, type):
     '''
     Combine the data scraped from website and data extracted from the LLM and save it into a JSON file.
@@ -367,11 +377,11 @@ async def combine_and_save_data(response_json, filepath, df, type):
             response_json['adjustment_date'])
         # will be added later in the pipeline
         response_json['meeting_items'] = []
+
+        # construct the json file path
         json_filepath = os.path.join(os.path.dirname(filepath),
                                      'llm_meeting_metadata.json')
     elif type == 'agenda':
-        # get the original dataframe to get the attachments
-        original_df = get_documents_dataframe()
         response_json['title'] = df.at[index, 'title']
         response_json['section'] = df.at[index, 'section']
         # get all the atachments of the row based on parent link
@@ -380,18 +390,18 @@ async def combine_and_save_data(response_json, filepath, df, type):
 
         # add the attachments to the item
         response_json['attachments'] = []
-        for index, attachment in attachments.iterrows():
-            response_json['attachments'].append({
-                "title": attachment['title'],
-                "link": attachment['doc_link']
-            })
-
+        if not attachments.empty:
+            for index, attachment in attachments.iterrows():
+                response_json['attachments'].append({
+                    "title": attachment['title'],
+                    "link": attachment['doc_link']
+                })
+        # construct the json file path
         json_filepath = os.path.join(os.path.dirname(
             filepath), 'llm_meeting_agenda.json')
 
     # save the combined data
     await save_json_file(json_filepath, response_json)
-    print(f"Saved {type} data to {json_filepath}")
 
 
 async def process_html(filepath, df, client, prompt, limiter, type):
@@ -415,6 +425,12 @@ async def process_html(filepath, df, client, prompt, limiter, type):
         text = await doc.read()
 
     async def return_json_response():
+        """
+        Extract data from the LLM and return the response as a JSON object.
+
+        Returns:
+            dict: The extracted data as a JSON object.
+        """
         error = None
         for _ in range(3):
             try:
@@ -429,8 +445,9 @@ async def process_html(filepath, df, client, prompt, limiter, type):
                 f"LLM Error after 3 retries! for extracting {type} from '{filepath}':", error)
             return
 
+    # Extract the data from the LLM as JSON
     response_json = await return_json_response()
 
-    # combine the data scraped from website and data extracted from the LLM
+    # Combine the data scraped from website and data extracted from the LLM
     if response_json:
         await combine_and_save_data(response_json, filepath, df, type)
