@@ -11,7 +11,7 @@ You are an expert JSON metadata extractor. You extract data from given user prom
   - `fname`: string (The first name of the participant)
   - `lname`: string (The last name of the participant)
   - `role`: string (Their role or title, e.g., ordförande, vice ordförande, medlem etc)
-  - `attendance`: boolean (Indicating if they were present or absent, if available, maybe indicated by [X] )
+  - `attendance`: boolean (Indicating if they were present or absent, if available; maybe indicated by [X] in the document)
 - `substitutes`: array of objects
   - `fname`: string (The first name of the substitute)
   - `lname`: string (The last name of the substitute)
