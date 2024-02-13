@@ -61,7 +61,7 @@
                                             },
                                             "attendance": {
                                                 "type": "boolean",
-                                                "description": "Indicating if the person was present or absent, if available, maybe indicated by [X]"
+                                                "description": "Indicating if the person was present or absent, if available, maybe indicated by [X] in the document."
                                             }
                                         }
                                     }
