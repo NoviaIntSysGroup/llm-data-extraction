@@ -38,6 +38,7 @@ async def extract_meeting_data(df=None, type=None):
         await extract_meeting_data(filter_agenda(df), "agenda")
         return
 
+    # if a type is specified, extract the specified type
     if type in ["metadata", "agenda"]:
         EXTRACTION_PROMPT_PATH = os.getenv(
             f"{type.upper()}_EXTRACTION_PROMPT_PATH")
@@ -53,19 +54,23 @@ async def extract_meeting_data(df=None, type=None):
         with open(EXTRACTION_PROMPT_PATH, 'r') as file:
             prompt = file.read()
 
+        # Create a extraction task for each document (row) in the dataframe
         tasks = []
         for _, row in df.iterrows():
             filepath = row['filepath']
+            # the filepath is of the pdf document, we use this filepath to construct the path to the html file
             task = process_html(
                 filepath, df, client, prompt, limiter, type=type)
             tasks.append(task)
 
+        # Run the tasks concurrently
         async for task in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
             try:
                 await task
             except Exception as e:
                 print(f"Error while extracting {type}: ", e)
     else:
+        # raise an error if the type is invalid
         raise ValueError(
             "Invalid type. Type must be either 'metadata', 'agenda' or None.")
 
