@@ -18,7 +18,6 @@ def get_file_name_from_url(url):
         str: The filename extracted from the URL.
     """
     try:
-        print(f"Getting filename from {url}")
         header = requests.head(url).headers
 
         # Extract filename from Content-Disposition header
@@ -184,7 +183,6 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
                             # If the download was successful, update the file path in the scraped data
                             if is_download_successful:
                                 document['filepath'] = save_path
-                                print(f"File downloaded: {save_path}")
                         else:
                             document['filepath'] = save_path
                         # update scraped data file
@@ -218,8 +216,6 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
                                 # If the download was successful, update the file path in the scraped data
                                 if is_download_successful:
                                     attachment['filepath'] = attachment_save_path
-                                    print(
-                                        f"File downloaded: {attachment_save_path}")
                             else:
                                 attachment['filepath'] = attachment_save_path
                             # update scraped data file
