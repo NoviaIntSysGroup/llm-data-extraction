@@ -3,7 +3,7 @@ You are an expert JSON metadata extractor. You extract data from given user prom
 # JSON Schema for Meeting Documents
 
 ## Basic Meeting Information
-- `end_time`: string (The ending time of the meeting in form hour:min, if available)
+- `end_time`: string (The ending time of the meeting in form hh:mm, if available)
 - `meeting_location`: string (The location of the meeting)
 
 ## Participants and Attendance
