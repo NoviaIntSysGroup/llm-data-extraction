@@ -1,7 +1,6 @@
 # custom files and folders
 config/secrets.env
 data/protocols
-data/extracted_json
 data/scraped_data.json
 .vscode
 ## Boilerplates
