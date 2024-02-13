@@ -65,6 +65,8 @@ To set up the project, follow the steps below:
     ```
 3. Open the app in your browser with the url shown in the terminal.
 
+**Note: Before running the chatbot app, ensure that there is an already populated knowledge graph in Neo4j. If there is no existing knowledge graph, please run the data extraction pipeline first.**
+
 ## Project Structure
 
 The project directory contains the following files and folders:
@@ -125,5 +127,5 @@ This workflow transforms unstructured data into structured knowledge that is eas
 
 ## Future Improvements:
 
-- [ ] Improve the rate limiting logic for LLM calls
-- [ ] Save the LLM extracted data in intermediate files to avoid re-extraction
+- [ ] Add unit tests to the data extraction pipeline
+- [ ] Add post-processing logic to remove/fix inconsistencies in the knowledge graph
