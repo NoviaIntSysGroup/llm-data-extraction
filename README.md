@@ -74,7 +74,7 @@ The project directory contains the following files and folders:
 - `notebooks/`: Contains the notebooks used in the project.
 - `src/`: Contains the source code of the project.
 - `data/`: Contains the data used in the project. PDFs and HTML files downloaded by the scripts are stored here.
-- `data/example_prompts/`: Contains the prompts used for LLMs.
+- `data/llm_prompts/`: Contains the prompts used for LLMs.
 - `data/schema/`: Contains the schema for the JSON data.
 - `assets/`: Contains the images used in the project.
 - `config/`: Contains the configuration files used in the project.
