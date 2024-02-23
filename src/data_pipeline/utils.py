@@ -190,10 +190,19 @@ def get_documents_dataframe(type=None):
     # Check if the path specified in 'PROTOCOLS_PATH' exists
     if not os.path.exists(PROTOCOLS_PATH):
         raise ValueError(
-            "Path in environmental variable 'PROTOCOLS_PATH' does not exist")
+            "Path in environmental variable 'PROTOCOLS_PATH' does not exist. Please check the path or create the directory if it does not exist.")
 
     # Read the scraped data from the JSON file
     SCRAPED_DATA_FILE_PATH = os.getenv("SCRAPED_DATA_FILE_PATH")
+
+    if not SCRAPED_DATA_FILE_PATH:
+        raise ValueError(
+            "Environmental variable 'SCRAPED_DATA_FILE_PATH' is not set")
+    
+    if not os.path.exists(SCRAPED_DATA_FILE_PATH):
+        raise ValueError(
+            f"Scraped Data File does not exist: {SCRAPED_DATA_FILE_PATH}. Please check the path or create the file if it does not exist.")
+    
     scraped_data = read_json_file(SCRAPED_DATA_FILE_PATH)
 
     # Check if the scraped data is empty
@@ -352,13 +361,7 @@ def convert_date_to_yyyymmdd(date):
     return re.sub(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', r'\3.\2.\1', date)
 
 
-# define the original dataframe outside the function as we use it to get attachments in the combine_and_save_data function.
-# its a little hack to not fetch it again and again on the fly as it takes 3s to fetch it each time.
-# cuts the function execution time by 3n seconds where n is the number of times the function is called.
-original_df = get_documents_dataframe()
-
-
-async def combine_and_save_data(response_json, filepath, df, type):
+async def combine_and_save_data(response_json, filepath, df, original_df, type):
     '''
     Combine the data scraped from website and data extracted from the LLM and save it into a JSON file.
 
@@ -366,6 +369,8 @@ async def combine_and_save_data(response_json, filepath, df, type):
         response_json (dict): The extracted metadata.
         filepath (str): The file path of the document.
         df (pandas.DataFrame): The DataFrame containing the meeting documents.
+        original_df (pandas.DataFrame): The original DataFrame containing all the meeting documents.
+        type (str): The type of documents to process. Can be 'metadata' or 'agenda'.
     '''
     index = df[df['filepath'] == filepath].index[0]
     if type == 'metadata':
@@ -404,13 +409,14 @@ async def combine_and_save_data(response_json, filepath, df, type):
     await save_json_file(json_filepath, response_json)
 
 
-async def process_html(filepath, df, client, prompt, limiter, type):
+async def process_html(filepath, df, original_df, client, prompt, limiter, type):
     '''
     Process a single HTML file and save the extracted metadata into a JSON file.
 
     Args:
         filepath (str): The file path of the file to be inserted into LLM as a context.
         df (pandas.DataFrame): The DataFrame containing the meeting documents.
+        original_df (pandas.DataFrame): The original DataFrame containing all the meeting documents.
         client (OpenAI): OpenAI client object.
         prompt (str): The prompt to use for the LLM.
         limiter (AsyncLimiter): The limiter to use for rate limiting the LLM calls.
@@ -450,4 +456,4 @@ async def process_html(filepath, df, client, prompt, limiter, type):
 
     # Combine the data scraped from website and data extracted from the LLM
     if response_json:
-        await combine_and_save_data(response_json, filepath, df, type)
+        await combine_and_save_data(response_json, filepath, df, original_df, type)

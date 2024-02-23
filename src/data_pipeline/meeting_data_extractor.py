@@ -56,11 +56,13 @@ async def extract_meeting_data(df=None, type=None):
 
         # Create a extraction task for each document (row) in the dataframe
         tasks = []
+        # Get dataframe containing all meeting documents. Used to find the parent meeting document of the attachment
+        original_df = get_documents_dataframe()
         for _, row in df.iterrows():
             filepath = row['filepath']
             # the filepath is of the pdf document, we use this filepath to construct the path to the html file
             task = process_html(
-                filepath, df, client, prompt, limiter, type=type)
+                filepath, df, original_df, client, prompt, limiter, type=type)
             tasks.append(task)
 
         # Run the tasks concurrently
