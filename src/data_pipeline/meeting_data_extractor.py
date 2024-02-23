@@ -1,7 +1,7 @@
 import os
 from openai import AsyncOpenAI as OpenAI
 from tqdm.asyncio import tqdm
-from .utils import process_html, filter_agenda, filter_metadata
+from .utils import process_html, filter_agenda, filter_metadata, get_documents_dataframe
 import asyncio
 from aiolimiter import AsyncLimiter
 
@@ -26,7 +26,6 @@ async def extract_meeting_data(df=None, type=None):
     """
     # if no dataframe is provided, get the default dataframe
     if df is None or df.empty:
-        from .utils import get_documents_dataframe
         print("Fetching documents dataframe...")
         df = get_documents_dataframe()
 
