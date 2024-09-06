@@ -18,7 +18,7 @@ To set up the project, follow the steps below:
 1. Clone the project repository by executing the following command:
 
     ```bash
-    git clone git@github.com:NoviaIntSysGroup/llm-data-extraction.git
+    git clone https://github.com/NoviaIntSysGroup/llm-data-extraction.git
     ```
 
 1. Navigate to the project directory and install the required packages by running the following command:
