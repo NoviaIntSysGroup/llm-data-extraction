@@ -457,3 +457,82 @@ async def process_html(filepath, df, original_df, client, prompt, limiter, type)
     # Combine the data scraped from website and data extracted from the LLM
     if response_json:
         await combine_and_save_data(response_json, filepath, df, original_df, type)
+
+def construct_aggregate_json(construct_from, validate_json=True):
+    """
+    Constructs a single JSON out of all the meeting metadata and agenda.
+
+    Args:
+        construct_from (str): The source from which to construct the JSON. Can be "llm" or "manual".
+        validate_json (bool): Whether to validate the JSON schema or not. Defaults to True.
+
+    Returns:
+        None
+    """
+    if construct_from.lower() not in ["llm", "manual"]:
+        raise ValueError("'construct_from' argument only accepts 'llm' and 'manual'.")
+
+    aggregate_json = {}
+    aggregate_json['body'] = []
+
+    # Get the protocols path from the environment variable
+    protocols_path = os.getenv("PROTOCOLS_PATH")
+
+    # Check if the protocols path exists
+    if not os.path.exists(protocols_path):
+        print("PROTOCOLS_PATH does not exist. Please check if the path is correct in the config file.")
+        return
+
+    # Iterate over each body in the protocols path
+    for body in os.scandir(protocols_path):
+        if not body.is_dir():
+            continue
+        aggregate_meeting = []
+        
+        # Iterate over each meeting in the body
+        for meeting in os.scandir(body.path):
+            if not meeting.is_dir():
+                continue
+            metadata = None
+            aggregate_agenda = []
+            
+            # Iterate over each document in the meeting
+            for document in os.scandir(meeting.path):
+                if not document.is_dir():
+                    continue
+                metadata_path = os.path.join(document.path, f"{construct_from}_meeting_metadata.json")
+                agenda_path = os.path.join(document.path, f"{construct_from}_meeting_agenda.json")
+                
+                # Check if the metadata or agenda file exists
+                if os.path.exists(metadata_path):
+                    metadata = read_json_file(metadata_path)
+                elif os.path.exists(agenda_path):
+                    item = read_json_file(agenda_path)
+                    if not item:
+                        item = []
+                    aggregate_agenda.append(item)
+            
+            # Add the aggregate agenda to the metadata
+            if metadata:
+                metadata['meeting_items'] = aggregate_agenda
+            else:
+                print(f"{construct_from} meeting metadata not found for {meeting.path}.")
+            
+            # Append the metadata to the aggregate meeting
+            aggregate_meeting.append(metadata)
+        
+        # Append the aggregate meeting to the body
+        aggregate_json['body'].append({
+            "name": body.name,
+            "meetings": aggregate_meeting
+        })
+
+    # Write the aggregate JSON to a file
+    aggregate_json_path = os.path.join(protocols_path, f"{construct_from}_aggregate_data.json")
+    with open(aggregate_json_path, "w") as f:
+        f.write(json.dumps(aggregate_json, indent=4, ensure_ascii=False))
+        print(f"Aggregate JSON saved to {os.path.normpath(aggregate_json_path)}.")
+
+    # Validate the JSON schema
+    if validate_json and not validate_json_schema(aggregate_json):
+        print("Please fix the JSON validation errors before uploading to the database.")
