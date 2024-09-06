@@ -242,8 +242,9 @@ def main():
     if not PROTOCOLS_PATH:
         raise ValueError("Environmental variable 'PROTOCOLS_PATH' is not set")
     if not os.path.exists(PROTOCOLS_PATH):
-        raise ValueError(
-            "Path in environmental variable 'PROTOCOLS_PATH' does not exist")
+        # create the directory if it does not exist
+        os.makedirs(PROTOCOLS_PATH, exist_ok=True)
+        print(f"Directory created for saving protocols: {PROTOCOLS_PATH}")
 
     # load scraped data json
     scraped_data = read_json_file(SCRAPED_DATA_FILE_PATH)
