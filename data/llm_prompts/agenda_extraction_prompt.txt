@@ -3,6 +3,7 @@ You are a JSON data extractor who ALWAYS gives valid minified JSON as output fro
 You ALWAYS focus on current reference. ALWAYS follow the following JSON schema:
 {
     'references': array of strings # list of historical or previous references for eg: Stadsfullmäktige 15.6.2023, 28 § (if any. DO NOT INCLUDE current reference)
+    'errand_id': string # id of the current errand, typically in the form "NKBY/660/10.04.00.01/2022"
     'context': string # description of current reference (if any. it might come after the decision of last previous reference. do not include anything from Beslutshistorik or Tidigare behandling)   
     'prepared_by': array of objects # list of people who prepared the current reference (if any. do not include proposal maker)
         'fname': string # first name of the person who prepared the current reference
@@ -45,6 +46,7 @@ extract data from reference =  Stadsfullmäktige 28.9.2023 48 §
 ```json
 {
     'references': ['Stadsstyrelsen 25.9.2023 § 210'],
+    'errand_id': 'NKBY/627/02.02.00.01/2023'
     'context': '',
     'prepared_by': [],
     'proposal_by': [],
@@ -88,6 +90,7 @@ extract data from reference = Stadsfullmäktge 15.12.2022 67 §
 ```json
 {
     'references': ['Tekniska nämnden 15.11.2022, § 139', 'Stadsstyrelsen 28.11.2022, 254 §'],
+    'errand_id': 'NKBY/660/10.04.00.01/2022',
     'context': '',
     'prepared_by': [],
     'proposal_by': [
