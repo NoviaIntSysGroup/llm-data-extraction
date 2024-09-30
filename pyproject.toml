@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-data-extraction"
+version = "0.2.0"
+description = "A project for LLM structured data extraction from unstructured data"
+authors = [
+    { name = "Ashish Dahal" }
+]
+readme = "README.md"
+requires-python = ">=3.7"
+keywords = ["llm", "data-extraction"]  # Example keywords
+
+dependencies = [
+    # General Packages
+    "notebook==7.2.2",
+    "python-dotenv==1.0.0",
+    "halo==0.0.31",
+    "retry==0.9.2",
+    "aiofiles==23.2.1",
+    "aiolimiter==1.1.0",
+    "matplotlib==3.9.2",
+    "pyvis==0.3.2",
+    
+    # Document processing
+    "mammoth==1.6.0",
+    "pymupdf==1.24.10",
+    "jsonschema==4.20.0",
+    "pdf-annotate==0.12.0",
+
+
+    # Packages for LLMs
+    "langchain==0.3.0",
+    "langchain-community==0.3.0",
+    "langchain-openai==0.2.0",
+    "huggingface_hub==0.24.6",
+    "tiktoken==0.5.1",
+    "together==0.2.7",
+    "cohere==4.42",
+    "openai==1.45.0",
+    "chromadb==0.4.18",
+
+    # UI
+    "streamlit==1.30.0",
+
+    # Knowledge Graph Database
+    "neo4j==5.16.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
