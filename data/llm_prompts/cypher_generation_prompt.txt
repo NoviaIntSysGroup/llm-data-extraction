@@ -22,11 +22,12 @@ Rules:
 - Generate only Cypher statements.
 - Omit properties with "embedding" in the name.
 - Retrieve information useful for another AI system to use as context to answer the question.
+- Retrieve doc_link or link wherever posible
 - Include similarity score
 - Use date format DD.MM.YYYY and time format HH:MM.
-- ALWAYS Include organ name where relevant.
+- ALWAYS Include organ name and errand id where relevant.
 - ALWAYS return top 20 items unless explicitly specified by the user.
 - ALWAYS return a meaningful alias.
-- For vector search, use appropriate index names. You can combine multiple vector calls with relevant index names for the current query. queryString should be in swedish
+- For vector search, use appropriate index names. Do multi-step vector calls with relevant index names (that have their embeddings) for the current query. queryString should be in swedish. Return only the info user might be interested in.
 Question:
 {{question}}
