@@ -316,17 +316,31 @@ async def extract_data_with_llm(text, client, prompt):
     return response.choices[0].message.content.replace('```json', '').replace('```', '')
 
 
-async def save_json_file(filepath, data):
+async def save_json_file_async(filepath, data, indent=4):
     '''
     Save a JSON file to the given filepath.
 
     Args:
         filepath (str): The file path of the JSON file.
         data (dict): The data to save into the JSON file.
+        indent (int): The indentation level for the JSON file.
     '''
-    data = json.dumps(data, ensure_ascii=False, indent=4)
+    data = json.dumps(data, ensure_ascii=False, indent=indent)
     async with aiofiles.open(filepath, 'w', encoding="utf-8") as file:
         await file.write(data)
+
+def save_json_file(filepath, data, indent=4):
+    '''
+    Save a JSON file to the given filepath.
+
+    Args:
+        filepath (str): The file path of the JSON file.
+        data (dict): The data to save into the JSON file.
+        indent (int): The indentation level for the JSON file.
+    '''
+    data = json.dumps(data, ensure_ascii=False, indent=indent)
+    with open(filepath, 'w', encoding="utf-8") as file:
+        file.write(data)
 
 
 def extract_date(text):
@@ -380,6 +394,7 @@ async def combine_and_save_data(response_json, filepath, df, original_df, type):
             index, 'meeting_reference']
         response_json['adjustment_date'] = extract_date(
             response_json['adjustment_date'])
+        response_json['doc_link'] = df.at[index, 'doc_link']
         # will be added later in the pipeline
         response_json['meeting_items'] = []
 
@@ -406,7 +421,7 @@ async def combine_and_save_data(response_json, filepath, df, original_df, type):
             filepath), 'llm_meeting_agenda.json')
 
     # save the combined data
-    await save_json_file(json_filepath, response_json)
+    await save_json_file_async(json_filepath, response_json)
 
 
 async def process_html(filepath, df, original_df, client, prompt, limiter, type):
