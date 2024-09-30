@@ -5,6 +5,7 @@ import types
 import retry
 from time import sleep
 import logging
+import json
 
 from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
@@ -12,9 +13,10 @@ from neo4j.exceptions import SessionExpired
 import cohere
 
 from langchain.callbacks.manager import CallbackManagerForChainRun
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.chains import GraphCypherQAChain
-from langchain.graphs import Neo4jGraph
+from langchain_community.chains.graph_qa.cypher import GraphCypherQAChain
+from langchain_community.graphs import Neo4jGraph
 from langchain_core.prompts.prompt import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.callbacks.base import BaseCallbackHandler
@@ -66,13 +68,16 @@ def replace_query_with_embedding(cypher):
     return cypher
 
 
-def generate_embeddings(texts):
+def generate_embeddings(texts: List[str]) -> List[List[float]]:
     """
     Generates embeddings for the input texts
     """
     co = cohere.Client(os.getenv("COHERE_API_KEY"))
-    response = co.embed(
-        texts=texts, model='embed-multilingual-v3.0', input_type="search_document")
+    try:
+        response = co.embed(texts=texts, model='embed-multilingual-v3.0', input_type="search_document")
+    except:
+        print("Error generating embeddings")
+        return ""
     return response.embeddings
 
 
@@ -97,12 +102,11 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
         def generate_cypher():
             """Generate Cypher query with LLM"""
 
-            generated_cypher = self.cypher_generation_chain.run(
+            generated_cypher = self.cypher_generation_chain.invoke(
                 {"question": question, "schema": self.graph_schema}, callbacks=callbacks
             )
-
             # Extract Cypher code if it is wrapped in backticks
-            generated_cypher = extract_cypher(generated_cypher).strip()
+            generated_cypher = extract_cypher(generated_cypher['text']).strip()
 
             # The llm generates Cypher code with a query string for vector search.
             # that cannot be executed directly. So we replace the query string with the
@@ -178,9 +182,8 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             intermediate_steps.append({"context": context})
 
-            result = self.qa_chain(
-                {"question": question, "context": context,
-                    "query": generated_cypher},
+            result = self.qa_chain.invoke(
+                {"question": question, "context": context},
                 callbacks=callbacks,
             )
             final_result = result[self.qa_chain.output_key]
@@ -284,17 +287,24 @@ class KnowledgeGraphRAG:
         )
 
         # Initialize the LLM Chain for diagram generation
-        self.diagram_chain = LLMChain(
-            llm=ChatOpenAI(temperature=0, model=os.getenv(
-                "OPENAI_MODEL_NAME")),
-            prompt=DIAGRAM_PROMPT,
-            verbose=True,
+        self.diagram_chain = DIAGRAM_PROMPT | ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME"))
+
+        # open timeline prompt template file
+        with open(os.getenv("TIMELINE_GENERATION_PROMPT_PATH"), "r") as file:
+            TIMELINE_PROMPT_TEMPLATE = file.read()
+
+        # create a prompt template for timeline generation
+        TIMELINE_PROMPT = PromptTemplate(
+            input_variables=["data"], template=TIMELINE_PROMPT_TEMPLATE
         )
+
+        # initialize the LLM Chain for timeline generation
+        self.timeline_chain = TIMELINE_PROMPT | ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME"))
 
     def process_prompt(self, prompt):
         """Process a prompt and return the response, query, and context"""
         try:
-            result = self.chain(prompt)
+            result = self.chain.invoke(prompt)
         except SessionExpired:
             self.graph = Neo4jGraph(
                 url=self.graph.url,
@@ -302,10 +312,11 @@ class KnowledgeGraphRAG:
                 password=self.graph.password,
             )
             self.chain.graph = self.graph
-            result = self.chain(prompt)
+            result = self.chain.invoke(prompt)
         response = result["result"]
         query = result["intermediate_steps"][0]["query"]
         context = result["intermediate_steps"][1]["context"]
+
         return response, query, context
 
     def get_index_info(self, driver):
@@ -327,10 +338,10 @@ class KnowledgeGraphRAG:
             diagram (str): base64 encoded image of the diagram
         """
         try:
-            code = self.diagram_chain(
+            code = self.diagram_chain.invoke(
                 {"question": question, "schema": self.graph.schema, "data": data})
             # extract python codeblock from code['text'] using regex
-            code = re.search(r"```python(.*?)```", code['text'],
+            code = re.search(r"```python(.*?)```", code.content,
                              re.DOTALL).group(1).strip()
             print(code)
             my_namespace = types.SimpleNamespace()
@@ -339,3 +350,28 @@ class KnowledgeGraphRAG:
         except Exception as e:
             print(e)
             return None
+    
+    @retry.retry(exceptions=Exception, tries=3)
+    def get_timeline_from_data(self, data, question):
+        """Construct timeline.js format JSON from the data retrieved from neo4j database using llm
+
+        Args:
+            data (str): The data to form the timeline JSON from
+            question (str): The question from the user
+
+        Returns:
+            timeline_json (str): The extracted timeline JSON
+        """
+        try:
+            timeline_json = self.timeline_chain.invoke({"data": data, "question": question}).content
+            # remove json tags
+            timeline_json = timeline_json.replace("json", "").replace("```", "").strip()
+            if timeline_json == "None":
+                return None
+            return json.loads(timeline_json)
+        except Exception as e:
+            print(e)
+            return None
+
+
+        
