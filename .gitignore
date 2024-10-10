@@ -3,6 +3,7 @@ config/secrets.env
 data/protocols
 data/scraped_data.json
 .vscode
+data/test_pdfs
 ## Boilerplates
 
 
