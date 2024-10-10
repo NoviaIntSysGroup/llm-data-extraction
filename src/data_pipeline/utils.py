@@ -551,3 +551,32 @@ def construct_aggregate_json(construct_from, validate_json=True):
     # Validate the JSON schema
     if validate_json and not validate_json_schema(aggregate_json):
         print("Please fix the JSON validation errors before uploading to the database.")
+
+def create_agenda_html(agenda_df):
+    """Create html webpage for easy previewing agenda documents"""
+    agenda_html = ""
+    for body in agenda_df['body'].unique():
+        agenda_html += f"<h1>{body}</h1>"
+        agenda_html += "<ul>"
+        # group by body and date
+        dated_group = agenda_df[agenda_df['body'] == body]['meeting_date'].unique()
+        # sort by date
+        from datetime import datetime # ValueError: time data '2024.8.21' does not match format '%d.%m.%Y'
+
+        dated_group = sorted(dated_group, key=lambda x: datetime.strptime(x, "%Y.%m.%d"), reverse=True)
+        for meeting_date in dated_group:
+            agenda_html += f"<h2>{meeting_date}</h2>"
+            agenda_html += "<ul>"
+            for idx, row in agenda_df[(agenda_df['body'] == body) & (agenda_df['meeting_date'] == meeting_date)].iterrows():
+                filedir = os.path.dirname(row['filepath'])
+                agenda_html += f"<li><a target='_blank' href='{row['filepath']}'>{row['title']}</a>"
+                agenda_html += f"<br><a style='color: green' target='_blank' href='{os.path.join(filedir, 'annotation.pdf')}'> [ANNOTATION PDF]</a>"
+                agenda_html += f"<a style='color: maroon' target='_blank' href='{os.path.join(filedir, 'recreated_layout.pdf')}'> [RECREATED LAYOUT]</a>"
+                agenda_html += f"<a style='color: goldenrod' target='_blank' href='{os.path.join(filedir, 'segments.json')}'> [SEGMENTS JSON]</a>"
+                agenda_html += f"<a style='color: black' target='_blank' href='{os.path.join(filedir, 'llm_meeting_agenda.json')}'> [LLM EXTRACTED JSON]</a><br><br></li>"
+            agenda_html += "</ul>"
+        agenda_html += "</ul>"     
+
+    # save the html
+    with open("agenda.html", "w") as f:
+        f.write(agenda_html)
