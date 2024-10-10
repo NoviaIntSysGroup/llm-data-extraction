@@ -1,0 +1,113 @@
+{
+    "type": "object",
+    "properties": {
+        "end_time": {
+            "type": "string",
+            "description": "The ending time of the meeting in the format hh:mm, if available."
+        },
+        "meeting_location": {
+            "type": "string",
+            "description": "The location of the meeting."
+        },
+        "participants": {
+            "type": "array",
+            "description": "List of participants in the meeting.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": "string",
+                        "description": "The first name of the participant."
+                    },
+                    "lname": {
+                        "type": "string",
+                        "description": "The last name of the participant."
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "The role or title of the participant (e.g., ordförande, vice ordförande, medlem)."
+                    },
+                    "attendance": {
+                        "type": "boolean",
+                        "description": "Indicates if the participant was present (true) or absent (false), if available."
+                    }
+                }
+            }
+        },
+        "substitutes": {
+            "type": "array",
+            "description": "List of substitutes in the meeting.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": "string",
+                        "description": "The first name of the substitute."
+                    },
+                    "lname": {
+                        "type": "string",
+                        "description": "The last name of the substitute."
+                    },
+                    "substituted_for": {
+                        "type": "string",
+                        "description": "The name of the person the substitute replaced."
+                    }
+                }
+            }
+        },
+        "additional_attendees": {
+            "type": "array",
+            "description": "List of additional attendees in the meeting.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": "string",
+                        "description": "The first name of the attendee."
+                    },
+                    "lname": {
+                        "type": "string",
+                        "description": "The last name of the attendee."
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "The role or title of the attendee (e.g., director, expert)."
+                    }
+                }
+            }
+        },
+        "signed_by": {
+            "type": "array",
+            "description": "List of people who signed the protocol (excluding adjusters).",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": "string",
+                        "description": "The first name of the signatory."
+                    },
+                    "lname": {
+                        "type": "string",
+                        "description": "The last name of the signatory."
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "The role of the signatory in the signing process (e.g., chairman, secretary)."
+                    }
+                }
+            }
+        },
+        "adjusted_by": {
+            "type": "array",
+            "description": "List of names of those who adjusted the protocol.",
+            "items": {
+                "type": "string",
+                "description": "Name of the person who adjusted the protocol in the format 'fname lname'."
+            }
+        },
+        "adjustment_date": {
+            "type": "string",
+            "description": "The date of adjustment in the format yyyy.mm.dd, as it appears in the document."
+        }
+    }
+}

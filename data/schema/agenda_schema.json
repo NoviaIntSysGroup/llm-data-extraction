@@ -1,0 +1,70 @@
+{
+    "type": "object",
+    "properties": {
+        "references": {
+            "type": "array",
+            "description": "List of historical or previous references (e.g., 'Stadsfullmäktige 15.6.2023, 28 §'). Current reference is not included.",
+            "items": {
+                "type": "string"
+            }
+        },
+        "errand_id": {
+            "type": "string",
+            "description": "ID of the current errand, typically in the form 'NKBY/660/10.04.00.01/2022'."
+        },
+        "context": {
+            "type": "string",
+            "description": "Description of the current reference, if any. This typically comes after the decision of the last previous reference. Do not include anything from 'Beslutshistorik' or 'Tidigare behandling'."
+        },
+        "prepared_by": {
+            "type": "array",
+            "description": "List of people who prepared the current reference, excluding the proposal maker.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": "string",
+                        "description": "First name of the person who prepared the current reference."
+                    },
+                    "lname": {
+                        "type": "string",
+                        "description": "Last name of the person who prepared the current reference."
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "Role of the person who prepared the current reference."
+                    }
+                }
+            }
+        },
+        "proposal_by": {
+            "type": "array",
+            "description": "List of people or entities who made the current proposal, if any.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": "string",
+                        "description": "First name of the person or entity who made the proposal, if any."
+                    },
+                    "lname": {
+                        "type": "string",
+                        "description": "Last name of the person who made the proposal, if any."
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "Role of the person who made the proposal, if any."
+                    }
+                }
+            }
+        },
+        "proposal": {
+            "type": "string",
+            "description": "Description of the current proposal, if any. Typically found at the end of the reference."
+        },
+        "decision": {
+            "type": "string",
+            "description": "Current decision made in relation to the errand."
+        }
+    }
+}
