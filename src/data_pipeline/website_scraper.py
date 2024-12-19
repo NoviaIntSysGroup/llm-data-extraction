@@ -4,7 +4,8 @@ import json
 import pandas as pd
 import os
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
+
 from .utils import convert_date_to_yyyymmdd
 
 
@@ -22,7 +23,6 @@ def fetch_and_parse(url):
     response = requests.get(url)
     # Parse the HTML content and return a BeautifulSoup object
     return BeautifulSoup(response.text, 'html.parser')
-
 
 def get_headers(header_row):
     """
@@ -43,83 +43,96 @@ def get_headers(header_row):
             headers.append(header.get_text(strip=True))
     return headers
 
-
 def scrape_table(table, base_url, depth=1):
     """
     Recursively scrapes data from tables, including nested tables, and returns the data as a list of dictionaries.
-    The JSON output has a generic structure to facilitate recursive scraping. It is a JSON representation of the table in the website.
+    The JSON output has a generic structure to facilitate recursive scraping. It is a JSON representation of the table.
 
     Args:
         table (bs4.element.Tag): The <table> element to scrape.
-        base_url (str): The base URL to resolve relative links.
-        depth (int, optional): The current depth of recursion. Defaults to 1.
+        base_url (str): The base URL of the website.
+        depth (int): The depth of the table in the nested structure (default is 1).
 
     Returns:
         list: A list of dictionaries containing the scraped data.
     """
+
     data = []
-    # Find the header row of the table
+    # Find the header row of the table (if any)
     header_row = table.find('tr', class_='colheader')
 
-    # Extract the caption of the table and replace any newline, tab, or carriage return characters
-    caption = table.find('caption').get_text().replace(
-        '\n', '').replace('\t', '').replace('\r', '')
-
-    # Truncate the caption to 50 characters and add an ellipsis if it's longer
+    # Extract and clean the caption text
+    caption_raw = table.find('caption').get_text()
+    caption = caption_raw.replace('\n', '').replace('\t', '').replace('\r', '')
+    # Truncate caption to 50 characters and add ellipsis if longer
     caption = caption[:50] + ('...' if len(caption) > 50 else '')
 
-    # Get the header keys from the header row
+    # Determine headers from the header row
     headers = get_headers(header_row)
 
-    # Find all the rows in the table
+    # All rows in the table
     rows = table.find_all('tr')
-
-    # Determine the starting index of data rows
-    # If there is a header row, data starts after it
+    # Determine data rows start
     data_row_start = rows.index(header_row) + 1 if header_row else 0
 
-    # Display the depth and number of items found
-    print("\t"*(depth-1), '├─',
-          f'Depth: {depth}. Found {len(rows[data_row_start:])} items. Heading: {caption.strip()}')
+    print("\t"*(depth-1), '├─', f'Depth: {depth}. Found {len(rows[data_row_start:])} items. Heading: {caption.strip()}')
 
-    # Loop through each row in the table
+    # Process each row of data
     for row in rows[data_row_start:]:
         row_data = {}
-        # Get all the cells in the row
         cells = row.find_all('td')
-        # Loop through each cell in the row
+
         for index, cell in enumerate(cells):
-            # Use header for key if available (for saving cell data in dict), otherwise create a generic key
-            cell_key = headers[index] if index < len(
-                headers) else f'Cell_{index}'
-            links = cell.find_all('a', href=True)  # Find all links in the cell
-            if links:
-                link_data = []
-                # Loop through each link in the cell
-                for link in links:
-                    href = link['href']  # Get the link URL
-                    link_text = link.get_text(strip=True)  # Get the link text
-                    # Handle specific link cases to either append direct link data or perform nested scraping
-                    # docid is a direct link to a document, id or bid is a link to a nested table
-                    if 'docid' in href:
-                        # Append the direct link data to the link_data list
-                        link_data.append(
-                            {'doc_url': base_url + href, 'title': link_text})
-                    elif 'id' in href or 'bid' in href:
-                        # Recursively scrape the nested table and append the result to the link_data list
-                        nested_url = base_url + href
-                        nested_soup = fetch_and_parse(nested_url)
-                        nested_tables = nested_soup.find_all('table')
-                        nested_data = scrape_table(
-                            nested_tables[0], base_url, depth=depth+1)
-                        link_data.append(
-                            {'url': nested_url, 'title': link_text, 'nested_data': nested_data})
-                row_data[cell_key] = link_data
-            else:
-                # If there are no links, just get the cell text
+            cell_key = headers[index] if index < len(headers) else f'Cell_{index}'
+            links = cell.find_all('a', href=True)
+
+            if not links:
+                # No links, just text
                 row_data[cell_key] = cell.get_text(strip=True)
+                continue
+
+            # Identify doctype=7 link text if present in this cell
+            doctype_7_text = None
+            for link in links:
+                href = link['href']
+                if 'docid' in href and 'doctype=7' in href:
+                    doctype_7_text = link.get_text(strip=True)
+                    break
+
+            # Process all links now that we know if we have a doctype=7 text
+            link_data = []
+            temp_link_data = {}
+            for link in links:
+                href = link['href']
+                link_text = link.get_text(strip=True)
+
+                # Check for docid links (either doctype=3 or doctype=7)
+                if 'docid' in href:
+                    # If doctype=7: only html_url
+                    if 'doctype=7' in href:
+                        temp_link_data['html_url'] = base_url + href
+                    else:
+                        # doctype=3: doc_url plus title determined by doctype_7 presence
+                        temp_link_data['doc_url'] = base_url + href
+                        temp_link_data['title'] = doctype_7_text if doctype_7_text else link_text
+                # Check if it's a link to nested data (id or bid)
+                elif 'id' in href or 'bid' in href:
+                    nested_url = base_url + href
+                    nested_soup = fetch_and_parse(nested_url)
+                    nested_tables = nested_soup.find_all('table')
+                    nested_data = scrape_table(nested_tables[0], base_url, depth=depth+1)
+                    link_data.append({
+                        'url': nested_url,
+                        'title': link_text,
+                        'nested_data': nested_data
+                    })
+            link_data.append(temp_link_data)
+
+            row_data[cell_key] = link_data
+
         if row_data:
             data.append(row_data)
+
     return data
 
 
@@ -171,6 +184,9 @@ def process_scraped_data(json_data):
                     'attachments': []
                 }
 
+                if "html_url" in doc['Rubrik'][0]:
+                    doc_entry['html_link'] = doc['Rubrik'][0]['html_url']
+
                 # Check for attachments
                 if 'Bilagor' in doc and doc['Bilagor'] and doc['Bilagor'] != '-':
                     for attachment in doc['Bilagor'][0]['nested_data']:
@@ -206,7 +222,7 @@ def convert_to_df(json_data):
         pandas.DataFrame: DataFrame containing the converted data.
     """
     # Define the columns for the DataFrame
-    columns = ['doc_link', 'title', 'section', 'meeting_date',
+    columns = ['web_html_link', 'doc_link', 'title', 'section', 'meeting_date',
                'meeting_time', 'meeting_reference', 'body', 'parent_link']
 
     # Create an empty DataFrame with the defined columns
@@ -220,6 +236,7 @@ def convert_to_df(json_data):
             if 'Rubrik' in doc.keys() and isinstance(doc['Rubrik'][0], dict) and 'doc_url' in doc['Rubrik'][0].keys():
                 # Create a parent row with the relevant data
                 parent_row = {
+                    'web_html_link': doc['Rubrik'][0].get('html_link', ''),
                     'doc_link': doc['Rubrik'][0]['doc_url'],
                     'title': doc['Rubrik'][0]['title'],
                     'section': "" if not doc['§'] else f"§ {doc['§']}",
