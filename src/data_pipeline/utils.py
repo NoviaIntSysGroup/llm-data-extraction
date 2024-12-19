@@ -4,37 +4,6 @@ import aiofiles
 import pandas as pd
 import re
 
-
-def validate_json_schema(json_data, json_schema=None):
-    """
-    Validates the JSON schema for the aggregate meeting JSON data.
-
-    Args:
-        json_data: JSON data to validate
-        json_schema: JSON schema to validate against. If not provided, it will be read from JSON_SCHEMA_PATH in config file.
-
-    Returns:
-        None
-    """
-    import jsonschema
-
-    # Read the JSON schema from the config file if not provided
-    if not json_schema:
-        json_schema_path = os.getenv("JSON_SCHEMA_PATH")
-        if not os.path.exists(json_schema_path):
-            raise FileNotFoundError(
-                "JSON_SCHEMA_PATH does not exist. Please check if the path is correct in the config file.")
-        json_schema = read_json_file(json_schema_path)
-
-    # Validate the JSON data against the schema
-    try:
-        jsonschema.validate(json_data, json_schema)
-        return True
-    except Exception as e:
-        print(f"JSON schema validation failed: {e}")
-        return False
-
-
 def convert_file_path(filepath, filetype='pdf'):
     '''
     Convert the file path of a document to given filetype.
@@ -57,7 +26,7 @@ def remove_files(path, extension, depth):
 
     Args:
         path (str): The root directory of the files to remove.
-        extension (str): The extension of the files to remove.
+        extension (str): The extension of the files to remove. For example, 'pdf'.
         depth (int): The depth of the directory to remove the files from.
     '''
     for entry in os.scandir(path):
@@ -215,7 +184,7 @@ def get_documents_dataframe(type=None):
         raise ValueError("'type' must be either 'metadata', 'agenda' or None")
 
     # make an empty dataframe
-    columns = ['doc_link', 'title', 'section', 'meeting_date',
+    columns = ['doc_link', 'web_html_link', 'title', 'section','filepath', 'meeting_date', 
                'meeting_time', 'meeting_reference', 'body', 'parent_link']
     documents_df = pd.DataFrame(columns=columns)
 
@@ -225,6 +194,7 @@ def get_documents_dataframe(type=None):
             for document in meeting['documents']:
                 parent_row = {
                     "doc_link": document['doc_link'],
+                    "web_html_link": document.get('html_link', None),
                     "title": document['title'],
                     "section": document['section'],
                     "filepath": document['filepath'],
@@ -232,7 +202,7 @@ def get_documents_dataframe(type=None):
                     'meeting_time': meeting['meeting_time'],
                     'meeting_reference': meeting['meeting_reference'],
                     'body': body['body'],
-                    'parent_link': ""
+                    'parent_link': None
                 }
 
                 # Concatenate the parent row DataFrame with the main DataFrame
@@ -292,19 +262,24 @@ def get_documents_dataframe(type=None):
     return documents_df
 
 
-async def extract_data_with_llm(text, client, prompt):
-    '''Extract data from a HTML file using the LLM.
+async def get_llm_response(text, client, prompt):
+    '''Extract data from a text using the LLM.
 
     Args:
-        text (str): The extracted text from the PDF file.
+        text (str): The text to extract the data from.
         client (OpenAI): OpenAI client object.
         prompt (str): The prompt to use for the LLM.
 
     Returns:
-        str: The extracted data as a JSON string.
+        str: Response from the LLM.
     '''
+    if not os.getenv('OPENAI_MODEL_NAME'):
+        model = "gpt-4o-2024-08-06"
+    else:
+        model = os.getenv('OPENAI_MODEL_NAME')
+
     response = await client.chat.completions.create(
-        model=os.getenv('OPENAI_MODEL_NAME'),
+        model=model,
         response_format={"type": "json_object"},
         messages=[
             {"role": "system",
@@ -456,7 +431,7 @@ async def process_html(filepath, df, original_df, client, prompt, limiter, type)
         for _ in range(3):
             try:
                 async with limiter:
-                    json_response = await extract_data_with_llm(text, client, prompt)
+                    json_response = await get_llm_response(text, client, prompt)
                 return json.loads(json_response)
             except Exception as e:
                 error = e
@@ -473,13 +448,12 @@ async def process_html(filepath, df, original_df, client, prompt, limiter, type)
     if response_json:
         await combine_and_save_data(response_json, filepath, df, original_df, type)
 
-def construct_aggregate_json(construct_from, validate_json=True):
+def construct_aggregate_json(construct_from):
     """
     Constructs a single JSON out of all the meeting metadata and agenda.
 
     Args:
         construct_from (str): The source from which to construct the JSON. Can be "llm" or "manual".
-        validate_json (bool): Whether to validate the JSON schema or not. Defaults to True.
 
     Returns:
         None
@@ -500,7 +474,7 @@ def construct_aggregate_json(construct_from, validate_json=True):
 
     # Iterate over each body in the protocols path
     for body in os.scandir(protocols_path):
-        if not body.is_dir():
+        if not body.is_dir() or body.name == "test_pdfs":
             continue
         aggregate_meeting = []
         
@@ -548,10 +522,6 @@ def construct_aggregate_json(construct_from, validate_json=True):
         f.write(json.dumps(aggregate_json, indent=4, ensure_ascii=False))
         print(f"Aggregate JSON saved to {os.path.normpath(aggregate_json_path)}.")
 
-    # Validate the JSON schema
-    if validate_json and not validate_json_schema(aggregate_json):
-        print("Please fix the JSON validation errors before uploading to the database.")
-
 def create_agenda_html(agenda_df):
     """Create html webpage for easy previewing agenda documents"""
     agenda_html = ""
@@ -570,9 +540,6 @@ def create_agenda_html(agenda_df):
             for idx, row in agenda_df[(agenda_df['body'] == body) & (agenda_df['meeting_date'] == meeting_date)].iterrows():
                 filedir = os.path.dirname(row['filepath'])
                 agenda_html += f"<li><a target='_blank' href='{row['filepath']}'>{row['title']}</a>"
-                agenda_html += f"<br><a style='color: green' target='_blank' href='{os.path.join(filedir, 'annotation.pdf')}'> [ANNOTATION PDF]</a>"
-                agenda_html += f"<a style='color: maroon' target='_blank' href='{os.path.join(filedir, 'recreated_layout.pdf')}'> [RECREATED LAYOUT]</a>"
-                agenda_html += f"<a style='color: goldenrod' target='_blank' href='{os.path.join(filedir, 'segments.json')}'> [SEGMENTS JSON]</a>"
                 agenda_html += f"<a style='color: black' target='_blank' href='{os.path.join(filedir, 'llm_meeting_agenda.json')}'> [LLM EXTRACTED JSON]</a><br><br></li>"
             agenda_html += "</ul>"
         agenda_html += "</ul>"     
@@ -580,3 +547,10 @@ def create_agenda_html(agenda_df):
     # save the html
     with open("agenda.html", "w") as f:
         f.write(agenda_html)
+
+def extract_doc_id(filename):
+    """Extracts the document ID from the filename."""
+    match = re.search(r'_(\d{6})\.[^.]+$', filename)
+    if match:
+        return match.group(1)
+    return None
