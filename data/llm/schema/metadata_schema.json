@@ -1,0 +1,215 @@
+{
+    "type": "object",
+    "properties": {
+        "end_time": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Meeting end time in hh:mm format, if available."
+        },
+        "meeting_location": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Location of the meeting."
+        },
+        "participants": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of meeting participants.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "First name of the participant."
+                    },
+                    "lname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Last name of the participant."
+                    },
+                    "role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Role or title (e.g., ordförande, vice ordförande, medlem)."
+                    },
+                    "attendance": {
+                        "type": [
+                            "boolean",
+                            "null"
+                        ],
+                        "description": "True if present, false if absent, if available."
+                    }
+                },
+                "required": [
+                    "fname",
+                    "lname",
+                    "role",
+                    "attendance"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "substitutes": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of substitutes for the meeting.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "First name of the substitute."
+                    },
+                    "lname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Last name of the substitute."
+                    },
+                    "substituted_for": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Name of the person being substituted."
+                    }
+                },
+                "required": [
+                    "fname",
+                    "lname",
+                    "substituted_for"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "additional_attendees": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of additional attendees.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "First name of the attendee."
+                    },
+                    "lname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Last name of the attendee."
+                    },
+                    "role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Role or title (e.g., director, expert)."
+                    }
+                },
+                "required": [
+                    "fname",
+                    "lname",
+                    "role"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "signed_by": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of protocol signatories (excluding adjusters).",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "First name of the signatory."
+                    },
+                    "lname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Last name of the signatory."
+                    },
+                    "role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Signatory role (e.g., chairman, secretary)."
+                    }
+                },
+                "required": [
+                    "fname",
+                    "lname",
+                    "role"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "adjusted_by": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of protocol adjusters in 'fname lname' format.",
+            "items": {
+                "type": [
+                    "string",
+                    "null"
+                ],
+                "description": "Name of the adjuster."
+            }
+        },
+        "adjustment_date": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Date of adjustment in yyyy.mm.dd format."
+        }
+    },
+    "required": [
+        "end_time",
+        "meeting_location",
+        "participants",
+        "substitutes",
+        "additional_attendees",
+        "signed_by",
+        "adjusted_by",
+        "adjustment_date"
+    ],
+    "additionalProperties": false
+}

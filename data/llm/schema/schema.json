@@ -1,0 +1,482 @@
+{
+    "type": "object",
+    "properties": {
+        "body": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of organs of the municipality",
+            "items": {
+                "type": [
+                    "object",
+                    "null"
+                ],
+                "description": "Organ of the municipality",
+                "properties": {
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The name of the organ."
+                    },
+                    "meetings": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "description": "List of meetings held by the organ. <Relationship to Parent>: HOSTED",
+                        "items": {
+                            "type": [
+                                "object",
+                                "null"
+                            ],
+                            "description": "Meeting held by the organ",
+                            "properties": {
+                                "meeting_date": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "description": "The date of the meeting in the format DD.MM.YYYY."
+                                },
+                                "start_time": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "description": "The start time of the meeting in the format HH:MM."
+                                },
+                                "meeting_reference": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "description": "Reference identifier for the meeting."
+                                },
+                                "end_time": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "description": "The end time of the meeting in the format HH:MM."
+                                },
+                                "meeting_location": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "description": "The location where the meeting is held."
+                                },
+                                "participants": {
+                                    "type": [
+                                        "array",
+                                        "null"
+                                    ],
+                                    "description": "List of persons participating in the meeting. <Relationship to Parent>: ATTENDED",
+                                    "items": {
+                                        "type": [
+                                            "object",
+                                            "null"
+                                        ],
+                                        "description": "Person participating in the meeting",
+                                        "properties": {
+                                            "fname": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "First name of the person."
+                                            },
+                                            "lname": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Last name of the person."
+                                            },
+                                            "role": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Role or title, e.g., ordf\u00f6rande, vice ordf\u00f6rande, medlem etc"
+                                            },
+                                            "attendance": {
+                                                "type": [
+                                                    "boolean",
+                                                    "null"
+                                                ],
+                                                "description": "Indicating if the person was present or absent, if available, maybe indicated by [X] in the document."
+                                            }
+                                        },
+                                        "required": [
+                                            "fname",
+                                            "lname",
+                                            "role",
+                                            "attendance"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "substitutes": {
+                                    "type": [
+                                        "array",
+                                        "null"
+                                    ],
+                                    "description": "List of persons attending in place of members. <Relationship to Parent>: SUBSTITUTE_ATTENDEE",
+                                    "items": {
+                                        "type": [
+                                            "object",
+                                            "null"
+                                        ],
+                                        "description": "Person attending in place of a member",
+                                        "properties": {
+                                            "fname": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "First name of the person."
+                                            },
+                                            "lname": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Last name of the person."
+                                            },
+                                            "substituted_for": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Name of the person for whom the substitute is attending."
+                                            }
+                                        },
+                                        "required": [
+                                            "fname",
+                                            "lname",
+                                            "substituted_for"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "additional_attendees": {
+                                    "type": [
+                                        "array",
+                                        "null"
+                                    ],
+                                    "description": "List of additional persons not part of the regular members. <Relationship to Parent>: ADDITIONAL_ATTENDEE",
+                                    "items": {
+                                        "type": [
+                                            "object",
+                                            "null"
+                                        ],
+                                        "description": "Additional person not part of the regular members",
+                                        "properties": {
+                                            "fname": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "First name of the person."
+                                            },
+                                            "lname": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Last name of the person."
+                                            },
+                                            "role": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Role of the additional person in the meeting."
+                                            }
+                                        },
+                                        "required": [
+                                            "fname",
+                                            "lname",
+                                            "role"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "signed_by": {
+                                    "type": [
+                                        "array",
+                                        "null"
+                                    ],
+                                    "description": "List of persons who sign the meeting protocol. <Relationship to Parent>: SIGNED",
+                                    "items": {
+                                        "type": [
+                                            "object",
+                                            "null"
+                                        ],
+                                        "description": "Person who signs the meeting protocol",
+                                        "properties": {
+                                            "fname": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "First name of the person."
+                                            },
+                                            "lname": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Last name of the person."
+                                            },
+                                            "role": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Role of the person in the meeting."
+                                            }
+                                        },
+                                        "required": [
+                                            "fname",
+                                            "lname",
+                                            "role"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "adjusted_by": {
+                                    "type": [
+                                        "array",
+                                        "null"
+                                    ],
+                                    "description": "List of persons who made adjustments to the meeting details. <Relationship to Parent>: ADJUSTED",
+                                    "items": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "adjustmentDate": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "description": "Date when adjustments were made in the format DD.MM.YYYY"
+                                },
+                                "meetingItems": {
+                                    "type": [
+                                        "array",
+                                        "null"
+                                    ],
+                                    "description": "List of items discussed in the meeting. <Relationship to Parent>: HAS_ITEM",
+                                    "items": {
+                                        "type": [
+                                            "object",
+                                            "null"
+                                        ],
+                                        "properties": {
+                                            "title": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Title or heading of the meeting item."
+                                            },
+                                            "section": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Section of the meeting where the item is discussed."
+                                            },
+                                            "references": {
+                                                "type": [
+                                                    "array",
+                                                    "null"
+                                                ],
+                                                "description": "List of historical or previous references; for eg: Stadsfullm\u00e4ktige 15.6.2023. <Relationship to Parent>: HAS_REFERENCE",
+                                                "items": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "errand_tag": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Tag of the current errand, typically in the form 'NKBY/660/10.04.00.01/2022'"
+                                            },
+                                            "context": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Context or details pertaining to the meeting protocol."
+                                            },
+                                            "prepared_by": {
+                                                "type": [
+                                                    "array",
+                                                    "null"
+                                                ],
+                                                "description": "List of persons preparing the meeting item. <Relationship to Parent>: PREPARED",
+                                                "items": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "properties": {
+                                                        "name": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ],
+                                                            "description": "Name of the person."
+                                                        },
+                                                        "role": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ],
+                                                            "description": "Role of the person in preparing the item."
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "name",
+                                                        "role"
+                                                    ],
+                                                    "additionalProperties": false
+                                                }
+                                            },
+                                            "proposal_by": {
+                                                "type": [
+                                                    "array",
+                                                    "null"
+                                                ],
+                                                "description": "List of persons proposing items for discussion. <Relationship to Parent>: PROPOSED",
+                                                "items": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "properties": {
+                                                        "name": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ],
+                                                            "description": "Name of the person."
+                                                        },
+                                                        "role": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ],
+                                                            "description": "Role of the person."
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "name",
+                                                        "role"
+                                                    ],
+                                                    "additionalProperties": false
+                                                }
+                                            },
+                                            "proposal": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Description of the proposal."
+                                            },
+                                            "decision": {
+                                                "type": [
+                                                    "string",
+                                                    "null"
+                                                ],
+                                                "description": "Decision made regarding the meeting item."
+                                            },
+                                            "attachments": {
+                                                "type": [
+                                                    "array",
+                                                    "null"
+                                                ],
+                                                "description": "List of attachments related to the meeting item. <Relationship to Parent>: HAS_ATTACHMENT",
+                                                "items": {
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ],
+                                                    "properties": {
+                                                        "description": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ],
+                                                            "title": "Title of the attachment."
+                                                        },
+                                                        "link": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ],
+                                                            "description": "Link to the attachment."
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "description",
+                                                        "link"
+                                                    ],
+                                                    "additionalProperties": false
+                                                }
+                                            }
+                                        },
+                                        "required": [
+                                            "title",
+                                            "section",
+                                            "errand_tag",
+                                            "context"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                }
+                            },
+                            "required": [
+                                "meeting_date",
+                                "start_time",
+                                "meeting_reference",
+                                "end_time",
+                                "meeting_location",
+                                "participants",
+                                "substitutes",
+                                "additional_attendees",
+                                "signed_by",
+                                "adjusted_by",
+                                "adjustmentDate",
+                                "meetingItems"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": [
+                    "name",
+                    "meetings"
+                ],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": [
+        "body"
+    ],
+    "additionalProperties": false
+}

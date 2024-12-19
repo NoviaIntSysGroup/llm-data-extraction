@@ -1,0 +1,134 @@
+{
+    "type": "object",
+    "properties": {
+        "references": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of historical or previous references (e.g. 'Stadsfullmäktige 15.6.2023, 28 §'). Current reference should not be included.",
+            "items": {
+                "type": [
+                    "string",
+                    "null"
+                ]
+            }
+        },
+        "errand_tag": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Tag of the current errand, typically in the form 'NKBY/660/10.04.00.01/2022'"
+        },
+        "context": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Description of the current meeting protocol, if any. This typically comes after the decision of the last previous reference. Do not include ANYTHING from 'Beslutshistorik' or 'Tidigare behandling' sections."
+        },
+        "prepared_by": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of people who prepared the current reference, excluding the proposal maker.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "First name of the person who prepared the current reference."
+                    },
+                    "lname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Last name of the person who prepared the current reference."
+                    },
+                    "role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Role of the person who prepared the current reference."
+                    }
+                },
+                "required": [
+                    "fname",
+                    "lname",
+                    "role"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "proposal_by": {
+            "type": [
+                "array",
+                "null"
+            ],
+            "description": "List of people or entities who made the current proposal, if any.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "First name of the person or entity who made the proposal, if any."
+                    },
+                    "lname": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Last name of the person who made the proposal, if any."
+                    },
+                    "role": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Role of the person who made the proposal, if any."
+                    }
+                },
+                "required": [
+                    "fname",
+                    "lname",
+                    "role"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "proposal": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Description of the current proposal, if any. Typically found at the end of the historical reference."
+        },
+        "decision": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "description": "Current decision made in relation to the errand."
+        }
+    },
+    "required": [
+        "references",
+        "errand_tag",
+        "context",
+        "prepared_by",
+        "proposal_by",
+        "proposal",
+        "decision"
+    ],
+    "additionalProperties": false
+}
