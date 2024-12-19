@@ -36,10 +36,15 @@ def execute_cypher_queries(driver, data):
     body_names = [body.get("name", "") for body in bodies]
     body_embeddings = generate_embeddings(body_names)
 
-    # Process bodies in parallel
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    # Process bodies sequentially (very slow, use this if kernel crashes)
+    # for i, body in enumerate(tqdm(bodies, desc="Processing bodies")):
+    #     process_body(driver, body, body_embeddings[i])
+
+    # Process bodies in parallel, could increase the max workers 
+    # depending on the system resources for faster execution
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         futures = []
-        for i, body in enumerate(tqdm(bodies, desc="Processing bodies")):
+        for i, body in enumerate(tqdm(bodies, desc="Processing bodies concurrently")):
             future = executor.submit(process_body, driver, body, body_embeddings[i])
             futures.append(future)
         concurrent.futures.wait(futures)
@@ -60,8 +65,9 @@ def process_body(driver, body, body_embedding):
     meeting_locations = [meeting.get("meeting_location", "") for meeting in meetings]
     meeting_embeddings = generate_embeddings(meeting_locations)
 
-    for j, meeting in enumerate(meetings):
-        process_meeting(driver, body_name, meeting, meeting_embeddings[j])
+    if meetings:
+        for j, meeting in enumerate(meetings):
+            process_meeting(driver, body_name, meeting, meeting_embeddings[j])
 
 def process_meeting(driver, body_name, meeting, meeting_embedding):
     with driver.session() as session:
@@ -96,14 +102,15 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         # Collect participants
         participants = meeting.get("participants", [])
         participant_data = []
-        for person in participants:
-            participant_data.append({
-                'fname': person.get("fname", ""),
-                'lname': person.get("lname", ""),
-                'role': person.get("role", ""),
-                'attendance': person.get("attendance", ""),
-                'meeting_id': meeting_id
-            })
+        if participants:
+            for person in participants:
+                participant_data.append({
+                    'fname': person.get("fname", ""),
+                    'lname': person.get("lname", ""),
+                    'role': person.get("role", ""),
+                    'attendance': person.get("attendance", ""),
+                    'meeting_id': meeting_id
+                })
 
         # Run a single query to create participants and relationships
         if participant_data:
@@ -113,7 +120,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 WITH p, person
                 MATCH (m:Meeting) WHERE id(m) = person.meeting_id
                 MERGE (p)-[:ATTENDED {
-                    role: person.role, 
+                    role: coalesce(person.role, ''), 
                     attendance: coalesce(person.attendance, '')
                 }]->(m)
                 """, participants=participant_data)
@@ -121,15 +128,15 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         # Collect substitutes
         substitutes = meeting.get("substitutes", [])
         substitute_data = []
-        for substitute in substitutes:
-            substitute_data.append({
-                'fname': substitute.get("fname", ""),
-                'lname': substitute.get("lname", ""),
-                'substituted_for': substitute.get("substituted_for", ""),
-                'meeting_id': meeting_id
-            })
+        if substitutes:
+            for substitute in substitutes:
+                substitute_data.append({
+                    'fname': substitute.get("fname", ""),
+                    'lname': substitute.get("lname", ""),
+                    'substituted_for': substitute.get("substituted_for", ""),
+                    'meeting_id': meeting_id
+                })
 
-        # Run a single query to create substitutes and relationships
         if substitute_data:
             session.run("""
                 UNWIND $substitutes AS sub
@@ -146,13 +153,14 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         # Collect additional attendees
         additional_attendees = meeting.get("additional_attendees", [])
         attendee_data = []
-        for attendee in additional_attendees:
-            attendee_data.append({
-                'fname': attendee.get("fname", ""),
-                'lname': attendee.get("lname", ""),
-                'role': attendee.get("role", ""),
-                'meeting_id': meeting_id
-            })
+        if additional_attendees:
+            for attendee in additional_attendees:
+                attendee_data.append({
+                    'fname': attendee.get("fname", ""),
+                    'lname': attendee.get("lname", ""),
+                    'role': attendee.get("role", ""),
+                    'meeting_id': meeting_id
+                })
 
         if attendee_data:
             session.run("""
@@ -168,12 +176,13 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         # Collect signatories
         signatories = meeting.get("signed_by", [])
         signatory_data = []
-        for signatory in signatories:
-            signatory_data.append({
-                'fname': signatory.get("fname", ""),
-                'lname': signatory.get("lname", ""),
-                'meeting_id': meeting_id
-            })
+        if signatories:
+            for signatory in signatories:
+                signatory_data.append({
+                    'fname': signatory.get("fname", ""),
+                    'lname': signatory.get("lname", ""),
+                    'meeting_id': meeting_id
+                })
 
         if signatory_data:
             session.run("""
@@ -187,15 +196,16 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         # Collect adjusters
         adjusters = meeting.get("adjusted_by", [])
         adjuster_data = []
-        for adjuster in adjusters:
-            name = adjuster.split(" ")
-            fname = " ".join(name[:-1]) if len(name) > 1 else name[0]
-            lname = name[-1]
-            adjuster_data.append({
-                'fname': fname,
-                'lname': lname,
-                'meeting_id': meeting_id
-            })
+        if adjusters:
+            for adjuster in adjusters:
+                name = adjuster.split(" ")
+                fname = " ".join(name[:-1]) if len(name) > 1 else name[0]
+                lname = name[-1]
+                adjuster_data.append({
+                    'fname': fname,
+                    'lname': lname,
+                    'meeting_id': meeting_id
+                })
 
         if adjuster_data:
             session.run("""
@@ -208,111 +218,125 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
 
         # Process Meeting Items
         meeting_items = meeting.get("meeting_items", [])
-        for item in meeting_items:
-            # Generate embeddings for item properties
-            item_texts = [
-                item.get("title", ""),
-                item.get("context", ""),
-                item.get("decision", "")
-            ]
-            item_embeddings = generate_embeddings(item_texts)
+        if meeting_items:
+            for item in meeting_items:
+                # Generate embeddings for item properties
+                item_texts = [
+                    item.get("title", ""),
+                    item.get("context", ""),
+                    item.get("decision", "")
+                ]
+                item_embeddings = generate_embeddings(item_texts)
 
-            result = session.run("""
-                MERGE (i:MeetingItem {
-                    title: coalesce($title, ''),
-                    section: coalesce($section, ''),
-                    references: coalesce($references, ''),
-                    context: coalesce($context, ''),
-                    decision: coalesce($decision, ''),
-                    errand_id: coalesce($errand_id, ''),
-                    doc_link: coalesce($doc_link, '')
-                })
-                WITH i
-                MATCH (m:Meeting) WHERE id(m) = $meeting_id
-                MERGE (m)-[:HAS_ITEM]->(i)
-                SET i.title_embedding = $title_embedding,
-                    i.context_embedding = $context_embedding,
-                    i.decision_embedding = $decision_embedding
-                RETURN id(i)
-                """, 
-                title=item.get("title", ""),
-                section=item.get("section", ""),
-                references=item.get("references", ""),
-                errand_id=item.get("errand_id", ""),
-                meeting_id=meeting_id,
-                context=item.get("context", ""),
-                decision=item.get("decision", ""),
-                doc_link=item.get("doc_link", ""),
-                title_embedding=item_embeddings[0],
-                context_embedding=item_embeddings[1],
-                decision_embedding=item_embeddings[2]
+                errand_id_value = item.get("errand_id", "")
+
+                # Create MeetingItem without errand_id property
+                result = session.run("""
+                    MERGE (i:MeetingItem {
+                        title: coalesce($title, ''),
+                        section: coalesce($section, ''),
+                        references: coalesce($references, ''),
+                        context: coalesce($context, ''),
+                        decision: coalesce($decision, ''),
+                        doc_link: coalesce($doc_link, '')
+                    })
+                    WITH i
+                    MATCH (m:Meeting) WHERE id(m) = $meeting_id
+                    MERGE (m)-[:HAS_ITEM]->(i)
+                    SET i.title_embedding = $title_embedding,
+                        i.context_embedding = $context_embedding,
+                        i.decision_embedding = $decision_embedding
+                    RETURN id(i)
+                    """, 
+                    title=item.get("title", ""),
+                    section=item.get("section", ""),
+                    references=item.get("references", ""),
+                    meeting_id=meeting_id,
+                    context=item.get("context", ""),
+                    decision=item.get("decision", ""),
+                    doc_link=item.get("doc_link", ""),
+                    title_embedding=item_embeddings[0],
+                    context_embedding=item_embeddings[1],
+                    decision_embedding=item_embeddings[2]
                 )
-            item_id = result.single()[0]
+                item_id = result.single()[0]
 
-            # Collect preparers
-            preparers = item.get("prepared_by", [])
-            preparer_data = []
-            for preparer in preparers:
-                preparer_data.append({
-                    'fname': preparer.get("fname", ""),
-                    'lname': preparer.get("lname", ""),
-                    'item_id': item_id
-                })
+                # If errand_id is present, create or merge an Errand node and link it
+                if errand_id_value:
+                    session.run("""
+                        MERGE (e:Errand {errand_id: $errand_id})
+                        WITH e
+                        MATCH (i:MeetingItem) WHERE id(i) = $item_id
+                        MERGE (i)-[:BELONGS_TO]->(e)
+                        """, errand_id=errand_id_value, item_id=item_id)
 
-            if preparer_data:
-                session.run("""
-                    UNWIND $preparers AS p
-                    MERGE (person:Person {fname: coalesce(p.fname, ''), lname: coalesce(p.lname, '')})
-                    WITH person, p
-                    MATCH (i:MeetingItem) WHERE id(i) = p.item_id
-                    MERGE (person)-[:PREPARED]->(i)
-                    """, preparers=preparer_data)
+                # Collect preparers
+                preparers = item.get("prepared_by", [])
+                preparer_data = []
+                if preparers:
+                    for preparer in preparers:
+                        preparer_data.append({
+                            'fname': preparer.get("fname", ""),
+                            'lname': preparer.get("lname", ""),
+                            'item_id': item_id
+                        })
 
-            # Collect proposers
-            proposers = item.get("proposal_by", [])
-            proposer_data = []
-            for proposer in proposers:
-                proposer_data.append({
-                    'fname': proposer.get("fname", ""),
-                    'lname': proposer.get("lname", ""),
-                    'item_id': item_id
-                })
+                if preparer_data:
+                    session.run("""
+                        UNWIND $preparers AS p
+                        MERGE (person:Person {fname: coalesce(p.fname, ''), lname: coalesce(p.lname, '')})
+                        WITH person, p
+                        MATCH (i:MeetingItem) WHERE id(i) = p.item_id
+                        MERGE (person)-[:PREPARED]->(i)
+                        """, preparers=preparer_data)
 
-            if proposer_data:
-                session.run("""
-                    UNWIND $proposers AS p
-                    MERGE (person:Person {fname: coalesce(p.fname, ''), lname: coalesce(p.lname, '')})
-                    WITH person, p
-                    MATCH (i:MeetingItem) WHERE id(i) = p.item_id
-                    MERGE (person)-[:PROPOSED]->(i)
-                    """, proposers=proposer_data)
+                # Collect proposers
+                proposers = item.get("proposal_by", [])
+                proposer_data = []
+                if proposers:
+                    for proposer in proposers:
+                        proposer_data.append({
+                            'fname': proposer.get("fname", ""),
+                            'lname': proposer.get("lname", ""),
+                            'item_id': item_id
+                        })
 
-            # Process Attachments
-            attachments = item.get("attachments", [])
-            attachment_titles = [attachment.get("title", "") for attachment in attachments]
-            if attachment_titles:
-                attachment_embeddings = generate_embeddings(attachment_titles)
-            else:
-                attachment_embeddings = []
+                if proposer_data:
+                    session.run("""
+                        UNWIND $proposers AS p
+                        MERGE (person:Person {fname: coalesce(p.fname, ''), lname: coalesce(p.lname, '')})
+                        WITH person, p
+                        MATCH (i:MeetingItem) WHERE id(i) = p.item_id
+                        MERGE (person)-[:PROPOSED]->(i)
+                        """, proposers=proposer_data)
 
-            attachment_data = []
-            for k, attachment in enumerate(attachments):
-                attachment_data.append({
-                    'link': attachment.get("link", ""),
-                    'title': attachment.get("title", ""),
-                    'title_embedding': attachment_embeddings[k],
-                    'item_id': item_id
-                })
+                # Process Attachments
+                attachments = item.get("attachments", [])
+                attachment_titles = [attachment.get("title", "") for attachment in attachments]
+                if attachment_titles:
+                    attachment_embeddings = generate_embeddings(attachment_titles)
+                else:
+                    attachment_embeddings = []
 
-            if attachment_data:
-                session.run("""
-                    UNWIND $attachments AS a
-                    MERGE (attachment:Attachment {link: coalesce(a.link, ''), title: coalesce(a.title, '')})
-                    WITH attachment, a
-                    MATCH (i:MeetingItem) WHERE id(i) = a.item_id
-                    MERGE (i)-[:HAS_ATTACHMENT]->(attachment)
-                    SET attachment.title_embedding = a.title_embedding
-                    """, attachments=attachment_data)
+                attachment_data = []
+                if attachments:
+                    for k, attachment in enumerate(attachments):
+                        attachment_data.append({
+                            'link': attachment.get("link", ""),
+                            'title': attachment.get("title", ""),
+                            'title_embedding': attachment_embeddings[k] if attachment_embeddings else None,
+                            'item_id': item_id
+                        })
+
+                if attachment_data:
+                    session.run("""
+                        UNWIND $attachments AS a
+                        MERGE (attachment:Attachment {link: coalesce(a.link, ''), title: coalesce(a.title, '')})
+                        WITH attachment, a
+                        MATCH (i:MeetingItem) WHERE id(i) = a.item_id
+                        MERGE (i)-[:HAS_ATTACHMENT]->(attachment)
+                        SET attachment.title_embedding = a.title_embedding
+                        """, attachments=attachment_data)
 
 def create_embeddings_index(driver):
     """
@@ -415,6 +439,7 @@ def create_knowledge_graph(construct_from): # construct_from = "llm" or "manual"
     # Connect to Neo4j
     driver = GraphDatabase.driver(uri, auth=(username, password))
 
+    print(driver)
     # Execute Cypher queries to create knowledge graph
     execute_cypher_queries(driver, data)
 
