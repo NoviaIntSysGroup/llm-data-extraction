@@ -27,16 +27,17 @@ To set up the project, follow the steps below:
     pip install -e .
     ```
 
-1. Register or Login in to [Neo4j Aura](https://console.neo4j.io/) and create a free neo4j instance. Save the login credentials as it will be given only once.
+1. Register or Login in to [Neo4j Aura](https://console.neo4j.io/) and create a free neo4j instance. Save the login credentials as it will be given only once. Then start the neo4j aura instance.
 
 1. Create a secrets.env file in the config folder and add the following environment variables:
     ```bash
-    OPENAI_API_KEY = "<api_key>"
-    COHERE_API_KEY = "<api_key>"
-    NEO4J_URI = "<uri>"
-    NEO4J_USERNAME = "<username>"
-    NEO4J_PASSWORD = "<password>"
+    OPENAI_API_KEY = "<your-openai-api-key>"
+    COHERE_API_KEY = "<your-cohere-api-key>"
+    NEO4J_URI="<neo4j-uri>"
+    NEO4J_USERNAME="<neo4j-username>"
+    NEO4J_PASSWORD="<neo4j-password>"
     ```
+    There is an example file in the config folder called secret_example.env. You can copy the contents of this file and replace the placeholders with your own values.
 
 
 ## Running the Project
@@ -48,15 +49,15 @@ To set up the project, follow the steps below:
     cd llm-data-extraction
     ```
 
-1. Open the `notebooks/unstructured_to_structured_data_pipeline.ipynb` file.
+1. Open the `notebooks/data_pipeline.ipynb` file.
 
-2. Execute the notebook
+2. Execute the notebook to run the data extraction pipeline. This will scrape the website, download the PDFs, convert them to HTML, extract the data with llm, and convert the extracted data into a knowledge graph.
 
 > To run the chatbot app, perform the following steps:
 
 1. Navigate to the src directory.
     ```bash
-    cd llm-data-extraction/src
+    cd llm-data-extraction/src/chatbot
     ```
 
 2. Run the streamlit app:
@@ -71,11 +72,13 @@ To set up the project, follow the steps below:
 
 The project directory contains the following files and folders:
 
-- `notebooks/`: Contains the notebooks used in the project.
+- `notebooks/`: Contains the notebooks for converting unstructured data to structured and for checking accuracy of the extracted data.
 - `src/`: Contains the source code of the project.
-- `data/`: Contains the data used in the project. PDFs and HTML files downloaded by the scripts are stored here.
-- `data/llm_prompts/`: Contains the prompts used for LLMs.
-- `data/schema/`: Contains the schema for the JSON data.
+- `data/protocols`: PDFs and HTML files downloaded by the scripts are stored here. Created when running the data extraction pipeline.
+- `data/llm/prompts/`: Contains the prompts used for LLMs.
+- `data/llm/schema/`: Contains the schema for the JSON data.
+- `data/scraping/`: Contains the scraped data from the website.
+- `data/temp/`: Temporary files and outputs from the llms are stored here. Created when running the data extraction pipeline.
 - `assets/`: Contains the images used in the project.
 - `config/`: Contains the configuration files used in the project.
 
@@ -103,8 +106,8 @@ This figure outlines the workflow for converting unstructured data from meeting 
 
 ![Meeting Protocol Structure](assets/meeting_protocols_structure.png)        
 
-1. ✅ **Extract Meeting Metadata with LLM**: Utilize a Large Language Model to extract metadata from the meetings documented in the HTML files. The JSON schema and prompt can be found in the [llm prompts folder](data/llm_prompts/meeting_metadata_extraction_prompt.txt).
-1. ⭕ **Extract Agenda with LLM**: Further extract the agenda from the meeting data using the LLM. The JSON schema and prompt can be found in the [llm_prompts folder](data/llm_prompts/agenda_extraction_prompt.txt). One might need to make different prompts for each organ as the pdf structure for organs vary slightly.
+1. ✅ **Extract Meeting Metadata with LLM**: Utilize a Large Language Model to extract metadata from the meetings documented in the HTML files. The JSON schema and prompt can be found in the [llm folder](data/llm/).
+1. ⭕ **Extract Agenda with LLM**: Further extract the agenda from the meeting data using the LLM. The JSON schema and prompt can be found in the [llm_prompts folder](data/llm/).
 2. ✅ **Convert to JSON**: The extracted data is then converted into JSON (hierarchical format) from DataFrame (flat format). DataFrames are useful for quick filtering and manipulation of the data whereas JSON format is useful for creating a knowledge graph.
 
 #### Knowledge Graph (KG) Conversion
@@ -122,10 +125,11 @@ This workflow transforms unstructured data into structured knowledge that is eas
 #### Intelligent Document Chatbot
 
 - ✅ **Relevant Data + Usery Query**: The relevant data and user query is then sent to the llm.
-- ✅ **LLM Answer Based on Data**: The llm then generates an answer to the user query based on the relevant data.
+- ✅ **LLM Answer Based on Data**: The llm then generates an answer to the user query based on the relevant data. With the LLM, one can dynamically write code to visualize the data using Graph, Timeline etc.
 
 
 ## Future Improvements:
 
-- [ ] Add unit tests to the data extraction pipeline
-- [ ] Add post-processing logic to remove/fix inconsistencies in the knowledge graph
+- [ ] Test if the new reasoning models like o1 can improve the unstructured to structured data conversion and retrieval.
+- [ ] Add post-processing logic to remove/fix inconsistencies in the knowledge graph.
+- [ ] Improve the configuration management.
