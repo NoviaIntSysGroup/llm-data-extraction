@@ -439,7 +439,6 @@ def create_knowledge_graph(construct_from): # construct_from = "llm" or "manual"
     # Connect to Neo4j
     driver = GraphDatabase.driver(uri, auth=(username, password))
 
-    print(driver)
     # Execute Cypher queries to create knowledge graph
     execute_cypher_queries(driver, data)
 
