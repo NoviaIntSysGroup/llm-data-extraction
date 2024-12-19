@@ -227,7 +227,7 @@ class KnowledgeGraphRAG:
         )
 
         # open cypher generation prompt template file
-        with open(os.getenv("CYPHER_GENERATION_PROMPT_PATH"), "r") as file:
+        with open(os.path.join("..", os.getenv("CYPHER_GENERATION_PROMPT_PATH")), "r") as file:
             CYPHER_GENERATION_TEMPLATE = file.read()
 
             # fstring replace index info in the template
@@ -238,7 +238,7 @@ class KnowledgeGraphRAG:
             input_variables=["schema", "question"], template=CYPHER_GENERATION_TEMPLATE
         )
 
-        with open(os.getenv("CYPHER_QA_PROMPT_PATH"), "r") as file:
+        with open(os.path.join("..", os.getenv("CYPHER_QA_PROMPT_PATH")), "r") as file:
             CYPHER_QA_TEMPLATE = file.read()
 
         CYPHER_QA_PROMPT = PromptTemplate(
@@ -278,7 +278,7 @@ class KnowledgeGraphRAG:
             )
 
         # open diagram prompt template file
-        with open(os.getenv("DIAGRAM_GENERATION_PROMPT_PATH"), "r") as file:
+        with open(os.path.join("..", os.getenv("DIAGRAM_GENERATION_PROMPT_PATH")), "r") as file:
             DIAGRAM_PROMPT_TEMPLATE = file.read()
 
         # Create a prompt template for diagram generation
@@ -290,7 +290,7 @@ class KnowledgeGraphRAG:
         self.diagram_chain = DIAGRAM_PROMPT | ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME"))
 
         # open timeline prompt template file
-        with open(os.getenv("TIMELINE_GENERATION_PROMPT_PATH"), "r") as file:
+        with open(os.path.join("..", os.getenv("TIMELINE_GENERATION_PROMPT_PATH")), "r") as file:
             TIMELINE_PROMPT_TEMPLATE = file.read()
 
         # create a prompt template for timeline generation

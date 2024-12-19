@@ -1,7 +1,7 @@
 import sys
 import streamlit as st
 import streamlit.components.v1 as components
-import llm_kg_retrieval
+import chatbot.llm_kg_retrieval as llm_kg_retrieval
 import os
 import re
 import json
@@ -10,8 +10,8 @@ import base64
 from dotenv import load_dotenv
 
 # load secrets
-load_dotenv("../config/config.env")
-load_dotenv("../config/secrets.env")
+load_dotenv("../../config/config.env")
+load_dotenv("../../config/secrets.env")
 
 try:
     __import__('pysqlite3')
