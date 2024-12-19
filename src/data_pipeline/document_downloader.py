@@ -4,7 +4,9 @@ from urllib.parse import unquote
 import re
 from tqdm import tqdm
 import json
-from .utils import read_json_file
+from bs4 import BeautifulSoup, Comment
+from .file_converter import add_ids_to_tags_
+from .utils import read_json_file, convert_file_path
 
 
 def get_file_name_from_url(url):
@@ -131,9 +133,53 @@ def save_scraped_data(count_downloaded, scraped_data, scraped_data_file_path):
         with open(scraped_data_file_path, 'w', encoding="utf-8") as file:
             json.dump(scraped_data, file,
                       ensure_ascii=False, indent=4)
+            
+
+def download_html(html_link):
+    """
+    Downloads an HTML file from the given URL and returns the content.
+
+    Args:
+        html_link (str): The URL of the HTML file to download.
+
+    Returns:
+        str: The content of the downloaded HTML file, or None if an error occurs.
+    """
+    try:
+        response = requests.get(html_link)
+        response.raise_for_status()  # Raise an error for bad status codes
+
+        # Parse the HTML content
+        soup = BeautifulSoup(response.content, 'html.parser')
+        body_content = soup.find('body')
+
+        if body_content:
+            # Remove elements with class 'paluu'
+            for tag in body_content.find_all(class_='paluu'):
+                tag.decompose()
+
+            # remove all attributes from tags
+            for tag in body_content.find_all(True):
+                tag.attrs = {}
+
+            # remove all html comments
+            for comment in soup.findAll(text=lambda text: isinstance(text, Comment)):
+                comment.extract()
+
+            # Add IDs to tags
+            body_content = add_ids_to_tags_(body_content.prettify())
+
+            # Return the HTML string
+            return body_content
+        else:
+            print(f"Error: <body> tag not found in {html_link}")
+            return None
+    except Exception as e:
+        print(f"Error downloading {html_link}: {str(e)}")
+        return None
 
 
-def download_files(scraped_data, protocols_path, scraped_data_file_path):
+def download_files(scraped_data, protocols_path, scraped_data_file_path, overwrite=True):
     """
     Downloads files from the provided scraped data and saves them in the specified directory, 
     with multi-level tqdm progress bars.
@@ -142,6 +188,7 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
         scraped_data (dict): The scraped data in the form of a dictionary.
         protocols_path (str): The path to the directory where the PDFs will be saved.
         scraped_data_file_path (str): The path to the file where the scraped data is saved.
+        overwrite (bool): Whether to overwrite existing files. Defaults to True.
 
     Returns:
         scraped_data (dict): The scraped data with the filenames of the downloaded PDFs added.
@@ -154,6 +201,8 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
             meeting_count += 1
             for document in meeting['documents']:
                 document_count += 1
+                if 'html_link' in document.keys():
+                    document_count += 1
                 for attachment in document['attachments']:
                     document_count += 1
 
@@ -165,10 +214,11 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
         for meeting in body['meetings']:
             # Iterate through the documents and download the files
             for document in meeting['documents']:
+                # get the link to the document
+                doc_link = document.get('doc_link', None)
                 # Skip if the file already exists
                 if not ('filepath' in document.keys() and os.path.exists(document['filepath'])):
-                    # get the link to the document
-                    doc_link = document['doc_link']
+                    html_link = document.get('html_link', None)
                     # get the filename from the link
                     filename = get_file_name_from_url(doc_link)
                     if filename:
@@ -176,6 +226,7 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
                             protocols_path, body['body'], meeting['meeting_date'], document['section'], filename)
                         save_path = os.path.normpath(
                             os.path.join(save_path, filename))
+
                         # Check if the file already exists and download it if it doesn't
                         if not os.path.exists(save_path):
                             is_download_successful = download_file(
@@ -185,7 +236,8 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
                                 document['filepath'] = save_path
                         else:
                             document['filepath'] = save_path
-                        # update scraped data file
+                
+                        # update scraped data file with the filepath of downloaded file
                         save_scraped_data(progress.n, scraped_data,
                                           scraped_data_file_path)
                     else:
@@ -194,6 +246,18 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
                     save_path = document['filepath']
                 # add the completed file to the progress bar
                 progress.update(1)
+
+                 # download the html file if it exists
+                if 'html_link' in document.keys() and os.path.exists(document['filepath']):
+                    html_link = document.get('html_link', None)
+                    html_save_path = convert_file_path(document['filepath'], 'webhtml')
+                    if html_link:
+                        if not os.path.exists(html_save_path) or overwrite:
+                            html_content = download_html(html_link)
+                            if html_content:
+                                with open(html_save_path, 'w', encoding="utf-8") as file:
+                                    file.write(html_content)
+                    progress.update(1)
 
                 # Iterate through the attachments and download the files
                 for attachment in document['attachments']:
@@ -226,13 +290,13 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path):
                                 f"Error: Could not download file {attachment_link}")
                     progress.update(1)
 
-    # save the final scraped data, passing 20 as the count_downloaded so that it is saved
-    save_scraped_data(20, scraped_data, scraped_data_file_path)
+    # save the final scraped data, passing 20 as the count_downloaded as it is the minimum number of documents after which save is triggered
+    save_scraped_data(progress.n, scraped_data, scraped_data_file_path)
     progress.close()
     return scraped_data
 
 
-def main():
+def main(overwrite=True):
 
     # Constants
     PROTOCOLS_PATH = os.getenv("PROTOCOLS_PATH")
@@ -255,7 +319,7 @@ def main():
             f"Scraped data file is empty: {SCRAPED_DATA_FILE_PATH}")
 
     # download the files
-    download_files(scraped_data, PROTOCOLS_PATH, SCRAPED_DATA_FILE_PATH)
+    download_files(scraped_data, PROTOCOLS_PATH, SCRAPED_DATA_FILE_PATH, overwrite=overwrite)
 
 
 if __name__ == '__main__':
