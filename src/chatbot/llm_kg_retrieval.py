@@ -1,26 +1,20 @@
+import json
+import logging
 import os
 import re
-from typing import Any, Dict, List, Optional
-import types
 import retry
-from time import sleep
-import logging
-import json
+import types
 
-from neo4j import GraphDatabase
-from neo4j.exceptions import SessionExpired
-
-import cohere
-
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.manager import CallbackManagerForChainRun
-from langchain_openai import ChatOpenAI
-from langchain.chains import GraphCypherQAChain
+from langchain_core.prompts.prompt import PromptTemplate
 from langchain_community.chains.graph_qa.cypher import GraphCypherQAChain
 from langchain_community.graphs import Neo4jGraph
-from langchain_core.prompts.prompt import PromptTemplate
-from langchain.chains import LLMChain
-from langchain.callbacks.base import BaseCallbackHandler
-
+from langchain_openai import ChatOpenAI
+from neo4j import GraphDatabase
+from neo4j.exceptions import SessionExpired
+from ratelimit import limits
+from typing import Any, Dict, List, Optional
 
 def extract_cypher(text: str) -> str:
     """Extract Cypher code from a text.
@@ -38,7 +32,6 @@ def extract_cypher(text: str) -> str:
     matches = re.findall(pattern, text, re.DOTALL)
 
     return matches[0].replace("cypher", "").strip() if matches else text
-
 
 def replace_query_with_embedding(cypher):
     """
@@ -67,25 +60,39 @@ def replace_query_with_embedding(cypher):
 
     return cypher
 
-
+@limits(calls=100, period=60)
 def generate_embeddings(texts: List[str]) -> List[List[float]]:
     """
     Generates embeddings for the input texts
     """
-    co = cohere.Client(os.getenv("COHERE_API_KEY"))
-    try:
-        response = co.embed(texts=texts, model='embed-multilingual-v3.0', input_type="search_document")
-    except:
-        print("Error generating embeddings")
-        return ""
-    return response.embeddings
+    if isinstance(texts, str):
+        texts = [texts]
 
+    texts = [text.strip() if text.strip() else "[empty]" for text in texts]
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    response = client.embeddings.create(
+        input=texts,
+        model=os.getenv("OPENAI_TEXT_EMBEDDING_MODEL_NAME")
+    )
+
+    return [item.embedding for item in response.data]
 
 class MyGraphCypherQAChain(GraphCypherQAChain):
     """
-    A modified version of the GraphCypherQAChain class that uses the cohere API to generate embeddings for vector search
+    A modified version of the GraphCypherQAChain class that uses the OpenAI API to generate embeddings for vector search
     and injects the LLM response into the streamlit app.
     """
+
+    # IMPORTANT NOTE:
+    # On a production database, make sure you disable "allow_dangerous_requests" and instead use a readonly neo4j connection
+    def __init__(self, *args, allow_dangerous_requests=True, **kwargs):
+        super().__init__(
+            *args,
+            allow_dangerous_requests=allow_dangerous_requests,
+            **kwargs
+        )
 
     def _call(
         self,
@@ -194,7 +201,6 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
         return chain_result
 
-
 class StreamHandler(BaseCallbackHandler):
     def __init__(self, container, initial_text=""):
         self.container = container
@@ -203,7 +209,6 @@ class StreamHandler(BaseCallbackHandler):
     def on_llm_new_token(self, token: str, **kwargs) -> None:
         self.text += token
         self.container.markdown(self.text)
-
 
 class KnowledgeGraphRAG:
     def __init__(self, url, username, password, answer_placeholder=None, run_environment="script"):
@@ -214,7 +219,7 @@ class KnowledgeGraphRAG:
             username: Username of the Neo4j database
             password: Password of the Neo4j database
             answer_placeholder: Streamlit placeholder for the LLM answer
-            run_environment: The environment in which the code is running. Can be "script" or "notebook"        
+            run_environment: The environment in which the code is running. Can be "script" or "notebook"
         """
 
         driver = GraphDatabase.driver(url, auth=(username, password))
@@ -350,7 +355,7 @@ class KnowledgeGraphRAG:
         except Exception as e:
             print(e)
             return None
-    
+
     @retry.retry(exceptions=Exception, tries=3)
     def get_timeline_from_data(self, data, question):
         """Construct timeline.js format JSON from the data retrieved from neo4j database using llm
@@ -372,6 +377,3 @@ class KnowledgeGraphRAG:
         except Exception as e:
             print(e)
             return None
-
-
-        

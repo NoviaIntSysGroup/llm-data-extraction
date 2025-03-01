@@ -1,13 +1,13 @@
-import requests
-from bs4 import BeautifulSoup
 import json
-import pandas as pd
 import os
+import pandas as pd
 import re
-from urllib.parse import urlparse, parse_qs
+import requests
+
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 from .utils import convert_date_to_yyyymmdd
-
 
 def fetch_and_parse(url):
     """
@@ -135,7 +135,6 @@ def scrape_table(table, base_url, depth=1):
 
     return data
 
-
 def find_meeting_reference(s):
     """
     Finds the meeting reference in a string.
@@ -150,13 +149,12 @@ def find_meeting_reference(s):
     match = re.search(pattern, s)
     return match.group() if match else None
 
-
 def process_scraped_data(json_data):
     """
     Process scraped JSON data and convert it to more understandable format.
 
     Args:
-        json_data (list): List of JSON objects containing scraped meeting data 
+        json_data (list): List of JSON objects containing scraped meeting data
 
     Returns:
         list: List of JSON objects containing processed meeting data
@@ -209,7 +207,6 @@ def process_scraped_data(json_data):
     grouped_list = list(grouped_data.values())
 
     return grouped_list
-
 
 def convert_to_df(json_data):
     """
@@ -271,7 +268,6 @@ def convert_to_df(json_data):
     df.fillna('', inplace=True)
     return df
 
-
 def main():
 
     # Load environment variables
@@ -298,7 +294,6 @@ def main():
     os.makedirs(DATA_PATH, exist_ok=True)
     with open(SCRAPED_DATA_FILE_PATH, 'w', encoding='utf-8') as f:
         json.dump(result, f, ensure_ascii=False, indent=4)
-
 
 if __name__ == '__main__':
     main()

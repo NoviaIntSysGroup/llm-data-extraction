@@ -1,10 +1,10 @@
 import fitz
-import os
-from mammoth import convert_to_html
-import os
-from tqdm import tqdm
 import html
+import os
+
 from bs4 import BeautifulSoup
+from mammoth import convert_to_html
+from tqdm import tqdm
 
 def add_ids_to_tags_(html):
     '''
@@ -18,18 +18,18 @@ def add_ids_to_tags_(html):
     '''
     # Define structural tags we want to add IDs to
     structural_tags = {'div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'section', 'header', 'footer', 'article', 'aside', 'main', 'nav'}
-    
+
     # Parse the HTML document
     soup = BeautifulSoup(html, 'html.parser')
     tag_id = 1
-    
+
     # Traverse all tags in the document
     for tag in soup.find_all(structural_tags):  # Only get tags in structural_tags set
         # Add an id if it doesn't already exist
         if 'id' not in tag.attrs:
             tag['id'] = f"{tag_id:x}"
             tag_id += 1
-            
+
     # Return the modified HTML as a string
     return str(soup)
 
@@ -45,13 +45,13 @@ def remove_ids_from_tags(html):
     '''
     # Parse the HTML document
     soup = BeautifulSoup(html, 'html.parser')
-    
+
     # Traverse all tags in the document
     for tag in soup.find_all():
         # Remove the id attribute if it exists
         if 'id' in tag.attrs:
             del tag['id']
-            
+
     # Return the modified HTML as a string
     return str(soup)
 
@@ -67,7 +67,7 @@ def clean_html(html):
     '''
     # Parse the HTML document
     soup = BeautifulSoup(html, 'html.parser')
-    
+
     # Traverse all tags in the document
     for tag in soup.find_all():
         # Remove the tag if it has no content
@@ -78,7 +78,7 @@ def clean_html(html):
             for attribute in list(tag.attrs):
                 if attribute != 'id':
                     del tag[attribute]
-            
+
     # Return the modified HTML as a string
     return str(soup)
 
@@ -156,7 +156,6 @@ def convert_files(filepaths, output_type='xhtml', overwrite=False, add_ids_to_ta
     print(
         f"Saved converted files to respective folders in the same directory as the original files")
 
-
 def get_documents_filepaths(directory, depth=3, file_types=['.pdf', '.docx']):
     """
     Recursively get the filepaths of documents in a directory.
@@ -168,7 +167,7 @@ def get_documents_filepaths(directory, depth=3, file_types=['.pdf', '.docx']):
 
     Returns:
         list: A list of filepaths of documents.
-    """        
+    """
     filepaths = []
     for entry in os.scandir(directory):
         if entry.is_file() and any(entry.name.endswith(ext) for ext in file_types):
@@ -178,7 +177,6 @@ def get_documents_filepaths(directory, depth=3, file_types=['.pdf', '.docx']):
             subfilepaths = get_documents_filepaths(entry.path, depth=depth-1, file_types=file_types)
             filepaths.extend(subfilepaths)
     return filepaths
-
 
 def main(depth=3, output_type='xhtml', overwrite=False, add_ids_to_tags=True):
     """
@@ -210,7 +208,6 @@ def main(depth=3, output_type='xhtml', overwrite=False, add_ids_to_tags=True):
         return
 
     convert_files(filepaths, output_type=output_type, overwrite=overwrite, add_ids_to_tags=add_ids_to_tags)
-
 
 if __name__ == '__main__':
     main()

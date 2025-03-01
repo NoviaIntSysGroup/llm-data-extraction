@@ -1,12 +1,14 @@
-import os
-import json
-from openai import AsyncOpenAI, OpenAI
-from tqdm.asyncio import tqdm
-from .utils import *
 import asyncio
-from aiolimiter import AsyncLimiter
+import json
+import os
 import tiktoken
+
+from tqdm.asyncio import tqdm
+from openai import AsyncOpenAI, OpenAI
+from aiolimiter import AsyncLimiter
 from bs4 import BeautifulSoup
+
+from .utils import *
 
 max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))
 if max_calls_per_minute < 1:
@@ -48,7 +50,7 @@ def create_extraction_task(model, system_prompt, user_prompt, json_schema):
                 "schema": json.loads(json_schema),
                 "strict": True
             },
-        }, 
+        },
     }
 
 def update_json_with_html(json_data, html_content):
@@ -63,7 +65,7 @@ def update_json_with_html(json_data, html_content):
     dict: JSON data with IDs replaced by corresponding text from HTML content.
     """
     soup = BeautifulSoup(html_content, 'html.parser')
-    
+
     def replace_ids(value):
         if isinstance(value, str):
             ids = [id_val.strip() for id_val in value.split(',')]
@@ -81,7 +83,7 @@ def update_json_with_html(json_data, html_content):
             return [process_json(item) for item in data]
         else:
             return replace_ids(data)
-    
+
     def replace_null_in_json(data):
         """
         Recursively replace null with empty values according to property type in the JSON data.
@@ -94,50 +96,62 @@ def update_json_with_html(json_data, html_content):
         elif data is None:
             return ""
         return data
-    
+
     json_data = process_json(json_data)
     json_data = replace_null_in_json(json_data)
 
     return json_data
 
-def save_metadata_llm_batch_results(output_jsonl, filepaths):
+async def save_metadata_llm_batch_results(output_jsonl, df):
     """
     Saves the LLM batch results in the same directory as the HTML files.
 
     Args:
     - output_jsonl: str, JSONL output of the LLM batch job for metadata extraction
-    - filepaths: list, filepaths of the HTML files used in the LLM batch job
+    - df: pandas.DataFrame, The DataFrame containing the meeting data. Should be the same DataFrame used to create the batch.
     """
     output_lines = output_jsonl.splitlines()
+    original_df = get_documents_dataframe()
     for line in output_lines:
         line = json.loads(line)
-        filepath = retrieve_filepath_from_custom_id(line["custom_id"], filepaths)
+        filepath = retrieve_filepath_from_custom_id(line["custom_id"], df["filepath"])
+        if not filepath:
+            print(f"Filepath not found for custom ID {line['custom_id']}")
+            continue
         line_json = json.loads(line["response"]["body"]["choices"][0]["message"]["content"])
         path = os.path.dirname(filepath)
         final_path = os.path.join(path, "llm_meeting_metadata.json")
-        with open(final_path, "w", encoding="utf-8") as f:
-            json.dump(line_json, f, indent=4, ensure_ascii=False)
+
+        #with open(final_path, "w", encoding="utf-8") as f:
+        #    json.dump(line_json, f, indent=4, ensure_ascii=False)
+
+        await combine_and_save_data(line_json, filepath, df, original_df, type="metadata")
+
     # save raw llm outputs
-    save_path = "..\\data\\temp\\llm_metadata_batch_output.jsonl"
-    with open(save_path, "w", encoding="utf-8") as f:
+    METADATA_BATCH_FILE_PATH = os.getenv("METADATA_BATCH_FILE_PATH")
+    with open(METADATA_BATCH_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(output_jsonl)
 
-def save_agenda_llm_batch_results(output_jsonl, filepaths, replace_ids=True, references_jsonl=None):
+async def save_agenda_llm_batch_results(output_jsonl, df, replace_ids=True, references_jsonl=None):
     """
     Saves the LLM batch results in the same directory as the HTML files.
 
     Args:
-    - output_jsonl: str, JSONL output of the LLM batch job for agenda extraction 
-    - filepaths: list, filepaths of the HTML files used in the LLM batch job
+    - output_jsonl: str, JSONL output of the LLM batch job for agenda extraction
+    - df: pandas.DataFrame, The DataFrame containing the agenda data. Should be the same DataFrame used to create the batch.
     - replace_ids: bool, whether to replace IDs in the JSON data with corresponding text from HTML content
     - references_jsonl: str, JSONL output of the LLM batch job for references extraction
     """
     output_lines = output_jsonl.splitlines()
+    original_df = get_documents_dataframe()
     references_lines = references_jsonl.splitlines() if references_jsonl else []
     output_jsonl = ""
     for line in output_lines:
         line = json.loads(line)
-        filepath = retrieve_filepath_from_custom_id(line["custom_id"], filepaths)
+        filepath = retrieve_filepath_from_custom_id(line["custom_id"], df["filepath"])
+        if not filepath:
+            print(f"Filepath not found for custom ID {line['custom_id']}")
+            continue
         html_path = convert_file_path(filepath, "webhtml")
         if not os.path.exists(html_path):
             html_path = convert_file_path(filepath, "html")
@@ -148,7 +162,7 @@ def save_agenda_llm_batch_results(output_jsonl, filepaths, replace_ids=True, ref
         if replace_ids:
             final_json = update_json_with_html(line_json, html_content)
         else:
-            final_json = line_json    
+            final_json = line_json
 
         # add references to the final JSON by matching the custom ID, string indices must be integers, not 'str'
         references_line = next((ref_line for ref_line in references_lines if json.loads(ref_line)["custom_id"] == line["custom_id"]), None)
@@ -160,18 +174,21 @@ def save_agenda_llm_batch_results(output_jsonl, filepaths, replace_ids=True, ref
         # save final json in the same path as the html file
         path = os.path.dirname(filepath)
         final_path = os.path.join(path, "llm_meeting_agenda.json")
-        with open(final_path, "w", encoding="utf-8") as f:
-            json.dump(final_json, f, indent=4, ensure_ascii=False)
-    
+
+        #with open(final_path, "w", encoding="utf-8") as f:
+        #    json.dump(final_json, f, indent=4, ensure_ascii=False)
+
+        await combine_and_save_data(final_json, filepath, df, original_df, type="agenda")
+
     # save raw llm outputs for agenda
-    save_path = "..\\data\\temp\\llm_agenda_batch_output.jsonl"
-    with open(save_path, "w", encoding="utf-8") as f:
+    AGENDA_BATCH_FILE_PATH = os.getenv("AGENDA_BATCH_FILE_PATH")
+    with open(AGENDA_BATCH_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(output_jsonl)
 
     # save raw llm outputs for references
     if references_jsonl:
-        save_path = "..\\data\\temp\\llm_references_batch_output.jsonl"
-        with open(save_path, "w", encoding="utf-8") as f:
+        REFERENCES_BATCH_FILE_PATH = os.getenv("REFERENCES_BATCH_FILE_PATH")
+        with open(REFERENCES_BATCH_FILE_PATH, "w", encoding="utf-8") as f:
             f.write(references_jsonl)
 
 def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False, batch_file_path=None):
@@ -198,7 +215,7 @@ def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False
                 file.write("")
         else:
             print("There is already a batch file at the specified path. If you want to overwrite the file, set the 'overwrite_batch_file' parameter to True.")
-            return 
+            return
 
     token_count = 0
     for filepath in filepaths:
@@ -223,7 +240,7 @@ def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False
 
     print(f"Batch file created at {batch_file_path} with {len(filepaths)} tasks.")
     print(f"Input token count: {token_count}. Approximate input token cost: ${token_count * 1.25/1_000_000:.2f}")
-    
+
 def submit_batch_job(batch_file_path, input_id_save_path, metadata_description=None):
     """
     Submits a batch job for extracting meeting data from meeting documents using OpenAI Batch API.
@@ -298,7 +315,7 @@ def extract_references_batch(df=None, filetype="html", overwrite_batch_file=Fals
     create_batch_file(filepaths, PROMPT, JSON_SCHEMA, overwrite_batch_file=overwrite_batch_file, batch_file_path=BATCH_FILE_PATH)
     return submit_batch_job(BATCH_FILE_PATH, os.getenv("REFERENCES_INPUT_ID_SAVE_PATH"), metadata_description="Extract References from Meeting Documents")
 
-def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_batch_file=True):
+def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_batch_file=True, overwrite_data=False):
     """
     Creates a batch file to extract meeting data from meeting documents using OpenAI Batch API.
 
@@ -307,10 +324,21 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
         type (str): The type of data to extract. Can be either "metadata", "agenda" or None. If None, the function will extract both metadata and agenda.
         filetype (str): The type of file to extract. Can be either "txt" or "html".
         overwrite_batch_file (bool): If True, the batch file will be overwritten. If False, the tasks will be appended to the batch file.
+        overwrite_data (bool): Whether to overwrite already extracted data
 
     Returns:
         (str, str | None): The batch ID for the meeting data extraction and (optional) batch ID for the agenda references extraction.
     """
+
+    EXTRACTION_PROMPT_PATH = os.getenv(f"{type.upper()}_EXTRACTION_PROMPT_PATH")
+    JSON_SCHEMA_PATH = os.getenv(f"{type.upper()}_JSON_SCHEMA_PATH")
+    BATCH_FILE_PATH = os.getenv(f"{type.upper()}_BATCH_FILE_PATH")
+
+    # if a type is specified, extract the specified type
+    if type not in ["metadata", "agenda"]:
+        raise ValueError(
+            "Invalid type. Type must be either 'metadata', 'agenda' or None.")
+
     # if no dataframe is provided, get the default dataframe
     if df is None or df.empty:
         print("Fetching documents dataframe...")
@@ -324,18 +352,19 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
         extract_meeting_data_batch(filter_agenda(df), "agenda")
         return
 
-    # if a type is specified, extract the specified type
-    if type not in ["metadata", "agenda"]:
-        # raise an error if the type is invalid
-        raise ValueError(
-            "Invalid type. Type must be either 'metadata', 'agenda' or None.")
+    # Remove already downloaded rows
+    if not overwrite_data:
+        def file_exists(filepath):
+            if type == "metadata":
+                return os.path.isfile(os.path.join(os.path.dirname(filepath), "llm_meeting_metadata.json"))
+            elif type == "agenda":
+                return os.path.isfile(os.path.join(os.path.dirname(filepath), "llm_meeting_agenda.json"))
+            return False
+        df = df[~df['filepath'].apply(file_exists)]
 
-    EXTRACTION_PROMPT_PATH = os.getenv(
-        f"{type.upper()}_EXTRACTION_PROMPT_PATH")
-    
-    JSON_SCHEMA_PATH = os.getenv(f"{type.upper()}_JSON_SCHEMA_PATH")
-
-    BATCH_FILE_PATH = os.getenv(f"{type.upper()}_BATCH_FILE_PATH") 
+    if df.empty:
+        print("No remaining documents to extract...")
+        return (None, None)
 
     # read the prompt text
     with open(EXTRACTION_PROMPT_PATH, 'r') as file:
@@ -345,14 +374,20 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
     with open(JSON_SCHEMA_PATH, 'r') as file:
         json_schema = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
+    def get_document_filepath(row):
+        if row['web_html_link'] != "":
+            return convert_file_path(row['filepath'], "webhtml")
+        else:
+            return convert_file_path(row['filepath'], filetype)
+
     # provide webhtml (the html scraped from website) file if available, if not, provide the converted txt or html from pdf
-    filepaths = df.apply(lambda row: convert_file_path(row['filepath'], "webhtml") if row['web_html_link']!="" else convert_file_path(row['filepath'], filetype), axis=1)
-        
+    filepaths = df.apply(get_document_filepath, axis=1)
+
     print(f"Creating batch extraction job for {type}...")
     create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=overwrite_batch_file, batch_file_path=BATCH_FILE_PATH)
     batch_id = submit_batch_job(
-        BATCH_FILE_PATH, 
-        os.getenv(f"{type.capitalize()}_BATCH_INPUT_ID_SAVE_PATH"), 
+        BATCH_FILE_PATH,
+        os.getenv(f"{type.upper()}_BATCH_INPUT_ID_SAVE_PATH"),
         metadata_description=f"Extract {type.capitalize()} from Meeting Documents")
     print("-"*100)
 
@@ -367,7 +402,6 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
         print("-"*100)
         return batch_id, agenda_batch_id
     return batch_id, None
-        
 
 def check_batch_status(batch_id):
     """
@@ -376,7 +410,7 @@ def check_batch_status(batch_id):
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     batch_status = client.batches.retrieve(batch_id)
     status = batch_status.status
-    print(f"Current status: {status}")
+    print(f"Current status: {status}", end='\r')
 
     if status == "completed":
         output_file_id = batch_status.output_file_id
@@ -384,6 +418,11 @@ def check_batch_status(batch_id):
             print("Batch completed successfully.")
             print(f"Output file ID: {output_file_id}")
             return output_file_id
+
+    if status == "cancellings":
+        raise ValueError("Batch cancelled")
+
+    return None
 
 def retrieve_batch_output(file_id):
     """
@@ -412,7 +451,6 @@ def retrieve_filepath_from_custom_id(custom_id, filepaths):
         if extract_doc_id(filepath) == custom_id:
             return filepath
     return None
-
 
 async def extract_meeting_data_batch_from_output(output_file_id, df, type):
     """

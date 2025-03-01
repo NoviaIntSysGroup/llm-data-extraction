@@ -1,19 +1,29 @@
-import cohere
-from tqdm import tqdm
-import os
 import json
-from neo4j import GraphDatabase
-import concurrent.futures
+import os
 
+from neo4j import GraphDatabase
+from openai import OpenAI
+from ratelimit import limits
+from tqdm import tqdm
+
+@limits(calls=100, period=60)
 def generate_embeddings(texts):
     """
     Generates embeddings for the input texts
     """
     if isinstance(texts, str):
         texts = [texts]
-    co = cohere.Client(os.getenv("COHERE_API_KEY"))
-    response = co.embed(texts=texts, model='embed-multilingual-v3.0', input_type="search_document")  
-    return response.embeddings
+
+    texts = [text.strip() if text.strip() else "[empty]" for text in texts]
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    response = client.embeddings.create(
+        input=texts,
+        model=os.getenv("OPENAI_TEXT_EMBEDDING_MODEL_NAME")
+    )
+
+    return [item.embedding for item in response.data]
 
 def execute_cypher_queries(driver, data):
     """
@@ -36,18 +46,9 @@ def execute_cypher_queries(driver, data):
     body_names = [body.get("name", "") for body in bodies]
     body_embeddings = generate_embeddings(body_names)
 
-    # Process bodies sequentially (very slow, use this if kernel crashes)
-    # for i, body in enumerate(tqdm(bodies, desc="Processing bodies")):
-    #     process_body(driver, body, body_embeddings[i])
-
-    # Process bodies in parallel, could increase the max workers 
-    # depending on the system resources for faster execution
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = []
-        for i, body in enumerate(tqdm(bodies, desc="Processing bodies concurrently")):
-            future = executor.submit(process_body, driver, body, body_embeddings[i])
-            futures.append(future)
-        concurrent.futures.wait(futures)
+    # Process bodies sequentially (very slow)
+    for i, body in enumerate(tqdm(bodies, desc="Processing bodies")):
+        process_body(driver, body, body_embeddings[i])
 
 def process_body(driver, body, body_embedding):
     with driver.session() as session:
@@ -56,12 +57,12 @@ def process_body(driver, body, body_embedding):
         session.run("""
             MERGE (b:Body {name: $body_name})
             SET b.name_embedding = $name_embedding
-            """, 
+            """,
             body_name=body_name,
             name_embedding=body_embedding)
 
     # Process meetings
-    meetings = body.get("meetings", [])
+    meetings = [meeting for meeting in body.get("meetings", []) if meeting is not None]
     meeting_locations = [meeting.get("meeting_location", "") for meeting in meetings]
     meeting_embeddings = generate_embeddings(meeting_locations)
 
@@ -80,19 +81,21 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
             meeting_reference: $meeting_reference,
             end_time: $end_time,
             meeting_location: $meeting_location,
-            doc_link: $doc_link
+            doc_link: $doc_link,
+            page_list: $page_list
             })
             WITH m
             MATCH (b:Body {name: $body_name})
             MERGE (b)-[:HOSTED]->(m)
             SET m.meeting_location_embedding = $meeting_location_embedding
             RETURN id(m)
-            """, 
+            """,
             meeting_date=meeting.get("meeting_date", ""),
             start_time=meeting.get("start_time", ""),
             meeting_reference=meeting.get("meeting_reference", ""),
             end_time=meeting.get("end_time", ""),
             doc_link=meeting.get("doc_link", ""),
+            page_list=meeting.get("page_list", []),
             meeting_location=meeting_location,
             body_name=body_name,
             meeting_location_embedding=meeting_embedding
@@ -120,7 +123,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 WITH p, person
                 MATCH (m:Meeting) WHERE id(m) = person.meeting_id
                 MERGE (p)-[:ATTENDED {
-                    role: coalesce(person.role, ''), 
+                    role: coalesce(person.role, ''),
                     attendance: coalesce(person.attendance, '')
                 }]->(m)
                 """, participants=participant_data)
@@ -198,6 +201,8 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         adjuster_data = []
         if adjusters:
             for adjuster in adjusters:
+                if adjuster is None:
+                    continue
                 name = adjuster.split(" ")
                 fname = " ".join(name[:-1]) if len(name) > 1 else name[0]
                 lname = name[-1]
@@ -247,7 +252,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         i.context_embedding = $context_embedding,
                         i.decision_embedding = $decision_embedding
                     RETURN id(i)
-                    """, 
+                    """,
                     title=item.get("title", ""),
                     section=item.get("section", ""),
                     references=item.get("references", ""),
@@ -325,6 +330,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                             'link': attachment.get("link", ""),
                             'title': attachment.get("title", ""),
                             'title_embedding': attachment_embeddings[k] if attachment_embeddings else None,
+                            'page_images': attachment.get("page_images", []),
                             'item_id': item_id
                         })
 
@@ -335,7 +341,8 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         WITH attachment, a
                         MATCH (i:MeetingItem) WHERE id(i) = a.item_id
                         MERGE (i)-[:HAS_ATTACHMENT]->(attachment)
-                        SET attachment.title_embedding = a.title_embedding
+                        SET attachment.title_embedding = a.title_embedding,
+                            attachment.page_list = a.page_list
                         """, attachments=attachment_data)
 
 def create_embeddings_index(driver):
@@ -364,12 +371,12 @@ def create_embeddings_index(driver):
         # Create vector indexes
         session.run(f"""
             CREATE VECTOR INDEX `body_name_embedding` IF NOT EXISTS
-            FOR (b:Body) ON (b.name_embedding) 
+            FOR (b:Body) ON (b.name_embedding)
             {options}
         """)
         session.run(f"""
             CREATE VECTOR INDEX `meeting_location_embedding` IF NOT EXISTS
-            FOR (n:Meeting) ON (n.meeting_location_embedding) 
+            FOR (n:Meeting) ON (n.meeting_location_embedding)
             {options}
         """)
 
@@ -377,12 +384,12 @@ def create_embeddings_index(driver):
         for property in item_properties:
             session.run(f"""
                 CREATE VECTOR INDEX `item_{property}` IF NOT EXISTS
-                FOR (n:MeetingItem) ON (n.{property}) 
+                FOR (n:MeetingItem) ON (n.{property})
                 {options}
             """)
         session.run(f"""
                 CREATE VECTOR INDEX `attachment_title_embedding` IF NOT EXISTS
-                FOR (n:Attachment) ON (n.title_embedding) 
+                FOR (n:Attachment) ON (n.title_embedding)
                 {options}
             """)
     print("Vector indexes created.")
@@ -403,11 +410,11 @@ def post_process_knowledge_graph(driver):
         session.run("""
             MATCH (m:Meeting)
             WHERE toString(m.meeting_date) = m.meeting_date
-            WITH m, 
+            WITH m,
                 split(m.meeting_date, '.') AS dateParts
-            WITH m, 
-                toInteger(dateParts[0]) AS year, 
-                toInteger(dateParts[1]) AS month, 
+            WITH m,
+                toInteger(dateParts[0]) AS year,
+                toInteger(dateParts[1]) AS month,
                 toInteger(dateParts[2]) AS day
             SET m.meeting_date = date({ year: year, month: month, day: day })
         """)
@@ -419,7 +426,7 @@ def create_knowledge_graph(construct_from): # construct_from = "llm" or "manual"
 
     Args:
         construct_from (str): The source from which to construct the JSON. Can be "llm" or "manual".
-    
+
     Returns:
         None
     """

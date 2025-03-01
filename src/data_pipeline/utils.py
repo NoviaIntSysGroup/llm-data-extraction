@@ -1,6 +1,6 @@
+import aiofiles
 import json
 import os
-import aiofiles
 import pandas as pd
 import re
 
@@ -19,7 +19,6 @@ def convert_file_path(filepath, filetype='pdf'):
         filepath), f'{filename}.{filetype}')
     return filepath
 
-
 def remove_files(path, extension, depth):
     '''
     Remove files with a given extension from the given directory.
@@ -34,7 +33,6 @@ def remove_files(path, extension, depth):
             remove_files(entry.path, extension, depth - 1)
         if entry.is_file() and entry.name.endswith(extension):
             os.remove(entry.path)
-
 
 def filter_metadata(df):
     '''
@@ -51,7 +49,6 @@ def filter_metadata(df):
 
     # Filter documents that contain meeting metadata
     return df[df['title'].isin(DOC_TITLES_WITH_METADATA)].drop(columns=['parent_link'])
-
 
 def filter_agenda(df):
     '''
@@ -90,7 +87,6 @@ def filter_agenda(df):
 
     return filtered_df.drop(columns=['parent_link'])
 
-
 def is_data_extracted(filepath, doc_type, extraction_type):
     """
     Check if the meeting data of given type has been already extracted.
@@ -124,7 +120,6 @@ def is_data_extracted(filepath, doc_type, extraction_type):
     # Check if the path exists
     return os.path.exists(path_to_check)
 
-
 def read_json_file(filepath):
     """
     Reads a JSON file in utf-9 encoding and returns the data.
@@ -138,7 +133,6 @@ def read_json_file(filepath):
             print(f'Error loading: {filepath}')
     else:
         print(f'Empty file: {filepath}')
-
 
 def get_documents_dataframe(type=None):
     '''
@@ -167,11 +161,11 @@ def get_documents_dataframe(type=None):
     if not SCRAPED_DATA_FILE_PATH:
         raise ValueError(
             "Environmental variable 'SCRAPED_DATA_FILE_PATH' is not set")
-    
+
     if not os.path.exists(SCRAPED_DATA_FILE_PATH):
         raise ValueError(
             f"Scraped Data File does not exist: {SCRAPED_DATA_FILE_PATH}. Please check the path or create the file if it does not exist.")
-    
+
     scraped_data = read_json_file(SCRAPED_DATA_FILE_PATH)
 
     # Check if the scraped data is empty
@@ -184,14 +178,17 @@ def get_documents_dataframe(type=None):
         raise ValueError("'type' must be either 'metadata', 'agenda' or None")
 
     # make an empty dataframe
-    columns = ['doc_link', 'web_html_link', 'title', 'section','filepath', 'meeting_date', 
-               'meeting_time', 'meeting_reference', 'body', 'parent_link']
+    columns = ['doc_link', 'web_html_link', 'title', 'section','filepath', 'meeting_date',
+               'meeting_time', 'meeting_reference', 'body', 'parent_link', 'page_list']
     documents_df = pd.DataFrame(columns=columns)
 
     # Iterate over the meetings and agendas
     for body in scraped_data:
         for meeting in body['meetings']:
             for document in meeting['documents']:
+                if not 'filepath' in document:
+                    continue
+
                 parent_row = {
                     "doc_link": document['doc_link'],
                     "web_html_link": document.get('html_link', None),
@@ -202,7 +199,8 @@ def get_documents_dataframe(type=None):
                     'meeting_time': meeting['meeting_time'],
                     'meeting_reference': meeting['meeting_reference'],
                     'body': body['body'],
-                    'parent_link': None
+                    'parent_link': None,
+                    'page_list': document.get('page_list', [])
                 }
 
                 # Concatenate the parent row DataFrame with the main DataFrame
@@ -219,7 +217,8 @@ def get_documents_dataframe(type=None):
                             'meeting_time': meeting['meeting_time'],
                             'meeting_reference': meeting['meeting_reference'],
                             'body': body['body'],
-                            'parent_link': parent_row['doc_link']
+                            'parent_link': parent_row['doc_link'],
+                            'page_list': attachment.get('page_list', [])
                         }
                         # Concatenate the attachment row DataFrame with the main DataFrame
                         documents_df = pd.concat(
@@ -261,7 +260,6 @@ def get_documents_dataframe(type=None):
 
     return documents_df
 
-
 async def get_llm_response(text, client, prompt):
     '''Extract data from a text using the LLM.
 
@@ -290,7 +288,6 @@ async def get_llm_response(text, client, prompt):
 
     return response.choices[0].message.content.replace('```json', '').replace('```', '')
 
-
 async def save_json_file_async(filepath, data, indent=4):
     '''
     Save a JSON file to the given filepath.
@@ -317,7 +314,6 @@ def save_json_file(filepath, data, indent=4):
     with open(filepath, 'w', encoding="utf-8") as file:
         file.write(data)
 
-
 def extract_date(text):
     '''
     Extract the adjustment date from text.
@@ -336,7 +332,6 @@ def extract_date(text):
         return convert_date_to_yyyymmdd(match.group(0))
     return None
 
-
 def convert_date_to_yyyymmdd(date):
     '''
     Convert the date in dd.mm.yyyy to yyyy.mm.dd format. Return same date if it's already in yyyy.mm.dd format.
@@ -349,7 +344,6 @@ def convert_date_to_yyyymmdd(date):
     '''
     return re.sub(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', r'\3.\2.\1', date)
 
-
 async def combine_and_save_data(response_json, filepath, df, original_df, type):
     '''
     Combine the data scraped from website and data extracted from the LLM and save it into a JSON file.
@@ -361,17 +355,20 @@ async def combine_and_save_data(response_json, filepath, df, original_df, type):
         original_df (pandas.DataFrame): The original DataFrame containing all the meeting documents.
         type (str): The type of documents to process. Can be 'metadata' or 'agenda'.
     '''
+
     index = df[df['filepath'] == filepath].index[0]
     if type == 'metadata':
         response_json['meeting_date'] = df.at[index, 'meeting_date']
         response_json['start_time'] = df.at[index, 'meeting_time']
         response_json['meeting_reference'] = df.at[
             index, 'meeting_reference']
-        response_json['adjustment_date'] = extract_date(
-            response_json['adjustment_date'])
+        if not response_json['adjustment_date'] is None:
+            response_json['adjustment_date'] = extract_date(
+                response_json['adjustment_date'])
         response_json['doc_link'] = df.at[index, 'doc_link']
         # will be added later in the pipeline
         response_json['meeting_items'] = []
+        response_json['page_list'] = df.at[index, 'page_list']
 
         # construct the json file path
         json_filepath = os.path.join(os.path.dirname(filepath),
@@ -389,7 +386,8 @@ async def combine_and_save_data(response_json, filepath, df, original_df, type):
             for index, attachment in attachments.iterrows():
                 response_json['attachments'].append({
                     "title": attachment['title'],
-                    "link": attachment['doc_link']
+                    "link": attachment['doc_link'],
+                    "page_list": attachment['page_list']
                 })
         # construct the json file path
         json_filepath = os.path.join(os.path.dirname(
@@ -397,7 +395,6 @@ async def combine_and_save_data(response_json, filepath, df, original_df, type):
 
     # save the combined data
     await save_json_file_async(json_filepath, response_json)
-
 
 async def process_html(filepath, df, original_df, client, prompt, limiter, type):
     '''
@@ -477,21 +474,21 @@ def construct_aggregate_json(construct_from):
         if not body.is_dir() or body.name == "test_pdfs":
             continue
         aggregate_meeting = []
-        
+
         # Iterate over each meeting in the body
         for meeting in os.scandir(body.path):
             if not meeting.is_dir():
                 continue
             metadata = None
             aggregate_agenda = []
-            
+
             # Iterate over each document in the meeting
             for document in os.scandir(meeting.path):
                 if not document.is_dir():
                     continue
                 metadata_path = os.path.join(document.path, f"{construct_from}_meeting_metadata.json")
                 agenda_path = os.path.join(document.path, f"{construct_from}_meeting_agenda.json")
-                
+
                 # Check if the metadata or agenda file exists
                 if os.path.exists(metadata_path):
                     metadata = read_json_file(metadata_path)
@@ -500,16 +497,16 @@ def construct_aggregate_json(construct_from):
                     if not item:
                         item = []
                     aggregate_agenda.append(item)
-            
+
             # Add the aggregate agenda to the metadata
             if metadata:
                 metadata['meeting_items'] = aggregate_agenda
             else:
                 print(f"{construct_from} meeting metadata not found for {meeting.path}.")
-            
+
             # Append the metadata to the aggregate meeting
             aggregate_meeting.append(metadata)
-        
+
         # Append the aggregate meeting to the body
         aggregate_json['body'].append({
             "name": body.name,
@@ -542,7 +539,7 @@ def create_agenda_html(agenda_df):
                 agenda_html += f"<li><a target='_blank' href='{row['filepath']}'>{row['title']}</a>"
                 agenda_html += f"<a style='color: black' target='_blank' href='{os.path.join(filedir, 'llm_meeting_agenda.json')}'> [LLM EXTRACTED JSON]</a><br><br></li>"
             agenda_html += "</ul>"
-        agenda_html += "</ul>"     
+        agenda_html += "</ul>"
 
     # save the html
     with open("agenda.html", "w") as f:

@@ -1,7 +1,8 @@
 import json
 import pandas as pd
-from dash import Dash, html, dcc, Output, Input
 import plotly.express as px
+
+from dash import Dash, html, dcc, Output, Input
 
 def visualize_results(results_path):
     with open(results_path, 'r', encoding='utf-8') as f:

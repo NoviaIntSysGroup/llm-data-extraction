@@ -1,13 +1,19 @@
-import requests
-import os
-from urllib.parse import unquote
-import re
-from tqdm import tqdm
+import fitz
 import json
+import os
+import re
+import requests
+import subprocess
+import tempfile
+import uuid
+
 from bs4 import BeautifulSoup, Comment
+from PIL import Image
+from tqdm import tqdm
+from urllib.parse import unquote
+
 from .file_converter import add_ids_to_tags_
 from .utils import read_json_file, convert_file_path
-
 
 def get_file_name_from_url(url):
     """
@@ -34,7 +40,6 @@ def get_file_name_from_url(url):
     except:
         return None
 
-
 def download_file(url, save_path):
     """
     Downloads a PDF file from the given URL and saves it in the given path
@@ -60,7 +65,6 @@ def download_file(url, save_path):
     except Exception as e:
         print(f"Error downloading {url}: {str(e)}")
         return False
-
 
 def get_doc_save_path(protocols_path, body, meeting_date, section, filename):
     """
@@ -94,7 +98,6 @@ def get_doc_save_path(protocols_path, body, meeting_date, section, filename):
     # Join the path components and return the full path
     return save_path
 
-
 def get_attachment_save_path(parent_folder, filename):
     """
     Generates the path where the attachment will be saved.
@@ -117,7 +120,6 @@ def get_attachment_save_path(parent_folder, filename):
     # Join the path components and return the full path
     return save_path
 
-
 def save_scraped_data(count_downloaded, scraped_data, scraped_data_file_path):
     """
     Saves the scraped data to the specified file path.
@@ -133,7 +135,6 @@ def save_scraped_data(count_downloaded, scraped_data, scraped_data_file_path):
         with open(scraped_data_file_path, 'w', encoding="utf-8") as file:
             json.dump(scraped_data, file,
                       ensure_ascii=False, indent=4)
-            
 
 def download_html(html_link):
     """
@@ -149,8 +150,12 @@ def download_html(html_link):
         response = requests.get(html_link)
         response.raise_for_status()  # Raise an error for bad status codes
 
+        # Decode the response content
+        encoding = response.apparent_encoding if response.apparent_encoding else 'utf-16'
+        content = response.content.decode(encoding)
+
         # Parse the HTML content
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(content, 'html.parser')
         body_content = soup.find('body')
 
         if body_content:
@@ -178,10 +183,90 @@ def download_html(html_link):
         print(f"Error downloading {html_link}: {str(e)}")
         return None
 
+def convert_to_page_images(filepath):
+    '''
+    Convert scraped document (PDF or DOCX) into page JPEG images.
+    DOCX files are converted to a temporary PDF using LibreOffice.
+
+    Args:
+        filepath: Filepath to the document to be converted.
+
+    Returns:
+        list: List of unique filenames (without extension) generated for the pages
+    '''
+
+    if not os.path.exists(filepath):
+        print(f"File {filepath} does not exist.")
+        return []
+
+    PAGES_PATH = os.getenv("PAGES_PATH")
+    PAGE_WIDTH = int(os.getenv("PAGE_WIDTH"))
+
+    file_ext = os.path.splitext(filepath)[1].lower()
+
+    def pdf_to_images(pdf_path):
+        try:
+            doc = fitz.open(pdf_path)
+        except Exception as e:
+            print(f"Error opening PDF '{pdf_path}': {e}")
+            return []
+
+        page_filenames = []
+        for page in doc:
+            original_width = page.rect.width
+            scale = PAGE_WIDTH / original_width
+            mat = fitz.Matrix(scale, scale)
+
+            try:
+                pix = page.get_pixmap(matrix=mat)
+            except Exception as e:
+                print(f"Error rendering page to pixmap: {e}")
+                return []
+
+            filename = str(uuid.uuid4())
+            outpath = os.path.join(PAGES_PATH, filename + '.jpg')
+            try:
+                pix.save(outpath, output="jpeg")
+            except Exception as e:
+                print(f"Error saving page for PDF '{pdf_path}': {e}")
+                return []
+            page_filenames.append(filename)
+
+        return page_filenames
+
+    if file_ext == '.pdf':
+        return pdf_to_images(filepath)
+    elif file_ext == '.docx':
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                subprocess.run(
+                    ['libreoffice', '--headless', '--convert-to', 'pdf', filepath, '--outdir', temp_dir],
+                    check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"Error converting {filepath} to PDF: {e}")
+                return []
+
+            return pdf_to_images(os.path.join(temp_dir, os.path.basename(filepath) + '.pdf'))
+    elif file_ext in ['.jpg', '.jpeg', '.png', '.tiff', '.bmp', '.gif']:
+        try:
+            image = Image.open(filepath)
+            height = int(PAGE_WIDTH * (float(image.height) / image.width))
+            resized_image = image.resize((PAGE_WIDTH, height), Image.LANCZOS)
+            filename = str(uuid.uuid4()) + '.jpg'
+            image_path = os.path.join(PAGES_PATH, filename)
+            resized_image.convert('RGB').save(image_path, 'JPEG')
+            return [filename]
+        except Exception as e:
+            print(f"Error processing image file {filepath}: {e}")
+            return []
+    else:
+        print(f"File format {file_ext} not supported: {filepath}")
+        return []
 
 def download_files(scraped_data, protocols_path, scraped_data_file_path, overwrite=True):
     """
-    Downloads files from the provided scraped data and saves them in the specified directory, 
+    Downloads files from the provided scraped data and saves them in the specified directory,
     with multi-level tqdm progress bars.
 
     Args:
@@ -236,7 +321,10 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path, overwri
                                 document['filepath'] = save_path
                         else:
                             document['filepath'] = save_path
-                
+
+                        # Convert document to page images and save the filenames
+                        document['page_list'] = convert_to_page_images(save_path)
+
                         # update scraped data file with the filepath of downloaded file
                         save_scraped_data(progress.n, scraped_data,
                                           scraped_data_file_path)
@@ -244,19 +332,18 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path, overwri
                         print(f"Error: Could not download file {doc_link}")
                 else:
                     save_path = document['filepath']
+
                 # add the completed file to the progress bar
                 progress.update(1)
 
-                 # download the html file if it exists
-                if 'html_link' in document.keys() and os.path.exists(document['filepath']):
-                    html_link = document.get('html_link', None)
-                    html_save_path = convert_file_path(document['filepath'], 'webhtml')
-                    if html_link:
-                        if not os.path.exists(html_save_path) or overwrite:
-                            html_content = download_html(html_link)
-                            if html_content:
-                                with open(html_save_path, 'w', encoding="utf-8") as file:
-                                    file.write(html_content)
+                # download the html file if it exists
+                html_save_path = convert_file_path(document['filepath'], 'webhtml')
+                if 'html_link' in document.keys() and (not os.path.exists(html_save_path) or overwrite):
+                    html_link = document.get('html_link')
+                    html_content = download_html(html_link)
+                    if html_content:
+                        with open(html_save_path, 'w', encoding="utf-8") as file:
+                            file.write(html_content)
                     progress.update(1)
 
                 # Iterate through the attachments and download the files
@@ -282,9 +369,12 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path, overwri
                                     attachment['filepath'] = attachment_save_path
                             else:
                                 attachment['filepath'] = attachment_save_path
+
+                            # Convert document to page images and save the filenames
+                            attachment['page_list'] = convert_to_page_images(attachment_save_path)
+
                             # update scraped data file
-                            save_scraped_data(progress.n, scraped_data,
-                                              scraped_data_file_path)
+                            save_scraped_data(progress.n, scraped_data, scraped_data_file_path)
                         else:
                             print(
                                 f"Error: Could not download file {attachment_link}")
@@ -295,9 +385,7 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path, overwri
     progress.close()
     return scraped_data
 
-
 def main(overwrite=True):
-
     # Constants
     PROTOCOLS_PATH = os.getenv("PROTOCOLS_PATH")
     SCRAPED_DATA_FILE_PATH = os.getenv("SCRAPED_DATA_FILE_PATH")
@@ -320,7 +408,6 @@ def main(overwrite=True):
 
     # download the files
     download_files(scraped_data, PROTOCOLS_PATH, SCRAPED_DATA_FILE_PATH, overwrite=overwrite)
-
 
 if __name__ == '__main__':
     from dotenv import load_dotenv

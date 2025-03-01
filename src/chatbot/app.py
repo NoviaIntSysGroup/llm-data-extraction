@@ -1,12 +1,13 @@
-import sys
-import streamlit as st
-import streamlit.components.v1 as components
 import chatbot.llm_kg_retrieval as llm_kg_retrieval
+import base64
+import json
 import os
 import re
-import json
 import requests
-import base64
+import streamlit as st
+import streamlit.components.v1 as components
+import sys
+
 from dotenv import load_dotenv
 
 # load secrets
@@ -19,14 +20,12 @@ try:
 except ImportError:
     pass
 
-
 def extract_doc_id(filename):
     """Extracts the document ID from the filename."""
     match = re.search(r'_(\d{6})\.pdf$', filename)
     if match:
         return match.group(1)
     return None
-
 
 def generate_markdown_link(filename, doc_id):
     """Generates a markdown hyperlink."""
@@ -37,7 +36,6 @@ def generate_markdown_link(filename, doc_id):
     url = base_url + doc_id if doc_id is not None else ""
 
     return f"[{filename}]({url})"
-
 
 def display_pdf(doc_id, col):
     """Displays the PDF in streamlit."""
@@ -67,7 +65,7 @@ def display_pdf(doc_id, col):
         st.empty()
         st.markdown(f'<iframe src="{data_url}#zoom=85&view=FitH,0&scrollbar=0&toolbar=0&navpanes=0" style="width:100%; height:80vh"></iframe>',
                     unsafe_allow_html=True)
-        
+
 def timeline(data, height=400):
     """Create a new timeline component with a dark pastel theme and a full-screen button.
 
@@ -83,7 +81,7 @@ def timeline(data, height=400):
     static_component: Boolean
         Returns a static component with a timeline
     """
-    
+
     import json  # Ensure the json module is imported
     import streamlit.components.v1 as components  # Import components for rendering
 
@@ -186,7 +184,7 @@ def timeline(data, height=400):
         position: absolute;
         top: 3px;
         right: 3px;
-        background-color: #2e2e2e; 
+        background-color: #2e2e2e;
         color: #FFFFFF;
         border: none;
         padding: 2px 6px;
@@ -281,7 +279,7 @@ def timeline(data, height=400):
     </script>
     """
     # Create the HTML block that will embed the timeline
-    htmlcode = css_block + ''' 
+    htmlcode = css_block + '''
     ''' + js_block + '''
     ''' + custom_css + '''
         <div id='timeline-embed' style="width: 95%; height: ''' + str(height) + '''px; margin: 1px; position: relative;">
@@ -302,9 +300,6 @@ def timeline(data, height=400):
     static_component = components.html(htmlcode, height=height)
 
     return static_component
-
-
-
 
 def main():
     st.set_page_config(page_title="Democracy Chatbot", page_icon="🗳",
@@ -338,7 +333,7 @@ def main():
                     with st.expander("Intermediate Steps", expanded=False):
                         st.markdown(
                             f"""
-                            Generated Cypher Query:   
+                            Generated Cypher Query:
                             ```
                             {message["intermediate_steps"]["query"]}
                             ```
@@ -346,7 +341,7 @@ def main():
                         if message["intermediate_steps"].get("context"):
                             st.markdown(
                                 f"""
-                                Retrieved Context from Knowledge Graph:     
+                                Retrieved Context from Knowledge Graph:
                                 ```python
                                 {message["intermediate_steps"]["context"]}
                                 ```
@@ -381,7 +376,7 @@ def main():
                     with intermediate_placeholder.expander("Intermediate Steps", expanded=False):
                         st.markdown(
                             f"""
-                            Generated Cypher Query:    
+                            Generated Cypher Query:
                             ```
                             {query}
                             ```
@@ -395,7 +390,7 @@ def main():
                                 {context}
                                 ```
                                 """)
-                        
+
 
                 # Add response to message history
                 st.session_state.messages.append(message)
@@ -415,7 +410,6 @@ def main():
                             st.image(figure, use_column_width=True)
                         elif figure and "html" in figure:
                             st.components.v1.html(figure, height=500)
-
 
 if __name__ == "__main__":
     main()
