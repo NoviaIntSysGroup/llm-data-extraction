@@ -13,6 +13,7 @@ from langchain_community.graphs import Neo4jGraph
 from langchain_openai import ChatOpenAI
 from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
+from openai import OpenAI
 from ratelimit import limits
 from typing import Any, Dict, List, Optional
 
