@@ -330,7 +330,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                             'link': attachment.get("link", ""),
                             'title': attachment.get("title", ""),
                             'title_embedding': attachment_embeddings[k] if attachment_embeddings else None,
-                            'page_images': attachment.get("page_images", []),
+                            'page_list': attachment.get("page_list", []),
                             'item_id': item_id
                         })
 
