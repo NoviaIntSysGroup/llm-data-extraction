@@ -8,8 +8,7 @@ import types
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.manager import CallbackManagerForChainRun
 from langchain_core.prompts.prompt import PromptTemplate
-from langchain_community.chains.graph_qa.cypher import GraphCypherQAChain
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
 from langchain_openai import ChatOpenAI
 from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
@@ -114,7 +113,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                 {"question": question, "schema": self.graph_schema}, callbacks=callbacks
             )
             # Extract Cypher code if it is wrapped in backticks
-            generated_cypher = extract_cypher(generated_cypher['text']).strip()
+            generated_cypher = extract_cypher(generated_cypher).strip()
 
             # The llm generates Cypher code with a query string for vector search.
             # that cannot be executed directly. So we replace the query string with the
@@ -190,11 +189,10 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             intermediate_steps.append({"context": context})
 
-            result = self.qa_chain.invoke(
+            final_result = self.qa_chain.invoke(
                 {"question": question, "context": context},
                 callbacks=callbacks,
             )
-            final_result = result[self.qa_chain.output_key]
 
         chain_result: Dict[str, Any] = {self.output_key: final_result}
         if self.return_intermediate_steps:
