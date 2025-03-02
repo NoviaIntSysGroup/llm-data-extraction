@@ -157,7 +157,10 @@ async def save_agenda_llm_batch_results(output_jsonl, df, replace_ids=True, refe
             html_path = convert_file_path(filepath, "html")
         with open(html_path, "r", encoding="utf-8") as f:
             html_content = f.read()
-        line_json = json.loads(line["response"]["body"]["choices"][0]["message"]["content"])
+        json_content = line["response"]["body"]["choices"][0]["message"]["content"]
+        if not json_content:
+            continue
+        line_json = json.loads(json_content)
         output_jsonl += line["response"]["body"]["choices"][0]["message"]["content"] + "\n"
         if replace_ids:
             final_json = update_json_with_html(line_json, html_content)

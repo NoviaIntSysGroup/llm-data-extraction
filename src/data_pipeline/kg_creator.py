@@ -88,7 +88,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
             MATCH (b:Body {name: $body_name})
             MERGE (b)-[:HOSTED]->(m)
             SET m.meeting_location_embedding = $meeting_location_embedding
-            RETURN id(m)
+            RETURN elementId(m)
             """,
             meeting_date=meeting.get("meeting_date", ""),
             start_time=meeting.get("start_time", ""),
@@ -121,7 +121,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $participants AS person
                 MERGE (p:Person {fname: person.fname, lname: person.lname})
                 WITH p, person
-                MATCH (m:Meeting) WHERE id(m) = person.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = person.meeting_id
                 MERGE (p)-[:ATTENDED {
                     role: coalesce(person.role, ''),
                     attendance: coalesce(person.attendance, '')
@@ -145,7 +145,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $substitutes AS sub
                 MERGE (s:Person {fname: sub.fname, lname: sub.lname})
                 WITH s, sub
-                MATCH (m:Meeting) WHERE id(m) = sub.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = sub.meeting_id
                 MERGE (s)-[:SUBSTITUTE_ATTENDEE]->(m)
                 WITH s, sub
                 WHERE sub.substituted_for <> ''
@@ -170,7 +170,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $attendees AS person
                 MERGE (a:Person {fname: person.fname, lname: person.lname})
                 WITH a, person
-                MATCH (m:Meeting) WHERE id(m) = person.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = person.meeting_id
                 MERGE (a)-[:ADDITIONAL_ATTENDEE {
                     role: coalesce(person.role, '')
                 }]->(m)
@@ -192,7 +192,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $signatories AS s
                 MERGE (person:Person {fname: coalesce(s.fname, ''), lname: coalesce(s.lname, '')})
                 WITH person, s
-                MATCH (m:Meeting) WHERE id(m) = s.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = s.meeting_id
                 MERGE (person)-[:SIGNED]->(m)
                 """, signatories=signatory_data)
 
@@ -217,7 +217,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $adjusters AS a
                 MERGE (person:Person {fname: coalesce(a.fname, ''), lname: coalesce(a.lname, '')})
                 WITH person, a
-                MATCH (m:Meeting) WHERE id(m) = a.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = a.meeting_id
                 MERGE (person)-[:ADJUSTED]->(m)
                 """, adjusters=adjuster_data)
 
@@ -246,12 +246,12 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         doc_link: coalesce($doc_link, '')
                     })
                     WITH i
-                    MATCH (m:Meeting) WHERE id(m) = $meeting_id
+                    MATCH (m:Meeting) WHERE elementId(m) = $meeting_id
                     MERGE (m)-[:HAS_ITEM]->(i)
                     SET i.title_embedding = $title_embedding,
                         i.context_embedding = $context_embedding,
                         i.decision_embedding = $decision_embedding
-                    RETURN id(i)
+                    RETURN elementId(i)
                     """,
                     title=item.get("title", ""),
                     section=item.get("section", ""),
@@ -271,7 +271,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                     session.run("""
                         MERGE (e:Errand {errand_id: $errand_id})
                         WITH e
-                        MATCH (i:MeetingItem) WHERE id(i) = $item_id
+                        MATCH (i:MeetingItem) WHERE elementId(i) = $item_id
                         MERGE (i)-[:BELONGS_TO]->(e)
                         """, errand_id=errand_id_value, item_id=item_id)
 
@@ -291,7 +291,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         UNWIND $preparers AS p
                         MERGE (person:Person {fname: coalesce(p.fname, ''), lname: coalesce(p.lname, '')})
                         WITH person, p
-                        MATCH (i:MeetingItem) WHERE id(i) = p.item_id
+                        MATCH (i:MeetingItem) WHERE elementId(i) = p.item_id
                         MERGE (person)-[:PREPARED]->(i)
                         """, preparers=preparer_data)
 
@@ -311,7 +311,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         UNWIND $proposers AS p
                         MERGE (person:Person {fname: coalesce(p.fname, ''), lname: coalesce(p.lname, '')})
                         WITH person, p
-                        MATCH (i:MeetingItem) WHERE id(i) = p.item_id
+                        MATCH (i:MeetingItem) WHERE elementId(i) = p.item_id
                         MERGE (person)-[:PROPOSED]->(i)
                         """, proposers=proposer_data)
 
@@ -339,7 +339,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         UNWIND $attachments AS a
                         MERGE (attachment:Attachment {link: coalesce(a.link, ''), title: coalesce(a.title, '')})
                         WITH attachment, a
-                        MATCH (i:MeetingItem) WHERE id(i) = a.item_id
+                        MATCH (i:MeetingItem) WHERE elementId(i) = a.item_id
                         MERGE (i)-[:HAS_ATTACHMENT]->(attachment)
                         SET attachment.title_embedding = a.title_embedding,
                             attachment.page_list = a.page_list
@@ -364,9 +364,12 @@ def create_embeddings_index(driver):
                 session.run(f"DROP INDEX `{name}`")
 
         # Define options for vector index creation
-        options = """OPTIONS {indexConfig: {
-                `vector.dimensions`: 1024,
-                `vector.similarity_function`: 'cosine'}}"""
+        NEO4J_EMBEDDING_DIMENSIONS = int(os.getenv("NEO4J_EMBEDDING_DIMENSIONS"))
+
+        options = f"""OPTIONS {{indexConfig: {{
+            `vector.dimensions`: {NEO4J_EMBEDDING_DIMENSIONS},
+            `vector.similarity_function`: 'cosine'
+        }}}}"""
 
         # Create vector indexes
         session.run(f"""
