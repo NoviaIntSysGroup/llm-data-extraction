@@ -1,0 +1,75 @@
+{
+  "body": "List of organs in the municipality.",
+  "body.name": "The name of the organ.",
+
+  "body.errand": "List of errands which can span multiple meetings. Most MeetingItems refer to an errand.",
+  "body.errand.errand_tag": "The tag uniquely identifying the errand, referenced by MeetingItem (e.g. 'NKBY/660/10.04.00.01/2022').",
+  "body.errand.topic": "A brief summary of the errand's main subject or purpose.",
+
+  "body.meetings": "List of meetings held by this organ.",
+  "body.meetings.meeting_date": "The date of the meeting.",
+  "body.meetings.start_time": "The start time of the meeting.",
+  "body.meetings.meeting_reference": "Reference identifier for the meeting (e.g., '1/2023').",
+  "body.meetings.end_time": "The end time of the meeting.",
+  "body.meetings.meeting_location": "The physical address or venue where the meeting is held.",
+  "body.meetings.doc_link": "A document link (URL) to the original meeting protocol.",
+  "body.meetings.page_list": "An array of local filenames for the pages of the meeting protocol.",
+
+  "body.meetings.participants": "List of persons (members) participating in the meeting.",
+  "body.meetings.participants.fname": "First name of the participant.",
+  "body.meetings.participants.lname": "Last name of the participant.",
+  "body.meetings.participants.role": "Role or title (e.g., ordförande, vice ordförande, medlem, etc.).",
+  "body.meetings.participants.attendance": "Indicates whether the participant was present/absent.",
+
+  "body.meetings.substitutes": "List of persons who attended on behalf of official members.",
+  "body.meetings.substitutes.fname": "First name of the substitute attendee.",
+  "body.meetings.substitutes.lname": "Last name of the substitute attendee.",
+  "body.meetings.substitutes.substituted_for": "Name of the person for whom the attendee is substituting.",
+
+  "body.meetings.additional_attendees": "List of extra persons not part of the regular membership.",
+  "body.meetings.additional_attendees.fname": "First name of the additional attendee.",
+  "body.meetings.additional_attendees.lname": "Last name of the additional attendee.",
+  "body.meetings.additional_attendees.role": "Role or title of the additional attendee.",
+
+  "body.meetings.signed_by": "List of persons who sign the official meeting protocol.",
+  "body.meetings.signed_by.fname": "First name of the signatory.",
+  "body.meetings.signed_by.lname": "Last name of the signatory.",
+  "body.meetings.signed_by.role": "Role/title of the signatory in relation to the meeting.",
+
+  "body.meetings.adjusted_by": "List of persons who made official adjustments or corrections to the meeting record.",
+  "body.meetings.adjustmentDate": "The date when adjustments were made.",
+
+  "body.meetings.meetingItems": "List of items (agenda points) discussed in the meeting.",
+  "body.meetings.meetingItems.title": "Title or heading for the item.",
+  "body.meetings.meetingItems.section": "Section of the meeting at which the item is discussed.",
+  "body.meetings.meetingItems.references": "Historical/previous references for this item.",
+
+  "body.meetings.meetingItems.errand_tag": "A tag referencing the overall errand this item belongs to (ties to body.errand).",
+  "body.meetings.meetingItems.context": "Context or detailed background for the meeting item.",
+
+  "body.meetings.meetingItems.prepared_by": "List of persons who prepared the item content.",
+  "body.meetings.meetingItems.prepared_by.name": "Name of the preparer.",
+  "body.meetings.meetingItems.prepared_by.role": "Role or position of the preparer.",
+
+  "body.meetings.meetingItems.proposal_by": "List of persons who formally proposed this item.",
+  "body.meetings.meetingItems.proposal_by.name": "Name of the proposer.",
+  "body.meetings.meetingItems.proposal_by.role": "Role/title of the proposer.",
+
+  "body.meetings.meetingItems.proposal": "A brief description of the proposal under discussion.",
+  "body.meetings.meetingItems.decision": "Decision or outcome.",
+
+  "body.meetings.meetingItems.attachments": "List of attachments relevant to this meeting item (documents, images, etc.).",
+  "body.meetings.meetingItems.attachments.description": "Descriptive title of the attachment.",
+  "body.meetings.meetingItems.attachments.link": "Link or path to the attachment file.",
+  "body.meetings.meetingItems.attachments.page_list": "An array of local filenames for pages belonging to this attachment.",
+
+  "vector_indices": {
+    "attachment_title_embedding": "Attachment.title_embedding: Use for semantic searches on attachment titles (e.g. if the user is looking for an attached document).",
+    "body_name_embedding": "Body.name_embedding: Use for semantic searches on organ (body) names.",
+    "errand_topic_embedding": "Errand.topic_embedding: Use this to retrieve errands by topic similarity (e.g., if the user asks for errands related to schools, roads, etc.).",
+    "item_context_embedding": "MeetingItem.context_embedding: Use for semantic searches on an item's background/context text.",
+    "item_decision_embedding": "MeetingItem.decision_embedding: Use for semantic searches on decisions.",
+    "item_title_embedding": "MeetingItem.title_embedding: Use for semantic searches on meeting item titles.",
+    "meeting_location_embedding": "Meeting.meeting_location_embedding: Use for semantic searches on meeting locations (e.g., synonyms of building/facility names)."
+  }
+}

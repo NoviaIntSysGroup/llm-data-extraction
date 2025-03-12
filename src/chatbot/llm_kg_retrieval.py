@@ -1,9 +1,12 @@
 import json
+import langchain
 import logging
 import os
 import re
 import retry
 import types
+
+#langchain.debug = True
 
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.manager import CallbackManagerForChainRun
@@ -20,22 +23,42 @@ def extract_cypher(text: str) -> str:
     """Extract Cypher code from a text.
 
     Args:
-        text: Text to extract Cypher code from.
+        text (str): Text to extract Cypher code from.
 
     Returns:
-        Cypher code extracted from the text.
+        str: Cypher code extracted from the text.
     """
+
     # The pattern to find Cypher code enclosed in triple backticks
     pattern = r"```(.*?)```"
 
-    # Find all matches in the input text
+    # Remove code block if it exists
     matches = re.findall(pattern, text, re.DOTALL)
+    text = matches[0].replace("cypher", "").strip() if matches else text
 
-    return matches[0].replace("cypher", "").strip() if matches else text
+    # Extract both comments and query
+    description_lines = []
+    query_lines = []
+    for line in text.split("\n"):
+        if line.strip().startswith("//"):
+            description_lines.append(line.lstrip("/").strip())
+        else:
+            query_lines.append(line.strip())
+
+    # Merge and return result
+    return "\n".join(description_lines), "\n".join(query_lines).strip()
 
 def replace_query_with_embedding(cypher):
     """
-    Replaces the query text in cypher query with embeddings
+    Replace a string-based vector query in a Cypher statement with a numeric embedding.
+
+    Args:
+        cypher (str): The original Cypher query string that may contain a textual vector query in the format:
+            vector.queryNodes('<query text>', <some number>, '<query text>')
+
+    Returns:
+        str: A modified Cypher query string with the text replaced by numeric embeddings.
+            If the pattern is not found or any text is missing, returns the unmodified Cypher string.
     """
 
     # Regular expression pattern to find the query text in the cypher code
@@ -63,8 +86,15 @@ def replace_query_with_embedding(cypher):
 @limits(calls=100, period=60)
 def generate_embeddings(texts: List[str]) -> List[List[float]]:
     """
-    Generates embeddings for the input texts
+    Generate vector embeddings for a list of texts using the OpenAI API.
+
+    Args:
+        texts (list[str]): A list of strings for which embeddings should be generated.
+
+    Returns:
+        list[list[float]]: A list of embeddings, where each embedding is a list of floats.
     """
+
     if isinstance(texts, str):
         texts = [texts]
 
@@ -107,29 +137,40 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
         intermediate_steps: List = []
 
         def generate_cypher():
-            """Generate Cypher query with LLM"""
+            """
+            Generate Cypher query with LLM
+            """
 
-            generated_cypher = self.cypher_generation_chain.invoke(
-                {"question": question, "schema": self.graph_schema}, callbacks=callbacks
-            )
+            # load field descriptions from json
+            FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
+            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+                field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
+
+            generated_cypher = self.cypher_generation_chain.invoke({
+                "question": question,
+                "schema": self.graph_schema,
+                "field_descriptions": field_descriptions,
+            }, callbacks=callbacks)
+
             # Extract Cypher code if it is wrapped in backticks
-            generated_cypher = extract_cypher(generated_cypher).strip()
+            result_description, generated_cypher = extract_cypher(generated_cypher)
 
             # The llm generates Cypher code with a query string for vector search.
             # that cannot be executed directly. So we replace the query string with the
             # embedding
-            generated_cypher_with_embedding = replace_query_with_embedding(
-                generated_cypher)
+            generated_cypher_with_embedding = replace_query_with_embedding(generated_cypher)
 
             # Correct Cypher query if enabled
             if self.cypher_query_corrector:
                 generated_cypher_with_embedding = self.cypher_query_corrector(
                     generated_cypher_with_embedding)
 
-            return generated_cypher, generated_cypher_with_embedding
+            return result_description, generated_cypher, generated_cypher_with_embedding
 
         def is_cypher_query_safe(cypher):
-            """Check if Cypher query contains database manipulation statements"""
+            """
+            Check if Cypher query contains database manipulation statements
+            """
 
             manipulation_keywords = ["create", "merge",
                                      "set", "delete", "remove", "detach", "drop", "load"]
@@ -151,28 +192,29 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
         # Generated Cypher be null if query corrector identifies invalid schema
         @retry.retry(exceptions=Exception, tries=5, logger=logger)
         def execute_query():
-            """Execute Cypher query based on user input"""
-            generated_cypher, generated_cypher_with_embeddings = generate_cypher()
+            """
+            Execute Cypher query based on user input
+            """
+
+            result_description, generated_cypher, generated_cypher_with_embeddings = generate_cypher()
 
             if is_cypher_query_safe(generated_cypher):
-                context = self.graph.query(generated_cypher_with_embeddings)[
-                    : self.top_k]
-                return context, generated_cypher
+                context = self.graph.query(generated_cypher_with_embeddings)[:self.top_k]
+                return result_description, context, generated_cypher
             else:
                 return "Warning: Let users know manipulation of the database is not permitted", generated_cypher
 
         try:
-            context, generated_cypher = execute_query()
+            result_description, context, generated_cypher = execute_query()
         except:
             context = "!!Cannot fetch data from database!!"
             generated_cypher = "Invalid Cypher Query"
 
         # Display the generated Cypher code
-        _run_manager.on_text("Generated Cypher:",
-                             end="\n", verbose=self.verbose)
-        _run_manager.on_text(
-            generated_cypher, color="green", end="\n", verbose=self.verbose
-        )
+        _run_manager.on_text("Generated Cypher:", end="\n", verbose=self.verbose)
+        _run_manager.on_text(generated_cypher, color="green", end="\n", verbose=self.verbose)
+        _run_manager.on_text("Result description:", end="\n", verbose=self.verbose)
+        _run_manager.on_text(result_description, color="green", end="\n", verbose=self.verbose)
 
         # Add the generated Cypher code to the intermediate steps
         intermediate_steps.append({"query": generated_cypher})
@@ -189,10 +231,17 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             intermediate_steps.append({"context": context})
 
-            final_result = self.qa_chain.invoke(
-                {"question": question, "context": context},
-                callbacks=callbacks,
-            )
+            # load field descriptions from json
+            FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
+            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+                field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
+
+            final_result = self.qa_chain.invoke({
+                "question": question,
+                "result_description": result_description,
+                "field_descriptions": field_descriptions,
+                "context": context,
+            }, callbacks=callbacks)
 
         chain_result: Dict[str, Any] = {self.output_key: final_result}
         if self.return_intermediate_steps:
@@ -211,14 +260,15 @@ class StreamHandler(BaseCallbackHandler):
 
 class KnowledgeGraphRAG:
     def __init__(self, url, username, password, answer_placeholder=None, run_environment="script"):
-        """Initialize the KnowledgeGraphRAG class
+        """
+        Initialize the KnowledgeGraphRAG class
 
         Args:
-            url: URL of the Neo4j database
-            username: Username of the Neo4j database
-            password: Password of the Neo4j database
-            answer_placeholder: Streamlit placeholder for the LLM answer
-            run_environment: The environment in which the code is running. Can be "script" or "notebook"
+            url (str): URL of the Neo4j database
+            username (str): Username of the Neo4j database
+            password (str): Password of the Neo4j database
+            answer_placeholder (str): Streamlit placeholder for the LLM answer
+            run_environment (str): The environment in which the code is running. Can be "script" or "notebook"
         """
 
         driver = GraphDatabase.driver(url, auth=(username, password))
@@ -239,14 +289,14 @@ class KnowledgeGraphRAG:
                 index_info=self.index_info)
 
         CYPHER_GENERATION_PROMPT = PromptTemplate(
-            input_variables=["schema", "question"], template=CYPHER_GENERATION_TEMPLATE
+            input_variables=["schema", "field_descriptions", "question"], template=CYPHER_GENERATION_TEMPLATE
         )
 
         with open(os.path.join("..", os.getenv("CYPHER_QA_PROMPT_PATH")), "r") as file:
             CYPHER_QA_TEMPLATE = file.read()
 
         CYPHER_QA_PROMPT = PromptTemplate(
-            input_variables=["context", "question"], template=CYPHER_QA_TEMPLATE
+            input_variables=["context", "field_descriptions", "question"], template=CYPHER_QA_TEMPLATE
         )
 
         # Initialize the LLM Chain based on if the code is running in a script or notebook
@@ -306,7 +356,10 @@ class KnowledgeGraphRAG:
         self.timeline_chain = TIMELINE_PROMPT | ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME"))
 
     def process_prompt(self, prompt):
-        """Process a prompt and return the response, query, and context"""
+        """
+        Process a prompt and return the response, query, and context
+        """
+
         try:
             result = self.chain.invoke(prompt)
         except SessionExpired:
@@ -317,6 +370,7 @@ class KnowledgeGraphRAG:
             )
             self.chain.graph = self.graph
             result = self.chain.invoke(prompt)
+
         response = result["result"]
         query = result["intermediate_steps"][0]["query"]
         context = result["intermediate_steps"][1]["context"]
@@ -339,12 +393,22 @@ class KnowledgeGraphRAG:
             data (str): The data to use in the diagram
 
         Returns:
-            diagram (str): base64 encoded image of the diagram
+            str: base64 encoded image of the diagram
         """
+
         try:
-            code = self.diagram_chain.invoke(
-                {"question": question, "schema": self.graph.schema, "data": data})
-            # extract python codeblock from code['text'] using regex
+            # load field descriptions from json
+            FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
+            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+                field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
+
+            code = self.diagram_chain.invoke({
+                "question": question,
+                "schema": self.graph.schema,
+                "field_descriptions": field_descriptions,
+                "data": data
+            })
+            # extract python codeblock from code["text"] using regex
             code = re.search(r"```python(.*?)```", code.content,
                              re.DOTALL).group(1).strip()
             print(code)
@@ -357,17 +421,28 @@ class KnowledgeGraphRAG:
 
     @retry.retry(exceptions=Exception, tries=3)
     def get_timeline_from_data(self, data, question):
-        """Construct timeline.js format JSON from the data retrieved from neo4j database using llm
+        """
+        Construct timeline.js format JSON from the data retrieved from neo4j database using llm
 
         Args:
             data (str): The data to form the timeline JSON from
             question (str): The question from the user
 
         Returns:
-            timeline_json (str): The extracted timeline JSON
+            (str): The extracted timeline JSON
         """
+
+        # load field descriptions from json
+        FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
+        with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+            field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
+
         try:
-            timeline_json = self.timeline_chain.invoke({"data": data, "question": question}).content
+            timeline_json = self.timeline_chain.invoke({
+                "data": data,
+                "field_descriptions": field_descriptions,
+                "question": question,
+            }).content
             # remove json tags
             timeline_json = timeline_json.replace("json", "").replace("```", "").strip()
             if timeline_json == "None":

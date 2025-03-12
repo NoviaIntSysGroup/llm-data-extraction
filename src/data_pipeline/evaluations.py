@@ -11,13 +11,13 @@ def string_similarity(a, b):
     Note: string_similarity(a, b) is not the same as string_similarity(b, a).
 
     Args:
-    a (str): First string.
-    b (str): Second string.
+        a (str): First string.
+        b (str): Second string.
 
     Returns:
-    float: Similarity ratio between the two strings.
-
+        float: Similarity ratio between the two strings.
     """
+
     return SequenceMatcher(None, a, b).ratio()
 
 def evaluate_json(gt_json, llm_json):
@@ -25,12 +25,13 @@ def evaluate_json(gt_json, llm_json):
     Evaluate JSON function for a single ground truth and LLM pair.
 
     Args:
-    gt_json (dict): Ground truth JSON data.
-    llm_json (dict): LLM JSON data.
+        gt_json (dict): Ground truth JSON data.
+        llm_json (dict): LLM JSON data.
 
     Returns:
-    dict: Evaluation results for each field in the JSON data.
+        dict: Evaluation results for each field in the JSON data.
     """
+
     field_results = {}
     for key in gt_json.keys():
         gt_value = gt_json.get(key)
@@ -65,11 +66,12 @@ def aggregate_results(gt_llm_pairs):
     Aggregate results function for multiple ground truth and LLM pairs.
 
     Args:
-    gt_llm_pairs (list): List of tuples containing ground truth and LLM JSON data.
+        gt_llm_pairs (list): List of tuples containing ground truth and LLM JSON data.
 
     Returns:
-    dict: Averaged evaluation results for each field in the JSON data.
+        dict: Averaged evaluation results for each field in the JSON data.
     """
+
     # Initialize aggregate scores dictionary
     aggregate_scores = {key: [] for key in gt_llm_pairs[0][0].keys()}  # Assumes all JSONs have the same keys
 
@@ -88,11 +90,12 @@ def remove_duplicates(results):
     Remove duplicates from a list of dictionaries.
 
     Args:
-    results (list): List of dictionaries.
+        results (list): List of dictionaries.
 
     Returns:
-    list: List of unique dictionaries.
+        list: List of unique dictionaries.
     """
+
     seen = set()
     unique_results = []
 

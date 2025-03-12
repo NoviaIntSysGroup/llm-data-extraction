@@ -5,17 +5,9 @@ import tiktoken
 
 from tqdm.asyncio import tqdm
 from openai import AsyncOpenAI, OpenAI
-from aiolimiter import AsyncLimiter
 from bs4 import BeautifulSoup
 
 from .utils import *
-
-max_calls_per_minute = int(os.getenv("MAX_LLM_CALLS_PER_MINUTE", 100))
-if max_calls_per_minute < 1:
-    raise ValueError(
-        "MAX_LLM_CALLS_PER_MINUTE must be a positive integer")
-# Define the rate limit per 60 seconds
-limiter = AsyncLimiter(max_calls_per_minute, 60)
 
 def calculate_token_count(text):
     """
@@ -27,6 +19,7 @@ def calculate_token_count(text):
     Returns:
         int: The number of tokens in the text.
     """
+
     encoding = tiktoken.encoding_for_model(os.getenv("OPENAI_MODEL_NAME"))
     return len(encoding.encode(text))
 
@@ -58,17 +51,18 @@ def update_json_with_html(json_data, html_content):
     Replaces IDs in JSON data with corresponding text from HTML content.
 
     Args:
-    json_data (dict): JSON data with IDs to be replaced.
-    html_content (str): HTML content with text corresponding to IDs.
+        json_data (dict): JSON data with IDs to be replaced.
+        html_content (str): HTML content with text corresponding to IDs.
 
     Returns:
-    dict: JSON data with IDs replaced by corresponding text from HTML content.
+        dict: JSON data with IDs replaced by corresponding text from HTML content.
     """
-    soup = BeautifulSoup(html_content, 'html.parser')
+
+    soup = BeautifulSoup(html_content, "html.parser")
 
     def replace_ids(value):
         if isinstance(value, str):
-            ids = [id_val.strip() for id_val in value.split(',')]
+            ids = [id_val.strip() for id_val in value.split(",")]
             # Replace each ID with its text content from HTML or keep the ID if not found
             return " ".join(soup.find(id=id_val).get_text(strip=True) if soup.find(id=id_val) else id_val for id_val in ids)
         return value
@@ -107,9 +101,10 @@ async def save_metadata_llm_batch_results(output_jsonl, df):
     Saves the LLM batch results in the same directory as the HTML files.
 
     Args:
-    - output_jsonl: str, JSONL output of the LLM batch job for metadata extraction
-    - df: pandas.DataFrame, The DataFrame containing the meeting data. Should be the same DataFrame used to create the batch.
+        output_jsonl (str): JSONL output of the LLM batch job for metadata extraction
+        df (pandas.DataFrame): The DataFrame containing the meeting data. Should be the same DataFrame used to create the batch.
     """
+
     output_lines = output_jsonl.splitlines()
     original_df = get_documents_dataframe()
     for line in output_lines:
@@ -137,11 +132,12 @@ async def save_agenda_llm_batch_results(output_jsonl, df, replace_ids=True, refe
     Saves the LLM batch results in the same directory as the HTML files.
 
     Args:
-    - output_jsonl: str, JSONL output of the LLM batch job for agenda extraction
-    - df: pandas.DataFrame, The DataFrame containing the agenda data. Should be the same DataFrame used to create the batch.
-    - replace_ids: bool, whether to replace IDs in the JSON data with corresponding text from HTML content
-    - references_jsonl: str, JSONL output of the LLM batch job for references extraction
+        output_jsonl (str): JSONL output of the LLM batch job for agenda extraction
+        df (pandas.DataFrame): The DataFrame containing the agenda data. Should be the same DataFrame used to create the batch.
+        replace_ids (bool): whether to replace IDs in the JSON data with corresponding text from HTML content
+        references_jsonl (str: JSONL output of the LLM batch job for references extraction
     """
+
     output_lines = output_jsonl.splitlines()
     original_df = get_documents_dataframe()
     references_lines = references_jsonl.splitlines() if references_jsonl else []
@@ -209,12 +205,12 @@ def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False
     if not os.path.exists(batch_file_path):
         # create the batch file if it does not exist
         os.makedirs(os.path.dirname(batch_file_path), exist_ok=True)
-        with open(batch_file_path, 'w') as file:
+        with open(batch_file_path, "w") as file:
             file.write("")
     else:
         if overwrite_batch_file:
             print("Overwriting batch file...")
-            with open(batch_file_path, 'w') as file:
+            with open(batch_file_path, "w") as file:
                 file.write("")
         else:
             print("There is already a batch file at the specified path. If you want to overwrite the file, set the 'overwrite_batch_file' parameter to True.")
@@ -222,7 +218,7 @@ def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False
 
     token_count = 0
     for filepath in filepaths:
-        with open(filepath, encoding='utf-8') as doc:
+        with open(filepath, encoding="utf-8") as doc:
             text = doc.read()
         task = {
             "custom_id": extract_doc_id(filepath),
@@ -236,7 +232,7 @@ def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False
         }
         # save the task to batch file
         with open(batch_file_path, "a") as file:
-            file.write(json.dumps(task, indent=None, ensure_ascii=False) + '\n')
+            file.write(json.dumps(task, indent=None, ensure_ascii=False) + "\n")
 
         # calculate the token count and add to the total token count
         token_count += calculate_token_count(f"{prompt} {text} {json_schema}")
@@ -253,6 +249,7 @@ def submit_batch_job(batch_file_path, input_id_save_path, metadata_description=N
         input_id_save_path (str): The path to save the batch input file ID.
         metadata_description (str): The description of the metadata for the batch job.
     """
+
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     if not os.path.exists(batch_file_path):
         raise FileNotFoundError(
@@ -286,6 +283,7 @@ def extract_references_batch(df=None, filetype="html", overwrite_batch_file=Fals
         filetype (str): The type of file to extract. Can be either "txt" or "html".
         overwrite_batch_file (bool): If True, the batch file will be overwritten. If False, the tasks will be appended to the batch file.
     """
+
     # if no dataframe is provided, get the default dataframe
     if df is None or df.empty:
         print("Fetching documents dataframe...")
@@ -313,7 +311,7 @@ def extract_references_batch(df=None, filetype="html", overwrite_batch_file=Fals
 
     JSON_SCHEMA = json.dumps(JSON_SCHEMA, indent=0, ensure_ascii=False)
 
-    filepaths = df.apply(lambda row: convert_file_path(row['filepath'], filetype), axis=1)
+    filepaths = df.apply(lambda row: convert_file_path(row["filepath"], filetype), axis=1)
 
     create_batch_file(filepaths, PROMPT, JSON_SCHEMA, overwrite_batch_file=overwrite_batch_file, batch_file_path=BATCH_FILE_PATH)
     return submit_batch_job(BATCH_FILE_PATH, os.getenv("REFERENCES_INPUT_ID_SAVE_PATH"), metadata_description="Extract References from Meeting Documents")
@@ -330,7 +328,7 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
         overwrite_data (bool): Whether to overwrite already extracted data
 
     Returns:
-        (str, str | None): The batch ID for the meeting data extraction and (optional) batch ID for the agenda references extraction.
+        str, str | None: The batch ID for the meeting data extraction and (optional) batch ID for the agenda references extraction.
     """
 
     EXTRACTION_PROMPT_PATH = os.getenv(f"{type.upper()}_EXTRACTION_PROMPT_PATH")
@@ -363,25 +361,25 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
             elif type == "agenda":
                 return os.path.isfile(os.path.join(os.path.dirname(filepath), "llm_meeting_agenda.json"))
             return False
-        df = df[~df['filepath'].apply(file_exists)]
+        df = df[~df["filepath"].apply(file_exists)]
 
     if df.empty:
         print("No remaining documents to extract...")
         return (None, None)
 
     # read the prompt text
-    with open(EXTRACTION_PROMPT_PATH, 'r') as file:
+    with open(EXTRACTION_PROMPT_PATH, "r") as file:
         prompt = file.read()
 
     # read the json schema
-    with open(JSON_SCHEMA_PATH, 'r') as file:
+    with open(JSON_SCHEMA_PATH, "r") as file:
         json_schema = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
     def get_document_filepath(row):
-        if row['web_html_link'] != "":
-            return convert_file_path(row['filepath'], "webhtml")
+        if row["web_html_link"] != "":
+            return convert_file_path(row["filepath"], "webhtml")
         else:
-            return convert_file_path(row['filepath'], filetype)
+            return convert_file_path(row["filepath"], filetype)
 
     # provide webhtml (the html scraped from website) file if available, if not, provide the converted txt or html from pdf
     filepaths = df.apply(get_document_filepath, axis=1)
@@ -408,12 +406,20 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
 
 def check_batch_status(batch_id):
     """
-    Checks the status of the batch.
+    Check the status of a batch by its ID.
+
+    Args:
+        batch_id (str): The ID of the batch to check.
+
+    Returns:
+        str or None: The ID of the output file if the batch has completed successfully.
+            Returns None if the batch is not completed or the output file ID is unavailable.
     """
+
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     batch_status = client.batches.retrieve(batch_id)
     status = batch_status.status
-    print(f"Current status: {status}", end='\r')
+    print(f"Current status: {status}", end="\r")
 
     if status == "completed":
         output_file_id = batch_status.output_file_id
@@ -429,9 +435,16 @@ def check_batch_status(batch_id):
 
 def retrieve_batch_output(file_id):
     """
-    Retrieves the content of the output file using the given file ID.
-    Returns the content of the output file.
+    Retrieve the content of the output file using a file ID.
+
+    Args:
+        file_id (str): The ID of the file to retrieve.
+
+    Returns:
+        str or None: The text content of the output file if the file exists,
+            otherwise None if no file ID is provided or an error occurs.
     """
+
     if not file_id:
         print("No file ID provided.")
         return None
@@ -450,6 +463,7 @@ def retrieve_filepath_from_custom_id(custom_id, filepaths):
     Returns:
         str: The filepath corresponding to the custom ID.
     """
+
     for filepath in filepaths:
         if extract_doc_id(filepath) == custom_id:
             return filepath
@@ -464,6 +478,7 @@ async def extract_meeting_data_batch_from_output(output_file_id, df, type):
         df (pandas.DataFrame): The DataFrame containing the meeting data. Should be the same DataFrame used to create the batch.
         type (str): The type of data to extract. Can be either "metadata", "agenda".
     """
+
     output_content = retrieve_batch_output(output_file_id)
     output_lines = output_content.splitlines()
     original_df = get_documents_dataframe()
@@ -475,7 +490,7 @@ async def extract_meeting_data_batch_from_output(output_file_id, df, type):
         if response.get("error"):
             print(f"Error processing task {response['custom_id']}: {response['error']}")
         else:
-            filepath = retrieve_filepath_from_custom_id(response['custom_id'], df['filepath'])
+            filepath = retrieve_filepath_from_custom_id(response["custom_id"], df["filepath"])
             if not filepath:
                 print(f"Filepath not found for custom ID {response['custom_id']}")
                 continue
@@ -489,6 +504,7 @@ async def extract_meeting_data(df=None, type=None):
         df (pandas.DataFrame): The DataFrame containing the meeting data. If not provided, the default DataFrame will be used.
         type (str): The type of data to extract. Can be either "metadata", "agenda" or None. If None, the function will extract both metadata and agenda.
     """
+
     # if no dataframe is provided, get the default dataframe
     if df is None or df.empty:
         print("Fetching documents dataframe...")
@@ -515,7 +531,7 @@ async def extract_meeting_data(df=None, type=None):
         client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
         # read the prompt text
-        with open(EXTRACTION_PROMPT_PATH, 'r') as file:
+        with open(EXTRACTION_PROMPT_PATH, "r") as file:
             prompt = file.read()
 
         # Create a extraction task for each document (row) in the dataframe
@@ -523,10 +539,9 @@ async def extract_meeting_data(df=None, type=None):
         # Get dataframe containing all meeting documents. Used to find the parent meeting document of the attachment
         original_df = get_documents_dataframe()
         for _, row in df.iterrows():
-            filepath = row['filepath']
+            filepath = row["filepath"]
             # the filepath is of the pdf document, we use this filepath to construct the path to the html file
-            task = process_html(
-                filepath, df, original_df, client, prompt, limiter, type=type)
+            task = process_html(filepath, df, original_df, client, prompt, type=type)
             tasks.append(task)
 
         # Run the tasks concurrently

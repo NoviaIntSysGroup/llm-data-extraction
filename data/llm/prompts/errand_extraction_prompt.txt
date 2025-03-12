@@ -1,0 +1,8 @@
+You are an expert structured data extractor. You will receive a list containing meeting item titles, context, and decisions, all related to the same errand. The errand may span multiple meetings, which are listed in chronological order (oldest to newest).
+
+- Briefly summarize the overall topic of the errand (max 50 words) in SWEDISH, considering all meetings.
+- Return a JSON object with the topic in the following format: { "topic": "This is an example topic" }
+- Do NOT return any extra text or explanations.
+
+Meeting items:
+{meeting_items}

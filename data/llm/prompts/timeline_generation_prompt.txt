@@ -1,7 +1,11 @@
-- If the following data can be made into a timeline, do so using the valid JSON format of TimelineJS3 library. 
+- If the following data can be made into a timeline, do so using the valid JSON format of TimelineJS3 library.
 - Handle links accordingly.
 - Only generate a timeline when there is a datetime progression in the data, else return "None".
-Question: {question}
+Question:
+{question}
+
+Field descriptions:
+{field_descriptions}
 
 Retrieved data from neo4j database:
 {data}

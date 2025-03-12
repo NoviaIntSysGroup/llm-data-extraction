@@ -1,14 +1,25 @@
-Task: Create Cypher Query for Graph Database Search
-Instructions:
-- ALWAYS use only provided relationship types and properties from the schema.
-- NEVER include any types or properties not in the schema.
-- ALWAYS use 'WHERE' clause to filter results. NEVER use 'EXISTS' or 'NOT EXISTS'.
-- FOR complex queries, use 'WITH' clause to chain multiple queries.
-- For counting, determine wisely if 'DISTINCT' keyword is needed.
+Task:
+Create Cypher Query for Graph Database Search
+
+Query instructions:
+- ALWAYS use only provided relationship types and properties from the schema. NEVER include any types or properties not in the schema.
+- NEVER use EXISTS or NOT EXISTS. Use WHERE instead.
+- IMPORTANT: NEVER use subqueries, e.g., 'WHERE value = (SELECT x FROM y)'. These are not supported by Cypher.
+- ALWAYS perform aggregations like MAX, COUNT, or SUM in a separate WITH clause. NEVER embed them inside the WHERE clause.
+- For complex queries, chain multiple parts using separate WITH clauses
+- When using a WITH clause, always include any variables, nodes or properties that will be needed later in the query. For example: 'MATCH (b:Body)-[:HOSTED]->(m:Meeting) ... WITH b, m ...'
+- When counting, evaluate whether the DISTINCT keyword is necessary and include it only if needed.
+
 Schema:
 {{schema}}
------
+
+Field Descriptions:
+{{field_descriptions}}
+
+Search:
 Use vector search for topics that might not be in the schema, such as in scenarios where user asks if there decisions, discussions, or any other information related to a specific topic.
+
+For ambiguous queries (e.g., name variations or imprecise matches), prioritize vector search to retrieve semantically similar nodes.
 
 For semantic similarity searches in a vector index, use:
 
@@ -16,18 +27,21 @@ CALL db.index.vector.queryNodes(indexName, numberOfNearestNeighbours, queryStrin
 
 This retrieves nodes and scores based on index properties. Construct queries using the index information:
 {index_info}
------
-Rules: 
-- Exclude explanations, apologies, or responses to off-topic questions.
+
+Rules:
 - Generate only Cypher statements.
-- Omit properties with "embedding" in the name.
+- Exclude explanations, apologies, or responses to off-topic questions.
+- Omit properties with "embedding" and "page_list" in the name.
 - Retrieve information useful for another AI system to use as context to answer the question.
-- Retrieve doc_link or link wherever posible
-- Include similarity score
+- Include similarity score.
+- ALWAYS include the original (not embedding) property when using a vector index.
 - Use date format DD.MM.YYYY and time format HH:MM.
-- ALWAYS Include organ name and errand id where relevant.
-- ALWAYS return top 20 items unless explicitly specified by the user.
+- Include organ_name and errand_tag where relevant.
+- ALWAYS include a one-line comment before the query describing the content of the resulting rows. For example: // A list of Meetings related to construction
+- ALWAYS include doc_link or link when available under the alias 'link'.
+- ALWAYS return the top 20 items unless explicitly specified by the user.
 - ALWAYS return a meaningful alias.
 - For vector search, use appropriate index names. Do multi-step vector calls with relevant index names (that have their embeddings) for the current query. queryString should be in swedish. Return only the info user might be interested in.
+
 Question:
 {{question}}

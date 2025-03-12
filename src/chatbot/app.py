@@ -15,20 +15,42 @@ load_dotenv("../../config/config.env")
 load_dotenv("../../config/secrets.env")
 
 try:
-    __import__('pysqlite3')
-    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+    __import__("pysqlite3")
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
 except ImportError:
     pass
 
 def extract_doc_id(filename):
-    """Extracts the document ID from the filename."""
-    match = re.search(r'_(\d{6})\.pdf$', filename)
+    """
+    Extract the document ID from a given filename.
+
+    Args:
+        filename (str): The filename to parse, which should end with an underscore,
+            followed by six digits, then ".pdf".
+
+    Returns:
+        str or None: The six-digit document ID if found, otherwise None.
+    """
+
+    match = re.search(r"_(\d{6})\.pdf$", filename)
     if match:
         return match.group(1)
     return None
 
 def generate_markdown_link(filename, doc_id):
-    """Generates a markdown hyperlink."""
+    """
+    Generate a Markdown hyperlink pointing to a specific PDF document.
+
+    Args:
+        filename (str): Display text or filename to show in the link.
+        doc_id (str or None): The document ID to append to the base URL. If None,
+            a hyperlink is not created, and the filename is returned as is.
+
+    Returns:
+        str: A Markdown-formatted string that either displays a link to the PDF,
+            or the plain filename if `doc_id` is None.
+    """
+
     if doc_id is None:
         return filename
 
@@ -38,7 +60,17 @@ def generate_markdown_link(filename, doc_id):
     return f"[{filename}]({url})"
 
 def display_pdf(doc_id, col):
-    """Displays the PDF in streamlit."""
+    """
+    Retrieve and display a PDF file within a Streamlit application.
+
+    Args:
+        doc_id (str): The document ID used to construct the download URL for the PDF.
+        col (streamlit.delta_generator.DeltaGenerator): A Streamlit container in which to display the PDF.
+
+    Returns:
+        None
+    """
+
     doc_id = "162526"
     if doc_id is None:
         doc_id = "162526"
@@ -57,10 +89,10 @@ def display_pdf(doc_id, col):
         return
 
     # Encode the content of the PDF in base64
-    encoded_pdf = base64.b64encode(response.content).decode('utf-8')
+    encoded_pdf = base64.b64encode(response.content).decode("utf-8")
 
     # Create a data URL for the PDF
-    data_url = f'data:application/pdf;base64,{encoded_pdf}'
+    data_url = f"data:application/pdf;base64,{encoded_pdf}"
     with col:
         st.empty()
         st.markdown(f'<iframe src="{data_url}#zoom=85&view=FitH,0&scrollbar=0&toolbar=0&navpanes=0" style="width:100%; height:80vh"></iframe>',
@@ -69,17 +101,13 @@ def display_pdf(doc_id, col):
 def timeline(data, height=400):
     """Create a new timeline component with a dark pastel theme and a full-screen button.
 
-    Parameters
-    ----------
-    data: str or dict
-        String or dict in the timeline json format: https://timeline.knightlab.com/docs/json-format.html
-    height: int or None
-        Height of the timeline in px
+    Args:
+        data (str or dict): String or dict in the timeline json format:
+            https://timeline.knightlab.com/docs/json-format.html
+        height (int or None): Height of the timeline in px
 
-    Returns
-    -------
-    static_component: Boolean
-        Returns a static component with a timeline
+    Returns:
+        (bool): Returns a static component with a timeline
     """
 
     import json  # Ensure the json module is imported
@@ -93,8 +121,8 @@ def timeline(data, height=400):
     json_text = json.dumps(data)
 
     # Load the JSON data into JavaScript
-    source_param = 'timeline_json'
-    source_block = f'var {source_param} = {json_text};'
+    source_param = "timeline_json"
+    source_block = f"var {source_param} = {json_text};"
 
     # Define the CDN paths for TimelineJS3's CSS and JS
     css_block = '<link title="timeline-styles" rel="stylesheet" href="https://cdn.knightlab.com/libs/timeline3/latest/css/timeline.css">'
@@ -311,7 +339,7 @@ def main():
         st.markdown(
             "<h1 style='text-align: center; color: white;'>🗳 Democracy Chatbot</h1>", unsafe_allow_html=True)
         st.info(
-            'Chat with the documents of municipality of Nykarleby. Easy information access for everyone!')
+            "Chat with the documents of municipality of Nykarleby. Easy information access for everyone!")
 
     if "messages" not in st.session_state.keys():  # Initialize the chat messages history
         st.session_state.messages = [
