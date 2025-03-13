@@ -223,8 +223,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
             final_result = context
         else:
             # Display the retrieved data
-            _run_manager.on_text("Full Context:", end="\n",
-                                 verbose=self.verbose)
+            _run_manager.on_text("Full Context:", end="\n", verbose=self.verbose)
             _run_manager.on_text(
                 str(context), color="green", end="\n", verbose=self.verbose
             )
@@ -235,6 +234,32 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
             with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
+
+            # Check if the cypher includes a vector search
+            contains_vector_search = "db.index.vector" in generated_cypher
+            if contains_vector_search:
+                # open filter prompt template file
+                with open(os.path.join("..", os.getenv("CYPHER_FILTER_PROMPT_PATH")), "r") as file:
+                    CYPHER_FILTER_TEMPLATE = file.read()
+
+                # Create a prompt template for filtering items
+                CYPHER_FILTER_PROMPT = PromptTemplate(
+                    input_variables=["context", "question"],
+                    template=CYPHER_FILTER_TEMPLATE
+                )
+
+                # Chain the prompt with the ChatOpenAI LLM to get a new context
+                filter_chain = CYPHER_FILTER_PROMPT | ChatOpenAI(
+                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")
+                )
+
+                context = filter_chain.invoke({
+                    "context": context,
+                    "question": question,
+                }).content
+
+                _run_manager.on_text("Filtered Context:", end="\n", verbose=self.verbose)
+                _run_manager.on_text(context, color="green", end="\n", verbose=self.verbose)
 
             final_result = self.qa_chain.invoke({
                 "question": question,
@@ -379,9 +404,7 @@ class KnowledgeGraphRAG:
 
     def get_index_info(self, driver):
         with driver.session() as session:
-            res = session.run("""
-                            SHOW VECTOR INDEXES YIELD name, labelsOrTypes, properties
-                                """)
+            res = session.run("SHOW VECTOR INDEXES YIELD name, labelsOrTypes, properties")
             return res.to_df().to_markdown()
 
     @retry.retry(exceptions=Exception, tries=3)

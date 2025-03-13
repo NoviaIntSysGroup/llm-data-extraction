@@ -1,0 +1,15 @@
+Task:
+Filter the given list of items based on whether any text fields of each item is relevant to the given question.
+
+- Return a JSON array of items with all irrelevant items removed.
+- For each item that remains, add a field called "relevance" with a brief explanation of how the item is relevant to the question.
+- Do not drop any properties from the original data.
+- If no items are relevant, return an empty JSON array ([]).
+- Output only a valid JSON list. Do not include any explanations or extra text before or after the JSON.
+
+Items:
+{context}
+
+Question: {question}
+
+Response:
