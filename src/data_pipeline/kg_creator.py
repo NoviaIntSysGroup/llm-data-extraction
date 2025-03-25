@@ -15,7 +15,7 @@ def generate_embeddings(texts):
     if isinstance(texts, str):
         texts = [texts]
 
-    texts = [text.strip() if text.strip() else "[empty]" for text in texts]
+    texts = [text.strip()[:8192] if text.strip() else "[empty]" for text in texts]
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
