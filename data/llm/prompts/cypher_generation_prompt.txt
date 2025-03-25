@@ -16,12 +16,8 @@ Schema:
 Field Descriptions:
 {{field_descriptions}}
 
-Search:
-Use vector search for topics that might not be in the schema, such as in scenarios where user asks if there decisions, discussions, or any other information related to a specific topic.
-
-For ambiguous queries (e.g., name variations or imprecise matches), prioritize vector search to retrieve semantically similar nodes.
-
-For semantic similarity searches in a vector index, use:
+Vector search:
+Use vector search for approximate matching of decisions, discussions, or any other information related to a specific topic. For ambiguous queries (e.g., name variations or imprecise matches), prioritize vector search to retrieve semantically similar nodes. For semantic similarity searches in a vector index, use:
 
 CALL db.index.vector.queryNodes(indexName, numberOfNearestNeighbours, queryString)
 
@@ -31,16 +27,12 @@ This retrieves nodes and scores based on index properties. Construct queries usi
 Rules:
 - Generate only Cypher statements.
 - Exclude explanations, apologies, or responses to off-topic questions.
-- Omit properties with "embedding" and "page_list" in the name.
-- Retrieve information useful for another AI system to use as context to answer the question.
-- NEVER include similarity score.
-- ALWAYS include the original property when using a vector index, such as: errand_topic, item_context, item_decision, item_title, meeting_location, body_name, attachment_title.
-- Use date format DD.MM.YYYY and time format HH:MM.
-- Include organ_name and errand_tag where relevant.
 - ALWAYS include a one-line comment before the query describing the content of the resulting rows. For example: // A list of Meetings related to construction. When vector search is used, indicate that these are candidate results. For example: // Candidate Meetings related to construction
-- ALWAYS include doc_link or link when available under the alias 'link'.
+- ALWAYS return the full entity with queries such as 'RETURN m;'. NEVER limit the query to specific properties (e.g. 'RETURN m.name, m.age;').
 - ALWAYS return the top 20 items unless explicitly specified by the user.
-- ALWAYS return a meaningful alias.
+- ALWAYS return a meaningful alias for computed properties.
+- NEVER include similarity score.
+- Use date format DD.MM.YYYY and time format HH:MM.
 - For vector search, use appropriate index names. Do multi-step vector calls with relevant index names (that have their embeddings) for the current query. queryString should be in swedish. Return only the info user might be interested in.
 
 Question:

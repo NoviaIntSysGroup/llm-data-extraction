@@ -16,8 +16,11 @@ from langchain_openai import ChatOpenAI
 from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
 from openai import OpenAI
-from ratelimit import limits
 from typing import Any, Dict, List, Optional
+
+import sys
+sys.path.append('..')
+from data_pipeline.utils import *
 
 def extract_cypher(text: str) -> str:
     """Extract Cypher code from a text.
@@ -83,7 +86,6 @@ def replace_query_with_embedding(cypher):
 
     return cypher
 
-@limits(calls=100, period=60)
 def generate_embeddings(texts: List[str]) -> List[List[float]]:
     """
     Generate vector embeddings for a list of texts using the OpenAI API.
@@ -102,10 +104,11 @@ def generate_embeddings(texts: List[str]) -> List[List[float]]:
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    response = client.embeddings.create(
-        input=texts,
-        model=os.getenv("OPENAI_TEXT_EMBEDDING_MODEL_NAME")
-    )
+    with llm_limiter:
+        response = client.embeddings.create(
+            input=texts,
+            model=os.getenv("OPENAI_TEXT_EMBEDDING_MODEL_NAME")
+        )
 
     return [item.embedding for item in response.data]
 
@@ -210,10 +213,30 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
             context = "!!Cannot fetch data from database!!"
             generated_cypher = "Invalid Cypher Query"
 
+        # Remove any embeddings or page links
+        def delete_keys(data):
+            if isinstance(data, dict):
+                for key in list(data.keys()):
+                    if "embedding" in key or "page_list" in key:
+                        try:
+                            del data[key]
+                        except KeyError:
+                            pass
+                for value in data.values():
+                    if isinstance(value, (dict, list)):
+                        delete_keys(value)
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, (dict, list)):
+                        delete_keys(item)
+        delete_keys(context)
+
         # Display the generated Cypher code
-        _run_manager.on_text("Generated Cypher:", end="\n", verbose=self.verbose)
+        _run_manager.on_text("Based on the user prompt:", end="\n", verbose=self.verbose)
+        _run_manager.on_text(question, color="green", end="\n", verbose=self.verbose)
+        _run_manager.on_text("The Cypher LLM generated the following query:", end="\n", verbose=self.verbose)
         _run_manager.on_text(generated_cypher, color="green", end="\n", verbose=self.verbose)
-        _run_manager.on_text("Result description:", end="\n", verbose=self.verbose)
+        _run_manager.on_text("The Cypher LLM describes the result as:", end="\n", verbose=self.verbose)
         _run_manager.on_text(result_description, color="green", end="\n", verbose=self.verbose)
 
         # Add the generated Cypher code to the intermediate steps
@@ -223,10 +246,12 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
             final_result = context
         else:
             # Display the retrieved data
-            _run_manager.on_text("Full Context:", end="\n", verbose=self.verbose)
-            _run_manager.on_text(
-                str(context), color="green", end="\n", verbose=self.verbose
-            )
+            _run_manager.on_text("The result of the Cypher query:", end="\n", verbose=self.verbose)
+            try:
+                json_context = json.dumps(context, indent=4, default=str)
+                _run_manager.on_text(json_context, color="green", end="\n", verbose=self.verbose)
+            except (TypeError, ValueError):
+                _run_manager.on_text(str(context), color="green", end="\n", verbose=self.verbose)
 
             intermediate_steps.append({"context": context})
 
@@ -258,7 +283,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                     "question": question,
                 }).content
 
-                _run_manager.on_text("Filtered Context:", end="\n", verbose=self.verbose)
+                _run_manager.on_text("The filter LLM returned:", end="\n", verbose=self.verbose)
                 _run_manager.on_text(context, color="green", end="\n", verbose=self.verbose)
 
             final_result = self.qa_chain.invoke({
@@ -434,7 +459,6 @@ class KnowledgeGraphRAG:
             # extract python codeblock from code["text"] using regex
             code = re.search(r"```python(.*?)```", code.content,
                              re.DOTALL).group(1).strip()
-            print(code)
             my_namespace = types.SimpleNamespace()
             exec(code, my_namespace.__dict__)
             return my_namespace.data
