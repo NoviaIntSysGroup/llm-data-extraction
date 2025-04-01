@@ -344,14 +344,16 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path, overwri
                 progress.update(1)
 
                 # download the html file if it exists
-                html_save_path = convert_file_path(document["filepath"], "webhtml")
-                if "html_link" in document.keys() and (not os.path.exists(html_save_path) or overwrite):
-                    html_link = document.get("html_link")
-                    html_content = download_html(html_link)
-                    if html_content:
-                        with open(html_save_path, "w", encoding="utf-8") as file:
-                            file.write(html_content)
-                    progress.update(1)
+                if "html_link" in document.keys() and "filepath" in document.keys():
+                    html_save_path = convert_file_path(document["filepath"], "webhtml")
+
+                    if not os.path.exists(html_save_path) or overwrite:
+                        html_link = document.get("html_link")
+                        html_content = download_html(html_link)
+                        if html_content:
+                            with open(html_save_path, "w", encoding="utf-8") as file:
+                                file.write(html_content)
+                        progress.update(1)
 
                 # Iterate through the attachments and download the files
                 for attachment in document["attachments"]:
