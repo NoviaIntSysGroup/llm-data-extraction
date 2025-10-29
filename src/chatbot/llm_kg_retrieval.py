@@ -146,7 +146,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+            with open(os.path.join("..", os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             generated_cypher = self.cypher_generation_chain.invoke({
@@ -258,7 +258,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+            with open(os.path.join("..", os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             # Check if the cypher includes a vector search
@@ -448,7 +448,7 @@ class KnowledgeGraphRAG:
         try:
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+            with open(os.path.join("..", os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             code = self.diagram_chain.invoke({
@@ -482,7 +482,7 @@ class KnowledgeGraphRAG:
 
         # load field descriptions from json
         FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-        with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+        with open(os.path.join("..", os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
             field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
         try:
