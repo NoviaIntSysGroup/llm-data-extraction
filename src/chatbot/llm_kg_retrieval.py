@@ -205,11 +205,12 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                 context = self.graph.query(generated_cypher_with_embeddings)[:self.top_k]
                 return result_description, context, generated_cypher
             else:
-                return "Warning: Let users know manipulation of the database is not permitted", generated_cypher
+                return "Warning: Let users know manipulation of the database is not permitted", context, generated_cypher
 
         try:
             result_description, context, generated_cypher = execute_query()
         except:
+            result_description = "Cannot fetch data from database"
             context = "!!Cannot fetch data from database!!"
             generated_cypher = "Invalid Cypher Query"
 
