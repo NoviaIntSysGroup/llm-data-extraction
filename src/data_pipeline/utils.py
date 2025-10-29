@@ -221,6 +221,9 @@ def get_documents_dataframe(type=None):
                     [documents_df, pd.DataFrame([parent_row])], ignore_index=True)
                 if document["attachments"]:
                     for attachment in document["attachments"]:
+                        if not "filepath" in attachment:
+                            continue
+
                         attachment_row = {
                             "doc_link": attachment["doc_link"],
                             "title": attachment["title"],
