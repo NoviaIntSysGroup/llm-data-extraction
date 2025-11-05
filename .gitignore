@@ -4,6 +4,7 @@ data/protocols
 data/scraped_data.json
 data/scraping
 data/temp
+data/pages
 
 # Vscode
 .vscode
