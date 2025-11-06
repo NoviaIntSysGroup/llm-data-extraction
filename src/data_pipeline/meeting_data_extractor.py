@@ -205,12 +205,12 @@ def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False
     if not os.path.exists(batch_file_path):
         # create the batch file if it does not exist
         os.makedirs(os.path.dirname(batch_file_path), exist_ok=True)
-        with open(batch_file_path, "w") as file:
+        with open(batch_file_path, "w", encoding="utf-8") as file:
             file.write("")
     else:
         if overwrite_batch_file:
             print("Overwriting batch file...")
-            with open(batch_file_path, "w") as file:
+            with open(batch_file_path, "w", encoding="utf-8") as file:
                 file.write("")
         else:
             print("There is already a batch file at the specified path. If you want to overwrite the file, set the 'overwrite_batch_file' parameter to True.")
@@ -219,6 +219,7 @@ def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False
     token_count = 0
     for filepath in filepaths:
         with open(filepath, encoding="utf-8") as doc:
+            #print(filepath)
             text = doc.read()
         task = {
             "custom_id": extract_doc_id(filepath),
@@ -231,7 +232,7 @@ def create_batch_file(filepaths, prompt, json_schema, overwrite_batch_file=False
             )
         }
         # save the task to batch file
-        with open(batch_file_path, "a") as file:
+        with open(batch_file_path, "a", encoding="utf-8") as file:
             file.write(json.dumps(task, indent=None, ensure_ascii=False) + "\n")
 
         # calculate the token count and add to the total token count

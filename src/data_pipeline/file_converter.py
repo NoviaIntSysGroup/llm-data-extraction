@@ -119,7 +119,7 @@ def convert_files(filepaths, output_type="xhtml", overwrite=False, add_ids_to_ta
         if os.path.exists(output_file_path) and not overwrite:
             if add_ids_to_tags:
                 # add ids to tags
-                with open(output_file_path, "r") as file:
+                with open(output_file_path, "r", encoding="utf-8") as file:
                     text = file.read()
                     text = add_ids_to_tags_(text)
             continue
@@ -134,7 +134,7 @@ def convert_files(filepaths, output_type="xhtml", overwrite=False, add_ids_to_ta
                                fitz.TEXT_DEHYPHENATE & fitz.TEXT_PRESERVE_WHITESPACE) for page in doc)
         elif input_file_extension == ".docx":
             # Convert the DOCX file to HTML
-            with open(filepath, "rb") as docx:
+            with open(filepath, "rb", encoding="utf-8") as docx:
                 text = convert_to_html(docx)
                 text = text.value
         else:
@@ -151,7 +151,7 @@ def convert_files(filepaths, output_type="xhtml", overwrite=False, add_ids_to_ta
             text = remove_ids_from_tags(text)
 
         # Write the text to the output file
-        with open(output_file_path, "w") as file:
+        with open(output_file_path, "w", encoding="utf-8") as file:
             file.write(text)
     print(
         f"Saved converted files to respective folders in the same directory as the original files")

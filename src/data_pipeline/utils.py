@@ -527,7 +527,7 @@ def construct_aggregate_json(construct_from):
 
     # Write the aggregate JSON to a file
     aggregate_json_path = os.path.join(protocols_path, f"{construct_from}_aggregate_data.json")
-    with open(aggregate_json_path, "w") as f:
+    with open(aggregate_json_path, "w", encoding="utf-8") as f:
         f.write(json.dumps(aggregate_json, indent=4, ensure_ascii=False))
         print(f"Aggregate JSON saved to {os.path.normpath(aggregate_json_path)}.")
 
@@ -561,7 +561,7 @@ def create_agenda_html(agenda_df):
         agenda_html += "</ul>"
 
     # save the html
-    with open("agenda.html", "w") as f:
+    with open("agenda.html", "w", encoding="utf-8") as f:
         f.write(agenda_html)
 
 def extract_doc_id(filename):
