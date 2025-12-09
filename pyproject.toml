@@ -8,7 +8,8 @@ version = "0.2.0"
 description = "A project for LLM structured data extraction from unstructured data"
 authors = [
     { name = "Ashish Dahal" },
-    { name = "Dennis Bengs" }
+    { name = "Dennis Bengs" },
+    { name = "David Ena" }
 ]
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,6 +22,7 @@ dependencies = [
     "langchain==0.3.19",
     "langchain-neo4j==0.3.0",
     "langchain-openai==0.3.7",
+    "langchain-google-genai==0.0.18",
     "mammoth==1.9.0",
     "matplotlib==3.10.1",
     "neo4j==5.28.1",

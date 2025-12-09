@@ -11,8 +11,10 @@ import types
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.manager import CallbackManagerForChainRun
 from langchain_core.prompts.prompt import PromptTemplate
+from langchain_core.language_model import BaseLanguageModel
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
 from openai import OpenAI
@@ -21,6 +23,44 @@ from typing import Any, Dict, List, Optional
 import sys
 sys.path.append('..')
 from data_pipeline.utils import *
+
+def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None) -> BaseLanguageModel:
+    """
+    Factory function to get the configured LLM instance.
+    This makes it easy to switch between different LLM providers by just changing environment variables.
+    
+    Args:
+        temperature (float): Temperature parameter for LLM (0-1). Default is 0.
+        streaming (bool): Whether to enable streaming for the LLM. Default is False.
+        callbacks (List): Optional list of callbacks for the LLM.
+    
+    Returns:
+        BaseLanguageModel: An instance of the configured LLM.
+    
+    Environment Variables:
+        LLM_PROVIDER: The LLM provider to use. Options: "gemini", "openai". Default: "gemini"
+        GEMINI_MODEL_NAME: The Gemini model to use (e.g., "gemini-2.0-flash")
+        OPENAI_MODEL_NAME: The OpenAI model to use (e.g., "gpt-4-mini")
+    """
+    llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+    
+    if llm_provider == "gemini":
+        return ChatGoogleGenerativeAI(
+            model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
+            temperature=temperature,
+            streaming=streaming,
+            callbacks=callbacks or [],
+        )
+    elif llm_provider == "openai":
+        return ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL_NAME", "gpt-4-mini"),
+            temperature=temperature,
+            streaming=streaming,
+            callbacks=callbacks or [],
+        )
+    else:
+        raise ValueError(f"Unsupported LLM provider: {llm_provider}. Supported providers are: 'gemini', 'openai'")
+
 
 def extract_cypher(text: str) -> str:
     """Extract Cypher code from a text.
@@ -274,10 +314,8 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                     template=CYPHER_FILTER_TEMPLATE
                 )
 
-                # Chain the prompt with the ChatOpenAI LLM to get a new context
-                filter_chain = CYPHER_FILTER_PROMPT | ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")
-                )
+                # Chain the prompt with the LLM to get a new context
+                filter_chain = CYPHER_FILTER_PROMPT | get_llm(temperature=0)
 
                 context = filter_chain.invoke({
                     "context": context,
@@ -355,10 +393,8 @@ class KnowledgeGraphRAG:
         if run_environment == "script" and answer_placeholder:
             stream_handler = StreamHandler(container=answer_placeholder)
             self.chain = MyGraphCypherQAChain.from_llm(
-                cypher_llm=ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
-                qa_llm=ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME"), streaming=True, callbacks=[stream_handler]),
+                cypher_llm=get_llm(temperature=0),
+                qa_llm=get_llm(temperature=0, streaming=True, callbacks=[stream_handler]),
                 cypher_prompt=CYPHER_GENERATION_PROMPT,
                 qa_prompt=CYPHER_QA_PROMPT,
                 graph=self.graph,
@@ -369,10 +405,8 @@ class KnowledgeGraphRAG:
             )
         else:
             self.chain = MyGraphCypherQAChain.from_llm(
-                cypher_llm=ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
-                qa_llm=ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
+                cypher_llm=get_llm(temperature=0),
+                qa_llm=get_llm(temperature=0),
                 cypher_prompt=CYPHER_GENERATION_PROMPT,
                 qa_prompt=CYPHER_QA_PROMPT,
                 graph=self.graph,
@@ -392,7 +426,7 @@ class KnowledgeGraphRAG:
         )
 
         # Initialize the LLM Chain for diagram generation
-        self.diagram_chain = DIAGRAM_PROMPT | ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME"))
+        self.diagram_chain = DIAGRAM_PROMPT | get_llm(temperature=0)
 
         # open timeline prompt template file
         with open(os.path.join("..", os.getenv("TIMELINE_GENERATION_PROMPT_PATH")), "r") as file:
@@ -404,7 +438,7 @@ class KnowledgeGraphRAG:
         )
 
         # initialize the LLM Chain for timeline generation
-        self.timeline_chain = TIMELINE_PROMPT | ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME"))
+        self.timeline_chain = TIMELINE_PROMPT | get_llm(temperature=0)
 
     def process_prompt(self, prompt):
         """
