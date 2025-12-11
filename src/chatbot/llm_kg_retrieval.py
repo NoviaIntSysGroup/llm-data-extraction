@@ -1,17 +1,18 @@
 import json
 import langchain
+import langchain_core
 import logging
 import os
 import re
 import retry
 import types
 
-#langchain.debug = True
+langchain.debug = True
 
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.callbacks.manager import CallbackManagerForChainRun
+from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.callbacks.manager import CallbackManagerForChainRun
 from langchain_core.prompts.prompt import PromptTemplate
-from langchain_core.language_model import BaseLanguageModel
+from langchain_core.language_models import BaseLanguageModel
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -39,7 +40,7 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
     
     Environment Variables:
         LLM_PROVIDER: The LLM provider to use. Options: "gemini", "openai". Default: "gemini"
-        GEMINI_MODEL_NAME: The Gemini model to use (e.g., "gemini-2.0-flash")
+        GEMINI_MODEL_NAME: The Gemini model to use (e.g., "gemini-3-pro-preview")
         OPENAI_MODEL_NAME: The OpenAI model to use (e.g., "gpt-4-mini")
     """
     llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
@@ -47,9 +48,10 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
     if llm_provider == "gemini":
         return ChatGoogleGenerativeAI(
             model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
-            temperature=temperature,
+            temperature=1,
             streaming=streaming,
             callbacks=callbacks or [],
+            #thinking_config={"type": "disabled"},
         )
     elif llm_provider == "openai":
         return ChatOpenAI(
@@ -344,8 +346,21 @@ class StreamHandler(BaseCallbackHandler):
         self.text = initial_text
 
     def on_llm_new_token(self, token: str, **kwargs) -> None:
-        self.text += token
-        self.container.markdown(self.text)
+        # Extract text content from token if it's a dict (Gemini format)
+        token_text = token
+        if isinstance(token, dict):
+            # Gemini sends tokens as dicts with 'text' key
+            token_text = token.get('text', str(token))
+        elif isinstance(token, list):
+            # Handle list of tokens
+            token_text = "".join(str(t) if not isinstance(t, dict) else t.get('text', str(t)) for t in token)
+        elif not isinstance(token, str):
+            token_text = str(token)
+        
+        # Only append if we have actual text content
+        if token_text:
+            self.text += token_text
+            self.container.markdown(self.text)
 
 class KnowledgeGraphRAG:
     def __init__(self, url, username, password, answer_placeholder=None, run_environment="script"):
