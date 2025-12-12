@@ -518,7 +518,7 @@ class StreamHandler(BaseCallbackHandler):
             self.container.markdown(self.text)
 
 class KnowledgeGraphRAG:
-    def __init__(self, url, username, password, answer_placeholder=None, run_environment="script", enable_memory=True, memory=None, enable_logging=True):
+    def __init__(self, url, username, password, answer_placeholder=None, run_environment="script", enable_memory=True, memory=None, enable_logging=True, logger=None):
         """
         Initialize the KnowledgeGraphRAG class
 
@@ -531,6 +531,7 @@ class KnowledgeGraphRAG:
             enable_memory (bool): Whether to use conversation memory. Default is True.
             memory (ConversationMemory): Optional ConversationMemory instance. If None, a new one will be created.
             enable_logging (bool): Whether to log conversations to JSON files. Default is True.
+            logger (ConversationLogger): Optional ConversationLogger instance. If None and enable_logging is True, a new one will be created.
         """
 
         driver = GraphDatabase.driver(url, auth=(username, password))
@@ -545,8 +546,8 @@ class KnowledgeGraphRAG:
         # Initialize or use provided conversation memory
         self.memory = memory if memory is not None else (ConversationMemory() if enable_memory else None)
         
-        # Initialize conversation logger
-        self.logger = ConversationLogger() if enable_logging else None
+        # Initialize or use provided conversation logger
+        self.logger = logger if logger is not None else (ConversationLogger() if enable_logging else None)
 
         # open cypher generation prompt template file
         with open(os.path.join("..", os.getenv("CYPHER_GENERATION_PROMPT_PATH")), "r") as file:
