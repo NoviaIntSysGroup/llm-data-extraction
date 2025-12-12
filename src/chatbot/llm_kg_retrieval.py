@@ -25,7 +25,7 @@ import sys
 sys.path.append('..')
 from data_pipeline.utils import *
 
-def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None) -> BaseLanguageModel:
+def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None, thinking_level: str = "low") -> BaseLanguageModel:
     """
     Factory function to get the configured LLM instance.
     This makes it easy to switch between different LLM providers by just changing environment variables.
@@ -51,7 +51,7 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
             temperature=1,
             streaming=streaming,
             callbacks=callbacks or [],
-            #thinking_config={"type": "disabled"},
+            thinking_level=thinking_level
         )
     elif llm_provider == "openai":
         return ChatOpenAI(
@@ -62,6 +62,158 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
         )
     else:
         raise ValueError(f"Unsupported LLM provider: {llm_provider}. Supported providers are: 'gemini', 'openai'")
+
+
+class ConversationMemory:
+    """
+    Manages short-term conversation memory for the chatbot.
+    Stores user questions and corresponding AI answers to provide context to all queries.
+    """
+    
+    def __init__(self, max_exchanges: int = 5):
+        """
+        Initialize conversation memory.
+        
+        Args:
+            max_exchanges (int): Maximum number of user-answer exchanges to keep in memory.
+        """
+        self.max_exchanges = max_exchanges
+        self.exchanges = []  # List of {"user_question": str, "ai_answer": str}
+    
+    def add_exchange(self, user_question: str, ai_answer: str) -> None:
+        """
+        Add a user question and AI answer to memory.
+        
+        Args:
+            user_question (str): The user's question
+            ai_answer (str): The AI's answer
+        """
+        self.exchanges.append({
+            "user_question": user_question,
+            "ai_answer": ai_answer
+        })
+        
+        # Keep only the most recent exchanges
+        if len(self.exchanges) > self.max_exchanges:
+            self.exchanges = self.exchanges[-self.max_exchanges:]
+    
+    def get_context_string(self) -> str:
+        """
+        Get conversation history formatted as a context string for prompts.
+        
+        Returns:
+            str: Formatted conversation history, empty string if no history
+        """
+        if not self.exchanges:
+            return ""
+        
+        context_lines = ["Previous conversation history:"]
+        for i, exchange in enumerate(self.exchanges, 1):
+            context_lines.append(f"\nQuestion {i}: {exchange['user_question']}")
+            context_lines.append(f"Answer {i}: {exchange['ai_answer'][:500]}...")  # Truncate long answers
+        
+        return "\n".join(context_lines)
+    
+    def clear(self) -> None:
+        """Clear all conversation history."""
+        self.exchanges = []
+    
+    def get_exchanges(self) -> List[Dict[str, str]]:
+        """Get all stored exchanges."""
+        return self.exchanges.copy()
+
+
+class ConversationLogger:
+    """
+    Logs conversation history to JSON files.
+    Each conversation session gets its own file named by creation timestamp.
+    """
+    
+    def __init__(self, log_dir: str = None):
+        """
+        Initialize conversation logger.
+        
+        Args:
+            log_dir (str): Directory where log files will be stored. If None, uses default from config.
+        """
+        from datetime import datetime
+        
+        # Use provided log_dir or construct from config/environment
+        if log_dir is None:
+            # Try to get from environment variable, otherwise use default relative to project root
+            log_dir = os.getenv("CONVERSATION_LOG_DIR", None)
+            if log_dir is None:
+                # Construct path relative to this script location (chatbot folder)
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                log_dir = os.path.join(script_dir, "..", "..", "data", "llm", "logs")
+        
+        # Convert to absolute path
+        self.log_dir = os.path.abspath(log_dir)
+        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.log_file = os.path.join(self.log_dir, f"{self.session_id}.json")
+        self.conversation_data = {
+            "session_id": self.session_id,
+            "created_at": datetime.now().isoformat(),
+            "exchanges": []
+        }
+        
+        # Create logs directory if it doesn't exist
+        try:
+            os.makedirs(self.log_dir, exist_ok=True)
+            print(f"Conversation log directory: {self.log_dir}")
+        except Exception as e:
+            print(f"Error creating log directory {self.log_dir}: {e}")
+            raise
+        
+        # Save initial empty log file
+        self._save_to_file()
+        print(f"Conversation log file created: {self.log_file}")
+    
+    def add_exchange(self, user_question: str, ai_answer: str, query: str = None, context: List = None) -> None:
+        """
+        Add a user question and AI answer exchange to the log.
+        
+        Args:
+            user_question (str): The user's question
+            ai_answer (str): The AI's answer
+            query (str): Optional Cypher query generated
+            context (List): Optional context/data retrieved from the knowledge graph
+        """
+        from datetime import datetime
+        
+        exchange = {
+            "timestamp": datetime.now().isoformat(),
+            "user_question": user_question,
+            "ai_answer": ai_answer,
+        }
+        
+        # Add optional fields if provided
+        if query:
+            exchange["cypher_query"] = query
+        if context:
+            exchange["context"] = context
+        
+        self.conversation_data["exchanges"].append(exchange)
+        self._save_to_file()
+    
+    def _save_to_file(self) -> None:
+        """Save conversation data to JSON file."""
+        try:
+            with open(self.log_file, 'w', encoding='utf-8') as f:
+                json.dump(self.conversation_data, f, indent=2, ensure_ascii=False, default=str)
+        except IOError as e:
+            print(f"Error saving conversation log to {self.log_file}: {e}")
+        except TypeError as e:
+            print(f"Error serializing conversation data: {e}")
+    
+    def get_log_file_path(self) -> str:
+        """Get the path to the current log file."""
+        return self.log_file
+    
+    def get_session_id(self) -> str:
+        """Get the session ID."""
+        return self.session_id
+
 
 
 def extract_cypher(text: str) -> str:
@@ -195,6 +347,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                 "question": question,
                 "schema": self.graph_schema,
                 "field_descriptions": field_descriptions,
+                "conversation_history": inputs.get("conversation_history", ""),
             }, callbacks=callbacks)
 
             # Extract Cypher code if it is wrapped in backticks
@@ -312,7 +465,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
                 # Create a prompt template for filtering items
                 CYPHER_FILTER_PROMPT = PromptTemplate(
-                    input_variables=["context", "question"],
+                    input_variables=["context", "question", "conversation_history"],
                     template=CYPHER_FILTER_TEMPLATE
                 )
 
@@ -322,6 +475,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                 context = filter_chain.invoke({
                     "context": context,
                     "question": question,
+                    "conversation_history": inputs.get("conversation_history", ""),
                 }).content
 
                 _run_manager.on_text("The filter LLM returned:", end="\n", verbose=self.verbose)
@@ -332,6 +486,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                 "result_description": result_description,
                 "field_descriptions": field_descriptions,
                 "context": context,
+                "conversation_history": inputs.get("conversation_history", ""),
             }, callbacks=callbacks)
 
         chain_result: Dict[str, Any] = {self.output_key: final_result}
@@ -363,7 +518,7 @@ class StreamHandler(BaseCallbackHandler):
             self.container.markdown(self.text)
 
 class KnowledgeGraphRAG:
-    def __init__(self, url, username, password, answer_placeholder=None, run_environment="script"):
+    def __init__(self, url, username, password, answer_placeholder=None, run_environment="script", enable_memory=True, memory=None, enable_logging=True):
         """
         Initialize the KnowledgeGraphRAG class
 
@@ -373,6 +528,9 @@ class KnowledgeGraphRAG:
             password (str): Password of the Neo4j database
             answer_placeholder (str): Streamlit placeholder for the LLM answer
             run_environment (str): The environment in which the code is running. Can be "script" or "notebook"
+            enable_memory (bool): Whether to use conversation memory. Default is True.
+            memory (ConversationMemory): Optional ConversationMemory instance. If None, a new one will be created.
+            enable_logging (bool): Whether to log conversations to JSON files. Default is True.
         """
 
         driver = GraphDatabase.driver(url, auth=(username, password))
@@ -383,6 +541,12 @@ class KnowledgeGraphRAG:
             username=username,
             password=password,
         )
+        
+        # Initialize or use provided conversation memory
+        self.memory = memory if memory is not None else (ConversationMemory() if enable_memory else None)
+        
+        # Initialize conversation logger
+        self.logger = ConversationLogger() if enable_logging else None
 
         # open cypher generation prompt template file
         with open(os.path.join("..", os.getenv("CYPHER_GENERATION_PROMPT_PATH")), "r") as file:
@@ -393,14 +557,16 @@ class KnowledgeGraphRAG:
                 index_info=self.index_info)
 
         CYPHER_GENERATION_PROMPT = PromptTemplate(
-            input_variables=["schema", "field_descriptions", "question"], template=CYPHER_GENERATION_TEMPLATE
+            input_variables=["schema", "field_descriptions", "question", "conversation_history"], 
+            template=CYPHER_GENERATION_TEMPLATE
         )
 
         with open(os.path.join("..", os.getenv("CYPHER_QA_PROMPT_PATH")), "r") as file:
             CYPHER_QA_TEMPLATE = file.read()
 
         CYPHER_QA_PROMPT = PromptTemplate(
-            input_variables=["context", "field_descriptions", "question"], template=CYPHER_QA_TEMPLATE
+            input_variables=["context", "field_descriptions", "question", "conversation_history"], 
+            template=CYPHER_QA_TEMPLATE
         )
 
         # Initialize the LLM Chain based on if the code is running in a script or notebook
@@ -457,11 +623,18 @@ class KnowledgeGraphRAG:
 
     def process_prompt(self, prompt):
         """
-        Process a prompt and return the response, query, and context
+        Process a prompt and return the response, query, and context.
+        Conversation memory is used to provide context to all 4 AI queries.
         """
+        
+        # Get conversation history for all queries
+        conversation_history = self.memory.get_context_string() if self.memory else ""
 
         try:
-            result = self.chain.invoke(prompt)
+            result = self.chain.invoke({
+                "query": prompt,
+                "conversation_history": conversation_history
+            })
         except SessionExpired:
             self.graph = Neo4jGraph(
                 url=self.graph.url,
@@ -469,11 +642,27 @@ class KnowledgeGraphRAG:
                 password=self.graph.password,
             )
             self.chain.graph = self.graph
-            result = self.chain.invoke(prompt)
+            result = self.chain.invoke({
+                "query": prompt,
+                "conversation_history": conversation_history
+            })
 
         response = result["result"]
         query = result["intermediate_steps"][0]["query"]
         context = result["intermediate_steps"][1]["context"]
+        
+        # Save this exchange to memory (only the final answer, not intermediate steps)
+        if self.memory:
+            self.memory.add_exchange(prompt, response)
+        
+        # Log the conversation to JSON file
+        if self.logger:
+            self.logger.add_exchange(
+                user_question=prompt,
+                ai_answer=response,
+                query=query,
+                context=context
+            )
 
         return response, query, context
 
@@ -481,6 +670,10 @@ class KnowledgeGraphRAG:
         with driver.session() as session:
             res = session.run("SHOW VECTOR INDEXES YIELD name, labelsOrTypes, properties")
             return res.to_df().to_markdown()
+    
+    def get_log_file_path(self) -> str:
+        """Get the path to the current conversation log file."""
+        return self.logger.get_log_file_path() if self.logger else None
 
     @retry.retry(exceptions=Exception, tries=3)
     def get_diagram(self, question, data):

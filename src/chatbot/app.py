@@ -346,6 +346,9 @@ def main():
             {"role": "assistant",
                 "content": "Hi, ask me a question about the meeting decisions and protocols!"}
         ]
+    
+    if "conversation_memory" not in st.session_state.keys():  # Initialize conversation memory
+        st.session_state.conversation_memory = llm_kg_retrieval.ConversationMemory()
 
     # Prompt for user input and save to chat history
     if prompt := st.chat_input("Your question"):
@@ -383,14 +386,18 @@ def main():
             with st.chat_message("assistant"):
                 intermediate_placeholder = st.empty()
                 answer_placeholder = st.empty()
-                # Initialize the LLM Query Processor
+                # Initialize the LLM Query Processor with shared conversation memory
                 with st.spinner("Thinking..."):
+                    # Create a fresh processor for each query with the shared conversation memory
                     processor = llm_kg_retrieval.KnowledgeGraphRAG(
                         url=os.getenv("NEO4J_URI"),
                         username=os.getenv("NEO4J_USERNAME"),
                         password=os.getenv("NEO4J_PASSWORD"),
                         answer_placeholder=answer_placeholder,
-                        run_environment="script")
+                        run_environment="script",
+                        enable_memory=True,
+                        memory=st.session_state.conversation_memory)
+                    
                     # get response from LLM
                     response, query, context = processor.process_prompt(prompt)
 

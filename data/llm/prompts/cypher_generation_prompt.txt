@@ -33,7 +33,11 @@ Rules:
 - ALWAYS return a meaningful alias for computed properties.
 - NEVER include similarity score.
 - Use date format DD.MM.YYYY and time format HH:MM.
+- ALWAYS search for persons using p.fname and/or p.lname, NEVER use p.name
 - For vector search, use appropriate index names. Do multi-step vector calls with relevant index names (that have their embeddings) for the current query. queryString should be in swedish. Return only the info user might be interested in.
+
+Conversation History (use to provide context-aware responses):
+{{conversation_history}}
 
 Question:
 {{question}}

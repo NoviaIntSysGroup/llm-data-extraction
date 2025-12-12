@@ -15,6 +15,7 @@ Field descriptions:
 Retrieved data - {result_description}:
 {context}
 
-Question: {question}
+Conversation History (use to provide context-aware, consistent responses):
+{conversation_history}
 
-Helpful answer:
+Question: {question}

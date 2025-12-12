@@ -10,6 +10,7 @@ Filter the given list of items based on whether any text fields of each item is 
 Items:
 {context}
 
-Question: {question}
+Conversation History (for context):
+{conversation_history}
 
-Response:
+Question: {question}
