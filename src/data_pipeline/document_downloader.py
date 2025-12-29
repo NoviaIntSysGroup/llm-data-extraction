@@ -246,7 +246,7 @@ def convert_to_page_images(filepath):
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 subprocess.run(
-                    ["libreoffice", "--headless", "--convert-to", "pdf", filepath, "--outdir", temp_dir],
+                    ["soffice", "--headless", "--convert-to", "pdf", filepath, "--outdir", temp_dir],
                     check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
                 )
             except subprocess.CalledProcessError as e:
@@ -303,10 +303,13 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path, overwri
                     desc=f"Downloading files from {meeting_count} meetings")
     for body in progress:
         # Iterate through the meetings and protocols
+        print(f"Downloading body: {body['body']}")
         for meeting in body["meetings"]:
             # Iterate through the documents and download the files
+            print(f"    Downloading meeting: {meeting['meeting_date']}")
             for document in meeting["documents"]:
                 # get the link to the document
+                print(f"        Downloading document: {document['title']}")
                 doc_link = document.get("doc_link", None)
                 # Skip if the file already exists
                 if not ("filepath" in document.keys() and os.path.exists(document["filepath"])):

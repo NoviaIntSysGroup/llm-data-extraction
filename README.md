@@ -1,7 +1,7 @@
 # Democracy Chatbot
 ![Chatbot](assets/democracy_chatbot_demo.gif)
 
-Democracy Chatbot is a project that aims to extract structured data from unstructured meeting protocols and create a knowledge graph for efficient data retrieval and querying. The project utilizes a Large Language Model (LLM) to extract metadata from PDF files obtained by scraping the website of the city of nykerleby. The extracted data is then converted into a knowledge graph, enabling quick access to the information. Additionally, the project includes a chatbot app that allows users to interact with the extracted data. 
+Democracy Chatbot is a project that aims to extract structured data from unstructured meeting protocols and create a knowledge graph for efficient data retrieval and querying. The project utilizes a Large Language Model (LLM) to extract metadata from PDF files obtained by scraping the website of the city of nykarleby. The extracted data is then converted into a knowledge graph, enabling quick access to the information. Additionally, the project includes a chatbot app that allows users to interact with the extracted data. 
 
 ## Project Setup
 
@@ -32,7 +32,6 @@ To set up the project, follow the steps below:
 1. Create a secrets.env file in the config folder and add the following environment variables:
     ```bash
     OPENAI_API_KEY = "<your-openai-api-key>"
-    COHERE_API_KEY = "<your-cohere-api-key>"
     NEO4J_URI="<neo4j-uri>"
     NEO4J_USERNAME="<neo4j-username>"
     NEO4J_PASSWORD="<neo4j-password>"
@@ -96,7 +95,7 @@ This figure outlines the workflow for converting unstructured data from meeting 
 
 #### Data Acquisition and Pre-processing
 
-1. ✅ **Scrape Website**: The initial step involves scraping the [website of city of nykerleby](https://kungorelse.nykarleby.fi:8443/ktwebbin/dbisa.dll/ktwebscr/pk_kokl_tweb.htm) to gather the required data.
+1. ✅ **Scrape Website**: The initial step involves scraping the [website of city of nykarleby](https://kungorelse.nykarleby.fi:8443/ktwebbin/dbisa.dll/ktwebscr/pk_kokl_tweb.htm) to gather the required data.
 1. ✅ **Download PDFs**: After scraping, we have metadata and download links for the protocols which is then downloaded for further processing.
 1. ✅ **Convert to HTML**: The PDFs are converted into HTML format (instead of plain text). The html preserves the layout information of the PDFs, which is useful for extracting the data.
 
