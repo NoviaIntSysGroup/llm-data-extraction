@@ -518,7 +518,7 @@ class StreamHandler(BaseCallbackHandler):
             self.container.markdown(self.text)
 
 class KnowledgeGraphRAG:
-    def __init__(self, url, username, password, answer_placeholder=None, run_environment="script", enable_memory=True, memory=None, enable_logging=True, logger=None):
+    def __init__(self, url, username, password, database=None, answer_placeholder=None, run_environment="script", enable_memory=True, memory=None, enable_logging=True, logger=None):
         """
         Initialize the KnowledgeGraphRAG class
 
@@ -526,6 +526,7 @@ class KnowledgeGraphRAG:
             url (str): URL of the Neo4j database
             username (str): Username of the Neo4j database
             password (str): Password of the Neo4j database
+            database (str): Name of the specific database to use. If None, uses the default database.
             answer_placeholder (str): Streamlit placeholder for the LLM answer
             run_environment (str): The environment in which the code is running. Can be "script" or "notebook"
             enable_memory (bool): Whether to use conversation memory. Default is True.
@@ -541,6 +542,7 @@ class KnowledgeGraphRAG:
             url=url,
             username=username,
             password=password,
+            database=database,
         )
         
         # Initialize or use provided conversation memory
