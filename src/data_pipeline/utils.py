@@ -22,6 +22,9 @@ def convert_file_path(filepath, filetype="pdf"):
         str: The file path of the document.
     """
 
+    # Normalize path separators to forward slashes for cross-platform compatibility
+    filepath = filepath.replace("\\", "/")
+    
     filename, _ = os.path.splitext(os.path.basename(filepath))
     filepath = os.path.join(os.path.dirname(
         filepath), f"{filename}.{filetype}")
@@ -54,11 +57,20 @@ def filter_metadata(df):
         pandas.DataFrame: The filtered metadata dataframe.
     """
 
-    DOC_TITLES_WITH_METADATA = ["Beslutande", "Sammanträdesuppgifter och deltagande",
-                                "Kokoustiedot ja osallistujat", "Vln:Beslutande", "Päättäjät"]
+    # what documents to check is hardcoded, this should probably be made more generic in the future
 
-    # Filter documents that contain meeting metadata
-    return df[df["title"].isin(DOC_TITLES_WITH_METADATA)].drop(columns=["parent_link"])
+    # hardcoded for nykarleby municipality
+    #DOC_TITLES_WITH_METADATA = ["Beslutande", "Sammanträdesuppgifter och deltagande",
+    #                            "Kokoustiedot ja osallistujat", "Vln:Beslutande", "Päättäjät"]
+    
+    # hardcoded for malax municipality
+    DOC_TITLES_WITH_METADATA = ["Närvarande på mötet", "Läsnäolijat"]
+    
+    # Filter documents that contain meeting metadata and exclude attachments
+    filtered_df = df[df["title"].isin(DOC_TITLES_WITH_METADATA)]
+    filtered_df = filtered_df[(filtered_df["parent_link"] == "")]
+    
+    return filtered_df.drop(columns=["parent_link"])
 
 def filter_agenda(df):
     """
@@ -86,13 +98,15 @@ def filter_agenda(df):
         "Kokoustiedot ja osallistujat",
         "Vln:Beslutande",
         "Päättäjät",
+        "Närvarande på mötet",
+        "Läsnäolijat"
     ]
 
     # filter to only agenda items documents
     filtered_df = df[~df["title"].isin(
         DOC_TITLES_WITHOUT_AGENDA)]
 
-    # filter filter out the attachments and documents with section 0
+    # filter out the attachments and documents with section 0
     filtered_df = filtered_df[(filtered_df["parent_link"] == "") & ~(
         filtered_df["section"] == "0")]
 
@@ -207,7 +221,7 @@ def get_documents_dataframe(type=None):
                     "web_html_link": document.get("html_link", None),
                     "title": document["title"],
                     "section": document["section"],
-                    "filepath": document["filepath"],
+                    "filepath": document["filepath"].replace("\\", "/"),
                     "meeting_date": meeting["meeting_date"],
                     "meeting_time": meeting["meeting_time"],
                     "meeting_reference": meeting["meeting_reference"],
@@ -228,7 +242,7 @@ def get_documents_dataframe(type=None):
                             "doc_link": attachment["doc_link"],
                             "title": attachment["title"],
                             "section": "",
-                            "filepath": attachment["filepath"],
+                            "filepath": attachment["filepath"].replace("\\", "/"),
                             "meeting_date": meeting["meeting_date"],
                             "meeting_time": meeting["meeting_time"],
                             "meeting_reference": meeting["meeting_reference"],

@@ -107,6 +107,7 @@ async def save_metadata_llm_batch_results(output_jsonl, df):
 
     output_lines = output_jsonl.splitlines()
     original_df = get_documents_dataframe()
+    rebuilt_output_jsonl = ""
     for line in output_lines:
         line = json.loads(line)
         filepath = retrieve_filepath_from_custom_id(line["custom_id"], df["filepath"])
@@ -114,6 +115,7 @@ async def save_metadata_llm_batch_results(output_jsonl, df):
             print(f"Filepath not found for custom ID {line['custom_id']}")
             continue
         line_json = json.loads(line["response"]["body"]["choices"][0]["message"]["content"])
+        rebuilt_output_jsonl += line["response"]["body"]["choices"][0]["message"]["content"] + "\n"
         path = os.path.dirname(filepath)
         final_path = os.path.join(path, "llm_meeting_metadata.json")
 
@@ -125,7 +127,7 @@ async def save_metadata_llm_batch_results(output_jsonl, df):
     # save raw llm outputs
     METADATA_BATCH_FILE_PATH = os.getenv("METADATA_BATCH_FILE_PATH")
     with open(METADATA_BATCH_FILE_PATH, "w", encoding="utf-8") as f:
-        f.write(output_jsonl)
+        f.write(rebuilt_output_jsonl)
 
 async def save_agenda_llm_batch_results(output_jsonl, df, replace_ids=True, references_jsonl=None):
     """
@@ -398,7 +400,7 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
         # select only the documents that have web_html_link (html scraped from website)
         df = df[df["web_html_link"]!=""]
         if df.empty:
-            return
+            return batch_id, None
         print(f"Creating batch extraction job for references...")
         agenda_batch_id = extract_references_batch(df, overwrite_batch_file=overwrite_batch_file)
         print("-"*100)
