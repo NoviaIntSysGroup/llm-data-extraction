@@ -6,6 +6,7 @@ data/scraping
 data/temp
 data/pages
 data/llm/logs
+notebooks/agenda.html
 
 # Vscode
 .vscode

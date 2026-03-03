@@ -58,13 +58,10 @@ def filter_metadata(df):
     """
 
     # what documents to check is hardcoded, this should probably be made more generic in the future
-
-    # hardcoded for nykarleby municipality
-    #DOC_TITLES_WITH_METADATA = ["Beslutande", "Sammanträdesuppgifter och deltagande",
-    #                            "Kokoustiedot ja osallistujat", "Vln:Beslutande", "Päättäjät"]
     
-    # hardcoded for malax municipality
-    DOC_TITLES_WITH_METADATA = ["Närvarande på mötet", "Läsnäolijat"]
+    # hardcoded for malax and nykarleby municipality
+    DOC_TITLES_WITH_METADATA = ["Närvarande på mötet", "Läsnäolijat", "Beslutande", "Sammanträdesuppgifter och deltagande",
+                                "Kokoustiedot ja osallistujat", "Vln:Beslutande", "Päättäjät"]
     
     # Filter documents that contain meeting metadata and exclude attachments
     filtered_df = df[df["title"].isin(DOC_TITLES_WITH_METADATA)]
@@ -99,7 +96,10 @@ def filter_agenda(df):
         "Vln:Beslutande",
         "Päättäjät",
         "Närvarande på mötet",
-        "Läsnäolijat"
+        "Läsnäolijat",
+        "Sammanträdets laglighet och beslutförhet samt godkännande av föredragningslista",
+        "Kokouksen laillisuus ja päätösvaltaisuus sekä esityslistan hyväksyminen",
+        "Pöytäkirjantarkastajien valinta"
     ]
 
     # filter to only agenda items documents
