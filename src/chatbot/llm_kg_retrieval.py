@@ -48,7 +48,7 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
     if llm_provider == "gemini":
         return ChatGoogleGenerativeAI(
             model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
-            temperature=1,
+            temperature=1,  # Gemini temp should always be 1
             streaming=streaming,
             callbacks=callbacks or [],
             thinking_level=thinking_level
@@ -551,13 +551,35 @@ class KnowledgeGraphRAG:
         # Initialize or use provided conversation logger
         self.logger = logger if logger is not None else (ConversationLogger() if enable_logging else None)
 
+        # Load categories for prompt
+        categories_list = []
+        try:
+            categories_path = os.path.join("..", os.getenv("PROTOCOLS_PATH"), "categories.json")
+            with open(categories_path, "r", encoding="utf-8") as f:
+                categories_data = json.load(f)
+                # Extract all categories with hierarchy
+                for category in categories_data.get("categories", []):
+                    categories_list.append(f"• {category['name']}")
+                    # Add subcategories
+                    for subcategory in category.get("subcategories", []):
+                        categories_list.append(f"  └─ {subcategory['name']}")
+                        # Add sub-subcategories
+                        for sub_subcategory in subcategory.get("sub_subcategories", []):
+                            categories_list.append(f"     └─ {sub_subcategory['name']}")
+        except Exception as e:
+            print(f"Warning: Could not load categories: {e}")
+            categories_list = []
+        
+        categories_str = "\n".join(categories_list)
+
         # open cypher generation prompt template file
         with open(os.path.join("..", os.getenv("CYPHER_GENERATION_PROMPT_PATH")), "r") as file:
             CYPHER_GENERATION_TEMPLATE = file.read()
 
-            # fstring replace index info in the template
+            # fstring replace index info and categories in the template
             CYPHER_GENERATION_TEMPLATE = CYPHER_GENERATION_TEMPLATE.format(
-                index_info=self.index_info)
+                index_info=self.index_info,
+                categories=categories_str)
 
         CYPHER_GENERATION_PROMPT = PromptTemplate(
             input_variables=["schema", "field_descriptions", "question", "conversation_history"], 

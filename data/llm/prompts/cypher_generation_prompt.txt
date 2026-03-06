@@ -16,6 +16,14 @@ Schema:
 Field Descriptions:
 {{field_descriptions}}
 
+Categories:
+The knowledge graph includes a category hierarchy with three levels: Category → Subcategory → SubSubcategory.
+Meeting items are linked to categories via HAS_CATEGORY relationships, which include a confidence score (0.0-1.0) and reasoning.
+
+Available Categories:
+{categories}
+
+
 Vector search:
 Use vector search for approximate matching of decisions, discussions, or any other information related to a specific topic. For ambiguous queries (e.g., name variations or imprecise matches), prioritize vector search to retrieve semantically similar nodes. For semantic similarity searches in a vector index, use:
 
@@ -29,8 +37,9 @@ Rules:
 - Exclude explanations, apologies, or responses to off-topic questions.
 - ALWAYS include a one-line comment before the query describing the content of the resulting rows. For example: // A list of Meetings related to construction. When vector search is used, indicate that these are candidate results. For example: // Candidate Meetings related to construction
 - ALWAYS return the full entity with queries such as 'RETURN m;'. NEVER limit the query to specific properties (e.g. 'RETURN m.name, m.age;').
-- ALWAYS return the top 20 items unless explicitly specified by the user.
+- ALWAYS return the top 30 items unless explicitly specified by the user.
 - ALWAYS return a meaningful alias for computed properties.
+- If asked about a category that exists, ALWAYS search on the category
 - NEVER include similarity score.
 - Use date format DD.MM.YYYY and time format HH:MM.
 - ALWAYS search for persons using p.fname and/or p.lname, NEVER use p.name
