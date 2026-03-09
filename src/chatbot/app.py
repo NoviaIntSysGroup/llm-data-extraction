@@ -20,6 +20,65 @@ try:
 except ImportError:
     pass
 
+def load_categories():
+    """Load categories from JSON file"""
+    categories_path = os.path.join(os.path.dirname(__file__), "../../data/protocols/categories.json")
+    with open(categories_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def display_category_selector():
+    """Display interactive category selection interface with language selection"""
+    categories_data = load_categories()
+    
+    st.subheader("📋 Select Categories and Language")
+    
+    # Language selection
+    st.markdown("**Select your preferred language:**")
+    lang_sv = st.radio("Language", ["Svenska", "Suomi", "English", "Yкраїнська", "日本語", "繁體中文"], index=0, label_visibility="collapsed")
+    
+    # Category selection with expandable sections
+    st.markdown("**Choose which categories you want to get info about:**")
+    
+    selected = {}
+    
+    # Iterate through main categories and create expandable sections
+    for main_cat in categories_data["categories"]:
+        main_cat_name = main_cat["name"]
+        
+        with st.expander(f" {main_cat_name}", expanded=False):
+            # Main category checkbox
+            selected[main_cat_name] = st.checkbox(
+                main_cat_name, 
+                value=False, 
+                key=f"main_{main_cat_name}"
+            )
+            
+            # Subcategories
+            if "subcategories" in main_cat:
+                st.markdown("*Subcategories:*")
+                for subcat in main_cat["subcategories"]:
+                    subcat_full_name = f"{main_cat_name} > {subcat['name']}"
+                    selected[subcat_full_name] = st.checkbox(
+                        f"  {subcat['name']}", 
+                        value=False, 
+                        key=f"sub_{subcat_full_name}"
+                    )
+    
+    # Submit button
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("Submit & Start Chat", type="primary", use_container_width=True):
+            # Filter to only selected categories
+            selected_categories = [cat for cat, checked in selected.items() if checked]
+            
+            if selected_categories:
+                return selected_categories, lang_sv
+            else:
+                st.warning("Please select at least one category!")
+                return None
+    
+    return None
+
 def extract_doc_id(filename):
     """
     Extract the document ID from a given filename.
@@ -339,13 +398,20 @@ def main():
         st.markdown(
             "<h1 style='text-align: center; color: white;'>🗳 Democracy Chatbot</h1>", unsafe_allow_html=True)
         st.info(
-            "Chat with the documents of municipality of Nykarleby. Easy information access for everyone!")
+            "Chat with the documents of municipality of Malax. Easy information access for everyone!")
 
+    # Initialize session state variables
+    if "categories_selected" not in st.session_state.keys():
+        st.session_state.categories_selected = False
+    
+    if "selected_categories" not in st.session_state.keys():
+        st.session_state.selected_categories = []
+    
+    if "selected_language" not in st.session_state.keys():
+        st.session_state.selected_language = "Swedish"
+    
     if "messages" not in st.session_state.keys():  # Initialize the chat messages history
-        st.session_state.messages = [
-            {"role": "assistant",
-                "content": "Hi, ask me a question about the meeting decisions and protocols!"}
-        ]
+        st.session_state.messages = []
     
     if "conversation_memory" not in st.session_state.keys():  # Initialize conversation memory
         st.session_state.conversation_memory = llm_kg_retrieval.ConversationMemory()
@@ -353,11 +419,45 @@ def main():
     if "conversation_logger" not in st.session_state.keys():  # Initialize conversation logger
         st.session_state.conversation_logger = llm_kg_retrieval.ConversationLogger()
 
+    # Show category selection interface if categories haven't been selected yet
+    if not st.session_state.categories_selected:
+        with col2:
+            result = display_category_selector()
+            if result:
+                st.session_state.selected_categories, st.session_state.selected_language = result
+                st.session_state.categories_selected = True
+                st.rerun()
+        return  # Exit early, don't show chat until categories are selected
+    
+    # Initialize chat with automatic first query if it's the first time with categories selected
+    if len(st.session_state.messages) == 0:
+        categories_str = ", ".join(st.session_state.selected_categories)
+        language = st.session_state.selected_language
+        
+        # Store the system context for later use in prompts
+        st.session_state.category_context = f"The user is interested in the following categories: {categories_str}. Please provide information about the latest meeting items and decisions from these specific categories. Focus on recent and relevant updates. Respond in {language}."
+        
+        # Add an automatic user message to trigger LLM response with latest information
+        st.session_state.messages.append({
+            "role": "user",
+            "content": "Give me the latest information in my selected categories."
+        })
+
     # Prompt for user input and save to chat history
     if prompt := st.chat_input("Your question"):
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-    enable_graph = st.toggle("Enable Graph")
+    col_graph, col_reset = st.columns([5, 1])
+    # with col_graph:
+    #     enable_graph = st.toggle("Enable Graph")
+    with col_reset:
+        if st.button("Change Settings", help="Select different categories"):
+            st.session_state.categories_selected = False
+            st.session_state.selected_categories = []
+            st.session_state.selected_language = "Swedish"
+            st.session_state.messages = []
+            st.session_state.conversation_memory = llm_kg_retrieval.ConversationMemory()
+            st.rerun()
 
     with col2:
         # Display the prior chat messages
@@ -381,8 +481,9 @@ def main():
                                 ```
                                 """)
                 st.write(message["content"])
-                if message.get("timeline_json"):
-                    timeline(message["timeline_json"])
+                # Uncomment for timeline
+                # if message.get("timeline_json"):
+                #     timeline(message["timeline_json"])
 
         # If last message is not from assistant, generate a new response
         if st.session_state.messages[-1]["role"] != "assistant":
@@ -404,8 +505,13 @@ def main():
                         enable_logging=True,
                         logger=st.session_state.conversation_logger)
                     
+                    # Prepend category context to the prompt if categories are selected
+                    final_prompt = prompt
+                    if st.session_state.get("category_context"):
+                        final_prompt = f"{st.session_state.category_context}\n\nUser question: {prompt}"
+                    
                     # get response from LLM
-                    response, query, context = processor.process_prompt(prompt)
+                    response, query, context = processor.process_prompt(final_prompt)
 
                 # add context provided to the llm to streamlit expander
                 message = {"role": "assistant",
@@ -436,21 +542,21 @@ def main():
                 # Add response to message history
                 st.session_state.messages.append(message)
 
-                with st.spinner("Generating Timeline..."):
-                    timeline_json = processor.get_timeline_from_data(context, prompt)
-                    if timeline_json:
-                            message["timeline_json"] = timeline_json
-                            timeline(timeline_json)
+                # Uncomment for timeline
+                # with st.spinner("Generating Timeline..."):
+                #     timeline_json = processor.get_timeline_from_data(context, prompt)
+                #     if timeline_json:
+                #             message["timeline_json"] = timeline_json
+                #             timeline(timeline_json)
 
-
-                if context and enable_graph:
-                    with st.spinner("Generating figure..."):
-                        figure = processor.get_diagram(prompt, context)
-                        print(figure)
-                        if figure and "base64" in figure:
-                            st.image(figure, use_column_width=True)
-                        elif figure and "html" in figure:
-                            st.components.v1.html(figure, height=500)
+                # if context and enable_graph:
+                #     with st.spinner("Generating figure..."):
+                #         figure = processor.get_diagram(prompt, context)
+                #         print(figure)
+                #         if figure and "base64" in figure:
+                #             st.image(figure, use_column_width=True)
+                #         elif figure and "html" in figure:
+                #             st.components.v1.html(figure, height=500)
 
 if __name__ == "__main__":
     main()
