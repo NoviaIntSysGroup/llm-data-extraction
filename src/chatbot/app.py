@@ -22,7 +22,7 @@ except ImportError:
 
 def load_categories():
     """Load categories from JSON file"""
-    categories_path = os.path.join(os.path.dirname(__file__), "../../data/protocols/categories.json")
+    categories_path = os.path.join(os.path.dirname(__file__), "../../data/llm/schema/categories.json")
     with open(categories_path, "r", encoding="utf-8") as f:
         return json.load(f)
 

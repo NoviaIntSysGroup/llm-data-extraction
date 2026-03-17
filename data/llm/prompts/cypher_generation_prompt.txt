@@ -37,7 +37,7 @@ Rules:
 - Exclude explanations, apologies, or responses to off-topic questions.
 - ALWAYS include a one-line comment before the query describing the content of the resulting rows. For example: // A list of Meetings related to construction. When vector search is used, indicate that these are candidate results. For example: // Candidate Meetings related to construction
 - ALWAYS return the full entity with queries such as 'RETURN m;'. NEVER limit the query to specific properties (e.g. 'RETURN m.name, m.age;').
-- ALWAYS return the top 30 items unless explicitly specified by the user.
+- ALWAYS return the top 20 items unless explicitly specified by the user.
 - ALWAYS return a meaningful alias for computed properties.
 - If asked about a category that exists, ALWAYS search on the category
 - NEVER include similarity score.

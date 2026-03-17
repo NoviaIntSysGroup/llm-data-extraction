@@ -1,0 +1,136 @@
+{
+  "categories": [
+    {
+      "name": "Kommunen",
+      "subcategories": [
+        {
+          "name": "Organisation och beslutsfattande"
+        },
+        {
+          "name": "Styrdokument och ekonomi"
+        },
+        {
+          "name": "Möten, handlingar och beslut"
+        },
+        {
+          "name": "Kommunikation och information"
+        },
+        {
+          "name": "Påverkan och initiativ"
+        },
+        {
+          "name": "Hållbar utveckling"
+        }
+      ]
+    },
+    {
+      "name": "Barn och unga",
+      "subcategories": [
+        {
+          "name": "Småbarnspedagogik och förskola"
+        },
+        {
+          "name": "Grundläggande utbildning och gymnasium"
+        },
+        {
+          "name": "Elevvård och specialpedagogik"
+        },
+        {
+          "name": "Skolskjuts, morgon- och eftermiddagsverksamhet"
+        }
+      ]
+    },
+    {
+      "name": "Fritid och kultur",
+      "subcategories": [
+        {
+          "name": "Idrott och friluftsliv"
+        },
+        {
+          "name": "Kultur och kulturmiljö"
+        },
+        {
+          "name": "Ungdomsverksamhet"
+        },
+        {
+          "name": "Seniorverksamhet"
+        },
+        {
+          "name": "Bibliotek och medborgarinstitut"
+        },
+        {
+          "name": "Turism och sevärdheter"
+        },
+        {
+          "name": "Föreningar och integration"
+        },
+        {
+          "name": "Evenemang"
+        }
+      ]
+    },
+    {
+      "name": "Boende och miljö",
+      "subcategories": [
+        {
+          "name": "Planläggning och tomter"
+        },
+        {
+          "name": "Byggande och byggnadstillsyn"
+        },
+        {
+          "name": "Miljö och hälsoskydd"
+        },
+        {
+          "name": "Trafik och infrastruktur"
+        },
+        {
+          "name": "Vatten, avlopp och avfall"
+        }
+      ]
+    },
+    {
+      "name": "Jobb och företagande",
+      "subcategories": [
+        {
+          "name": "Lediga jobb och praktik"
+        },
+        {
+          "name": "Företagstomter och rådgivning"
+        },
+        {
+          "name": "Landsbygds- och sysselsättningstjänster"
+        }
+      ]
+    },
+    {
+      "name": "Nyheter"
+    },
+    {
+      "name": "Kriskommunikation"
+    },
+    {
+      "name": "Kommundel",
+      "subcategories": [
+        {
+          "name": "Bergö"
+        },
+        {
+          "name": "Yttermalax"
+        },
+        {
+          "name": "Övermalax"
+        },
+        {
+          "name": "Långåminne"
+        },
+        {
+          "name": "Petalax-Nyby"
+        },
+        {
+          "name": "Norra Pörtom"
+        }
+      ]
+    }
+  ]
+}

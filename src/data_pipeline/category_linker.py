@@ -278,14 +278,40 @@ def parse_category_results(output_jsonl):
     print(f"Parsed {len(results)} category results")
     return results
 
+def delete_all_categories(driver):
+    """
+    Delete all Category, Subcategory, and SubSubcategory nodes and their relationships from Neo4j.
+    
+    Args:
+        driver: Neo4j driver instance
+    """
+    with driver.session() as session:
+        # Delete all HAS_CATEGORY relationships (linking MeetingItems to categories)
+        session.run("""
+            MATCH (mi:MeetingItem)-[r:HAS_CATEGORY]->(c)
+            DELETE r
+        """)
+        
+        # Delete all category nodes and their internal relationships
+        session.run("""
+            MATCH (n:Category|Subcategory|SubSubcategory)
+            DETACH DELETE n
+        """)
+    
+    print("Deleted all existing category nodes and relationships")
+
 def create_category_nodes(driver, categories_data):
     """
     Create Category, Subcategory, and SubSubcategory nodes in Neo4j.
+    First deletes all existing categories and subcategories to ensure a clean state.
     
     Args:
         driver: Neo4j driver instance
         categories_data (dict): Categories hierarchy from categories.json
     """
+    
+    # Delete existing categories first
+    delete_all_categories(driver)
     
     print("Creating category nodes...")
     

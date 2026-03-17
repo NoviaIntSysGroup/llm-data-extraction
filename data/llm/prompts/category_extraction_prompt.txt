@@ -14,7 +14,6 @@ Instructions:
 4. For each match, provide a confidence score (0.0-1.0)
 5. Always include the top-level "category" field
 6. Include "subcategory" if applicable
-7. Include "sub_subcategory" if it exists in the hierarchy
 8. Return as JSON
 
 Return ONLY valid JSON in this format:
