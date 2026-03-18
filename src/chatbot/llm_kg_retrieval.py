@@ -554,7 +554,14 @@ class KnowledgeGraphRAG:
         # Load categories for prompt
         categories_list = []
         try:
-            categories_path = os.path.join("..", os.getenv("PROTOCOLS_PATH"), "categories.json")
+            categories_path = os.getenv("CATEGORIES_JSON_PATH")
+            
+            # If the path is relative, resolve it relative to the project root
+            if categories_path and not os.path.isabs(categories_path):
+                # Get the project root (go up 3 levels from this file: chatbot/llm_kg_retrieval.py)
+                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                categories_path = os.path.join(project_root, categories_path.lstrip("../"))
+            
             with open(categories_path, "r", encoding="utf-8") as f:
                 categories_data = json.load(f)
                 # Extract all categories with hierarchy
@@ -563,9 +570,6 @@ class KnowledgeGraphRAG:
                     # Add subcategories
                     for subcategory in category.get("subcategories", []):
                         categories_list.append(f"  └─ {subcategory['name']}")
-                        # Add sub-subcategories
-                        for sub_subcategory in subcategory.get("sub_subcategories", []):
-                            categories_list.append(f"     └─ {sub_subcategory['name']}")
         except Exception as e:
             print(f"Warning: Could not load categories: {e}")
             categories_list = []
