@@ -132,7 +132,8 @@ def query_kriskommunikation(driver, limit=3):
         n.title as title, 
         n.description as description, 
         n.content as content, 
-        n.publish_date as date
+        n.publish_date as date,
+        n.link as link
     ORDER BY date DESC
     LIMIT $limit
     """
@@ -151,6 +152,7 @@ def query_news_by_categories(driver, categories, limit=3):
         n.content as content, 
         n.author as author,
         n.publish_date as date,
+        n.link as link,
         collect(DISTINCT c.name) AS matched_categories
     ORDER BY date DESC
     LIMIT $limit
@@ -171,6 +173,9 @@ def query_meeting_items_by_categories(driver, categories, limit=3):
     
     // 3. Find the Errand this item belongs to (to get the context)
     MATCH (mi)-[:BELONGS_TO]->(e:Errand)
+
+    // 4. Find body this item belongs to
+    MATCH (b:Body)-[:HOSTED]->(m)
     
     // 4. Return the specific properties from the different nodes
     RETURN DISTINCT 
@@ -180,6 +185,8 @@ def query_meeting_items_by_categories(driver, categories, limit=3):
         e.errand_tag as errand,
         m.doc_link as link,
         m.meeting_date AS date,
+        mi.decision as decision,
+        b.name as body,
         collect(DISTINCT c.name) AS matched_categories,
         mi.id AS id
     ORDER BY date DESC
@@ -216,10 +223,16 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
             expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Date</p><p style="color: #666; margin: 0;">{full_data.get("date")}</p></div>'
         if full_data.get("author"):
             expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Author</p><p style="color: #666; margin: 0;">{full_data.get("author")}</p></div>'
+        if full_data.get("body"):
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Body</p><p style="color: #666; margin: 0;">{full_data.get("body")}</p></div>'
         if full_data.get("errand"):
             expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Errand</p><p style="color: #666; margin: 0;">{full_data.get("errand")}</p></div>'
+        if full_data.get("decision"):
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Decision</p><p style="color: #666; margin: 0;">{full_data.get("decision")}</p></div>'
         if full_data.get("link"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Meeting Link</p><p style="color: #666; margin: 0;"><a href="{full_data.get("link")}" target="_blank">View Document</a></p></div>'
+            # Determine the link label based on tag type
+            link_label = "Meeting Link" if tag == "Mötesprotocol" else "Source Link"
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">{link_label}</p><p style="color: #666; margin: 0;"><a href="{full_data.get("link")}" target="_blank">View Document</a></p></div>'
         if full_data.get("matched_categories"):
             # Handle both list and string formats for matched categories
             categories = full_data.get("matched_categories")
@@ -474,7 +487,7 @@ Context - Meeting Item Information:
         st.rerun()  # Rerun immediately so response is generated on next execution
 
 def main():
-    st.set_page_config(page_title="News Feed", page_icon="📰",
+    st.set_page_config(page_title="Malax Municipality Feed", page_icon="📰",
                        layout="wide", initial_sidebar_state="auto", menu_items=None)
     
     col1, col2, col3 = st.columns([0.1, 0.8, 0.1], gap="medium")
@@ -482,7 +495,7 @@ def main():
     # center the title
     with col2:
         st.markdown(
-            "<h1 style='text-align: center; color: white;'>📰 News Feed</h1>", unsafe_allow_html=True)
+            "<h1 style='text-align: center; color: white;'>Malax Municipality Feed</h1>", unsafe_allow_html=True)
         st.info(
             "Stay updated with the latest news, crisis communications, and meeting protocols from the municipality of Malax")
 
