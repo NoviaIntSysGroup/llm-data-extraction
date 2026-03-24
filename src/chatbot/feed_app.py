@@ -337,7 +337,7 @@ def display_feed(selected_categories, language):
                 display_feed_card(
                     "Kriskommunikation",
                     item.get("title", "No title"),
-                    item.get("description", "No description")[:200] + "...",
+                    item.get("description", "No description")[:200],
                     card_index=f"krisk_{idx}",
                     full_data=item
                 )
@@ -352,7 +352,7 @@ def display_feed(selected_categories, language):
                 display_feed_card(
                     "Nyhet",
                     item.get("title", "No title"),
-                    item.get("description", "No description")[:200] + "...",
+                    item.get("description", "No description")[:200],
                     card_index=f"news_{idx}",
                     full_data=item
                 )
@@ -367,7 +367,7 @@ def display_feed(selected_categories, language):
                 display_feed_card(
                     "Mötesprotocol",
                     item.get("title", "No title"),
-                    item.get("description", "No description")[:200] + "...",
+                    item.get("description", "No description")[:200],
                     is_meeting=True,
                     meeting_id=item.get("id"),
                     card_index=f"meeting_{idx}",
@@ -375,15 +375,168 @@ def display_feed(selected_categories, language):
                 )
         else:
             st.info("No meeting items found for selected categories")
+        
+        # Add button to ask general questions about Malax
+        st.divider()
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            if st.button("❓ Ask General Questions", type="secondary", use_container_width=True):
+                st.session_state.ask_question_mode = True
+                st.session_state.question_type = "general"
+                st.session_state.question_meeting_id = None
+                st.session_state.question_meeting_context = None
+                st.rerun()
     
     finally:
         driver.close()
+
+def display_general_question_interface(selected_categories, language):
+    """Display the general question interface for asking about Malax municipality"""
+    # Add back button at the top
+    if st.button("← Back to Feed"):
+        st.session_state.ask_question_mode = False
+        st.session_state.question_type = None
+        st.session_state.question_meeting_id = None
+        st.session_state.question_meeting_context = None
+        st.session_state.messages = []
+        st.rerun()
+    
+    st.markdown("### ❓ Ask Questions About Malax Municipality")
+    
+    # Initialize session state for conversation
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    
+    if "conversation_memory" not in st.session_state:
+        st.session_state.conversation_memory = llm_kg_retrieval.ConversationMemory()
+    
+    if "conversation_logger" not in st.session_state:
+        st.session_state.conversation_logger = llm_kg_retrieval.ConversationLogger()
+    
+    if "chatbot_type" not in st.session_state:
+        st.session_state.chatbot_type = "meetings"
+    
+    # Add toggle to select between meetings and malax info
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("**Choose question type:**")
+        chatbot_type = st.radio(
+            "What would you like to ask about?",
+            ["🏛️ Meetings & Protocols", "ℹ️ Malax Information"],
+            index=0 if st.session_state.chatbot_type == "meetings" else 1,
+            label_visibility="collapsed"
+        )
+        st.session_state.chatbot_type = "meetings" if "Meetings" in chatbot_type else "malax"
+    
+    # Build context based on selected categories
+    context_prefix = f"""
+Context - Selected Categories and Language:
+- Categories: {', '.join(selected_categories)}
+- Language: {language}
+
+"""
+    
+    # Display previous messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            if message.get("intermediate_steps") and st.session_state.chatbot_type == "meetings":
+                with st.expander("Intermediate Steps", expanded=False):
+                    if message["intermediate_steps"].get("query"):
+                        st.markdown(
+                            f"""
+                            Generated Cypher Query:
+                            ```
+                            {message["intermediate_steps"]["query"]}
+                            ```
+                            """)
+                    if message["intermediate_steps"].get("context"):
+                        st.markdown(
+                            f"""
+                            Retrieved Context from Knowledge Graph:
+                            ```python
+                            {message["intermediate_steps"]["context"]}
+                            ```
+                            """)
+            st.write(message["content"])
+    
+    # If last message is not from assistant, generate a new response
+    if st.session_state.messages and st.session_state.messages[-1]["role"] != "assistant":
+        # Get the last user question
+        last_user_message = st.session_state.messages[-1]["content"]
+        
+        with st.chat_message("assistant"):
+            answer_placeholder = st.empty()
+            with st.spinner("Thinking..."):
+                try:
+                    if st.session_state.chatbot_type == "meetings":
+                        # Use Knowledge Graph RAG for meeting questions
+                        processor = llm_kg_retrieval.KnowledgeGraphRAG(
+                            url=os.getenv("NEO4J_URI"),
+                            username=os.getenv("NEO4J_USERNAME"),
+                            password=os.getenv("NEO4J_PASSWORD"),
+                            database=os.getenv("NEO4J_DATABASE"),
+                            answer_placeholder=answer_placeholder,
+                            run_environment="script",
+                            enable_memory=True,
+                            memory=st.session_state.conversation_memory,
+                            enable_logging=True,
+                            logger=st.session_state.conversation_logger)
+                        
+                        final_prompt = f"{context_prefix}User question: {last_user_message}"
+                        response, query, context = processor.process_prompt(final_prompt)
+                        
+                        # Ensure response is a string
+                        response_text = str(response) if not isinstance(response, str) else response
+                        
+                        message = {"role": "assistant",
+                                   "content": response_text, "intermediate_steps": {}}
+                        if query:
+                            query = query.replace("cypher", "").replace("```", "").strip()
+                            message["intermediate_steps"]["query"] = query
+                            if context:
+                                message["intermediate_steps"]["context"] = context
+                        
+                        st.session_state.messages.append(message)
+                    else:
+                        # Use Web Search RAG for general Malax information
+                        processor = llm_kg_retrieval.WebSearchRAG(
+                            answer_placeholder=answer_placeholder,
+                            run_environment="script",
+                            enable_memory=True,
+                            memory=st.session_state.conversation_memory,
+                            enable_logging=True,
+                            logger=st.session_state.conversation_logger)
+                        
+                        final_prompt = f"{context_prefix}User question: {last_user_message}"
+                        response, _, _ = processor.process_prompt(final_prompt)
+                        
+                        # Ensure response is a string
+                        response_text = str(response) if not isinstance(response, str) else response
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": response_text,
+                            "intermediate_steps": {}
+                        })
+                
+                except Exception as e:
+                    st.error(f"Error processing question: {str(e)}")
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": "Sorry, I encountered an error while processing your question."
+                    })
+    
+    # Prompt for user input (appears at the end after all messages are displayed)
+    if prompt := st.chat_input("Ask a question"):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.rerun()  # Rerun immediately so response is generated on next execution
 
 def display_question_interface(selected_categories, language):
     """Display the question interface for chatting with meeting items"""
     # Add back button at the top
     if st.button("← Back to Feed"):
         st.session_state.ask_question_mode = False
+        st.session_state.question_type = None
         st.session_state.question_meeting_id = None
         st.session_state.question_meeting_context = None
         st.session_state.messages = []
@@ -512,6 +665,9 @@ def main():
     if "ask_question_mode" not in st.session_state.keys():
         st.session_state.ask_question_mode = False
     
+    if "question_type" not in st.session_state.keys():
+        st.session_state.question_type = None
+    
     # Try to load saved selections
     saved_selections = load_selections()
     if saved_selections and not st.session_state.categories_selected:
@@ -539,6 +695,7 @@ def main():
             st.session_state.selected_categories = []
             st.session_state.selected_language = "Svenska"
             st.session_state.ask_question_mode = False
+            st.session_state.question_type = None
             st.session_state.question_meeting_id = None
             st.session_state.question_meeting_context = None
             if "messages" in st.session_state:
@@ -548,7 +705,10 @@ def main():
     # Show feed or question interface
     with col2:
         if st.session_state.ask_question_mode:
-            display_question_interface(st.session_state.selected_categories, st.session_state.selected_language)
+            if st.session_state.question_type == "general":
+                display_general_question_interface(st.session_state.selected_categories, st.session_state.selected_language)
+            else:
+                display_question_interface(st.session_state.selected_categories, st.session_state.selected_language)
         else:
             display_feed(st.session_state.selected_categories, st.session_state.selected_language)
 

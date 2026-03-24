@@ -25,7 +25,7 @@ import sys
 sys.path.append('..')
 from data_pipeline.utils import *
 
-def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None, thinking_level: str = "low") -> BaseLanguageModel:
+def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None, thinking_level: str = "low", google_search = False) -> BaseLanguageModel:
     """
     Factory function to get the configured LLM instance.
     This makes it easy to switch between different LLM providers by just changing environment variables.
@@ -46,13 +46,22 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
     llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
     
     if llm_provider == "gemini":
-        return ChatGoogleGenerativeAI(
-            model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
-            temperature=1,  # Gemini temp should always be 1
-            streaming=streaming,
-            callbacks=callbacks or [],
-            thinking_level=thinking_level
-        )
+        if google_search == True:
+            return ChatGoogleGenerativeAI(
+                model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
+                temperature=1,  # Gemini temp should always be 1
+                streaming=streaming,
+                callbacks=callbacks or [],
+                thinking_level=thinking_level
+            ).bind_tools([{"google_search": {}}])
+        else:
+            return ChatGoogleGenerativeAI(
+                model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
+                temperature=1,  # Gemini temp should always be 1
+                streaming=streaming,
+                callbacks=callbacks or [],
+                thinking_level=thinking_level
+            )
     elif llm_provider == "openai":
         return ChatOpenAI(
             model=os.getenv("OPENAI_MODEL_NAME", "gpt-4-mini"),
@@ -770,3 +779,147 @@ class KnowledgeGraphRAG:
         except Exception as e:
             print(e)
             return None
+
+
+class WebSearchRAG:
+    """
+    A RAG system that uses Google Search to retrieve information from the web.
+    This is an alternative to KnowledgeGraphRAG that doesn't rely on Neo4j.
+    """
+    
+    def __init__(self, answer_placeholder=None, run_environment="script", enable_memory=True, memory=None, enable_logging=True, logger=None):
+        """
+        Initialize the WebSearchRAG class.
+        
+        Args:
+            answer_placeholder: Streamlit placeholder for the LLM answer
+            run_environment (str): The environment in which the code is running. Can be "script" or "notebook"
+            enable_memory (bool): Whether to use conversation memory. Default is True.
+            memory (ConversationMemory): Optional ConversationMemory instance. If None, a new one will be created.
+            enable_logging (bool): Whether to log conversations to JSON files. Default is True.
+            logger (ConversationLogger): Optional ConversationLogger instance. If None and enable_logging is True, a new one will be created.
+        """
+        
+        # Initialize or use provided conversation memory
+        self.memory = memory if memory is not None else (ConversationMemory() if enable_memory else None)
+        
+        # Initialize or use provided conversation logger
+        self.logger = logger if logger is not None else (ConversationLogger() if enable_logging else None)
+        
+        # Load the Malax info search prompt template
+        try:
+            with open(os.path.join("..", os.getenv("MALAX_INFO_SEARCH_PROMPT_PATH")), "r") as file:
+                self.prompt_template = file.read()
+        except Exception as e:
+            print(f"Warning: Could not load Malax info search prompt: {e}")
+            # Fallback prompt if file not found
+            self.prompt_template = """You are a helpful assistant providing information about Malax municipality.
+Use web search to find current information and provide helpful answers.
+
+Conversation History:
+{conversation_history}
+
+Question: {question}"""
+        
+        # Initialize the LLM with Google Search tools
+        if run_environment == "script" and answer_placeholder:
+            stream_handler = StreamHandler(container=answer_placeholder)
+            self.llm = get_llm(
+                temperature=1,
+                streaming=True,
+                callbacks=[stream_handler],
+                thinking_level="low",
+                google_search=True
+            )
+        else:
+            self.llm = get_llm(
+                temperature=1,
+                streaming=False,
+                thinking_level="low",
+                google_search=True
+            )
+    
+    def process_prompt(self, prompt):
+        """
+        Process a prompt using Google Search and return the response.
+        
+        Args:
+            prompt (str): The user's question/prompt
+            
+        Returns:
+            tuple: (response, search_query, None) - search_query contains the actual prompt used
+        """
+        
+        # Get conversation history for context
+        conversation_history = self.memory.get_context_string() if self.memory else ""
+        
+        # Format the prompt using the template
+        try:
+            final_prompt = self.prompt_template.format(
+                conversation_history=conversation_history,
+                question=prompt
+            )
+        except KeyError:
+            # If template doesn't have the expected variables, use fallback
+            final_prompt = f"{conversation_history}\n\nUser question: {prompt}" if conversation_history else prompt
+        
+        try:
+            # Call the LLM with Google Search tools
+            response = self.llm.invoke(final_prompt)
+            
+            # Extract text content from response - handle various response types
+            response_text = ""
+            if hasattr(response, 'content'):
+                content = response.content
+                # If content is a string, use it directly
+                if isinstance(content, str):
+                    response_text = content
+                # If content is a list (can happen with tool responses), extract text
+                elif isinstance(content, list):
+                    response_text = "".join(
+                        str(item) if not isinstance(item, dict) else item.get('text', str(item))
+                        for item in content
+                    )
+                else:
+                    # For any other type, convert to string
+                    response_text = str(content)
+            else:
+                response_text = str(response)
+            
+            # Ensure we have a non-empty string
+            if not response_text or response_text.isspace():
+                response_text = str(response)
+            
+            # Save this exchange to memory
+            if self.memory:
+                self.memory.add_exchange(prompt, response_text)
+            
+            # Log the conversation to JSON file
+            if self.logger:
+                self.logger.add_exchange(
+                    user_question=prompt,
+                    ai_answer=response_text,
+                    query=None,  # Web search doesn't generate structured queries like Cypher
+                    context=None
+                )
+            
+            return response_text, prompt, None
+        
+        except Exception as e:
+            error_msg = f"Error processing question with web search: {str(e)}"
+            print(error_msg)
+            
+            # Still log the error attempt
+            if self.logger:
+                self.logger.add_exchange(
+                    user_question=prompt,
+                    ai_answer=error_msg,
+                    query=None,
+                    context=None
+                )
+            
+            raise
+    
+    def get_log_file_path(self) -> str:
+        """Get the path to the current conversation log file."""
+        return self.logger.get_log_file_path() if self.logger else None
