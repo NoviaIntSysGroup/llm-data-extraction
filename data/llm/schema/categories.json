@@ -1,7 +1,7 @@
 {
   "categories": [
     {
-      "name": "Kommunen",
+      "name": "Kommunens organisation",
       "subcategories": [
         {
           "name": "Organisation och beslutsfattande"
@@ -10,16 +10,7 @@
           "name": "Styrdokument och ekonomi"
         },
         {
-          "name": "Möten, handlingar och beslut"
-        },
-        {
-          "name": "Kommunikation och information"
-        },
-        {
           "name": "Påverkan och initiativ"
-        },
-        {
-          "name": "Hållbar utveckling"
         }
       ]
     },
@@ -86,6 +77,9 @@
         },
         {
           "name": "Vatten, avlopp och avfall"
+        },
+        {
+          "name": "Hållbar utveckling"
         }
       ]
     },
@@ -102,12 +96,6 @@
           "name": "Landsbygds- och sysselsättningstjänster"
         }
       ]
-    },
-    {
-      "name": "Nyheter"
-    },
-    {
-      "name": "Kriskommunikation"
     },
     {
       "name": "Kommundel",
@@ -131,6 +119,9 @@
           "name": "Norra Pörtom"
         }
       ]
+    },
+    {
+      "name": "Kriskommunikation"
     }
   ]
 }
