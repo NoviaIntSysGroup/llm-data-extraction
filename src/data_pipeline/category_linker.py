@@ -286,9 +286,9 @@ def delete_all_categories(driver):
         driver: Neo4j driver instance
     """
     with driver.session() as session:
-        # Delete all HAS_CATEGORY relationships (linking MeetingItems to categories)
+        # Delete all HAS_CATEGORY relationships
         session.run("""
-            MATCH (mi:MeetingItem)-[r:HAS_CATEGORY]->(c)
+            MATCH ()-[r:HAS_CATEGORY]->()
             DELETE r
         """)
         
@@ -350,6 +350,43 @@ def create_category_nodes(driver, categories_data):
     
     print("Category nodes created successfully")
 
+def _create_category_link(session, node_match_clause, item_id, category_assignment):
+    """
+    Helper function to abstract the creation of HAS_CATEGORY relationships.
+    Finds the most specific category available and creates a link.
+    """
+    sub_subcategory = category_assignment.get("sub_subcategory")
+    subcategory = category_assignment.get("subcategory")
+    category = category_assignment.get("category")
+    confidence = category_assignment.get("confidence", 0.0)
+    reasoning = category_assignment.get("reasoning", "")
+    
+    target_label = None
+    target_name = None
+    
+    if sub_subcategory:
+        target_label = "SubSubcategory"
+        target_name = sub_subcategory
+    elif subcategory:
+        target_label = "Subcategory"
+        target_name = subcategory
+    elif category:
+        target_label = "Category"
+        target_name = category
+        
+    if not target_name:
+        return
+        
+    query = f"""
+        {node_match_clause}
+        MATCH (target:{target_label} {{name: $name}})
+        MERGE (n)-[:HAS_CATEGORY {{
+            confidence: $confidence,
+            reasoning: $reasoning
+        }}]->(target)
+    """
+    session.run(query, item_id=item_id, name=target_name, confidence=confidence, reasoning=reasoning)
+
 def link_meeting_items_to_categories(driver, item_category_mapping):
     """
     Link MeetingItems to Category nodes based on LLM assignments.
@@ -363,62 +400,66 @@ def link_meeting_items_to_categories(driver, item_category_mapping):
     
     total_links = sum(len(cats) for cats in item_category_mapping.values())
     
-    with tqdm(total=total_links, desc="Creating category relationships") as pbar:
+    with tqdm(total=total_links, desc="Creating meeting item relationships") as pbar:
         for item_id, categories in item_category_mapping.items():
             for category_assignment in categories:
                 try:
-                    # Determine which level to link to (most specific available)
-                    sub_subcategory = category_assignment.get("sub_subcategory")
-                    subcategory = category_assignment.get("subcategory")
-                    category = category_assignment.get("category")
-                    confidence = category_assignment.get("confidence", 0.0)
-                    reasoning = category_assignment.get("reasoning", "")
-                    
                     with driver.session() as session:
-                        if sub_subcategory:
-                            # Link to SubSubcategory (most specific)
-                            session.run("""
-                                MATCH (mi:MeetingItem) WHERE elementId(mi) = $item_id
-                                MATCH (ssc:SubSubcategory {name: $name})
-                                MERGE (mi)-[:HAS_CATEGORY {
-                                    confidence: $confidence,
-                                    reasoning: $reasoning
-                                }]->(ssc)
-                            """, item_id=item_id, name=sub_subcategory, 
-                                confidence=confidence, reasoning=reasoning)
-                        
-                        elif subcategory:
-                            # Link to Subcategory
-                            session.run("""
-                                MATCH (mi:MeetingItem) WHERE elementId(mi) = $item_id
-                                MATCH (sc:Subcategory {name: $name})
-                                MERGE (mi)-[:HAS_CATEGORY {
-                                    confidence: $confidence,
-                                    reasoning: $reasoning
-                                }]->(sc)
-                            """, item_id=item_id, name=subcategory,
-                                confidence=confidence, reasoning=reasoning)
-                        
-                        else:
-                            # Link to Category
-                            session.run("""
-                                MATCH (mi:MeetingItem) WHERE elementId(mi) = $item_id
-                                MATCH (c:Category {name: $name})
-                                MERGE (mi)-[:HAS_CATEGORY {
-                                    confidence: $confidence,
-                                    reasoning: $reasoning
-                                }]->(c)
-                            """, item_id=item_id, name=category,
-                                confidence=confidence, reasoning=reasoning)
-                    
+                        _create_category_link(
+                            session, 
+                            "MATCH (n:MeetingItem) WHERE elementId(n) = $item_id", 
+                            item_id, 
+                            category_assignment
+                        )
                     pbar.update(1)
-                
                 except Exception as e:
-                    print(f"Error linking item {item_id} to category: {e}")
+                    print(f"Error linking meeting item {item_id} to category: {e}")
                     pbar.update(1)
                     continue
     
-    print("Category linking completed")
+    print("Category linking for meeting items completed")
+
+def link_news_and_courses_to_categories(driver, item_category_mapping):
+    """
+    Link News articles and Courses to Category nodes based on LLM assignments.
+    
+    Args:
+        driver: Neo4j driver instance
+        item_category_mapping (dict): Mapping of item_id -> list of category assignments
+    """
+    
+    print("Linking news articles and courses to categories...")
+    
+    total_links = sum(len(cats) for cats in item_category_mapping.values()) * 2 # Will attempt both matches
+    
+    with tqdm(total=total_links, desc="Creating news and course relationships") as pbar:
+        for item_id, categories in item_category_mapping.items():
+            for category_assignment in categories:
+                try:
+                    with driver.session() as session:
+                        # Attempt linking as News
+                        _create_category_link(
+                            session, 
+                            "MATCH (n:News {link: $item_id})", 
+                            item_id, 
+                            category_assignment
+                        )
+                        pbar.update(1)
+                        
+                        # Attempt linking as Course
+                        _create_category_link(
+                            session, 
+                            "MATCH (n:Course {coursecode: $item_id})", 
+                            item_id, 
+                            category_assignment
+                        )
+                        pbar.update(1)
+                except Exception as e:
+                    print(f"Error linking news/course {item_id} to category: {e}")
+                    pbar.update(2)
+                    continue
+    
+    print("Category linking for news articles and courses completed")
 
 def get_categorization_stats(driver):
     """
@@ -452,13 +493,15 @@ def get_categorization_stats(driver):
         
         # Count linked items
         result = session.run("""
-            MATCH (mi:MeetingItem)-[:HAS_CATEGORY]->() RETURN count(DISTINCT mi) as count
+            MATCH (item)-[:HAS_CATEGORY]->() 
+            RETURN count(DISTINCT item) as count
         """)
         stats["items_with_categories"] = result.single()["count"]
         
         # Count total relationships
         result = session.run("""
-            MATCH (mi:MeetingItem)-[:HAS_CATEGORY]->(c) RETURN count(c) as count
+            MATCH ()-[r:HAS_CATEGORY]->() 
+            RETURN count(r) as count
         """)
         stats["total_category_links"] = result.single()["count"]
     
