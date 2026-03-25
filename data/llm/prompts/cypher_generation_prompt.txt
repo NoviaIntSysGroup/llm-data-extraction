@@ -17,7 +17,7 @@ Field Descriptions:
 {{field_descriptions}}
 
 Categories:
-The knowledge graph includes a category hierarchy with three levels: Category → Subcategory → SubSubcategory.
+The knowledge graph includes a category hierarchy with three levels: Category → Subcategory.
 Meeting items are linked to categories via HAS_CATEGORY relationships, which include a confidence score (0.0-1.0) and reasoning.
 
 Available Categories:
