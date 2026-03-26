@@ -16,6 +16,7 @@ from chatbot.state_manager import save_selections, load_selections, delete_selec
 from chatbot.ui_components import (
     display_category_selector, 
     display_feed, 
+    display_category_feed,
     display_general_question_interface, 
     display_question_interface
 )
@@ -75,7 +76,11 @@ def main():
             else:
                 display_question_interface(st.session_state.selected_categories, st.session_state.selected_language)
         else:
-            display_feed(st.session_state.selected_categories, st.session_state.selected_language)
+            category_param = st.query_params.get("category")
+            if category_param:
+                display_category_feed(category_param)
+            else:
+                display_feed(st.session_state.selected_categories, st.session_state.selected_language)
     
     # Show buttons at the bottom (outside main column)
     col_button1, col_button2, col_button3 = st.columns([1, 2, 1])
@@ -88,6 +93,8 @@ def main():
                 st.session_state.question_meeting_context = None
                 st.session_state.messages = []
                 st.rerun()
+        elif st.query_params.get("category"):
+            pass # Back button is already inside display_category_feed
         
         if st.button("🔧 Ändra inställningar", key="change_settings_btn", use_container_width=True):
             delete_selections()

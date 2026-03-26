@@ -173,6 +173,22 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
     date_html = ""
     if full_data and full_data.get("date"):
         date_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">{full_data.get("date")}</span>'
+
+    body_html = ""
+    if is_meeting and full_data and full_data.get("body"):
+        body_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">• {full_data.get("body")}</span>'
+        
+    category_links_html = ""
+    if full_data and full_data.get("matched_categories"):
+        categories = full_data.get("matched_categories")
+        if not isinstance(categories, list):
+            categories = [categories]
+            
+        links = []
+        for cat in categories:
+            links.append(f'<a href="?category={cat}" style="color: #0066cc; text-decoration: none;" target="_self">{cat}</a>')
+            
+        category_links_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">• {", ".join(links)}</span>'
     
     # Create card container with buttons in top right
     col_content, col_buttons = st.columns([0.9, 0.1])
@@ -192,7 +208,7 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
 <div style="flex: 1; min-width: 0;">
 <div style="margin-bottom: 10px; display: flex; align-items: center;">
 <span style="display: inline-block; background-color: #e0e0e0; color: #333; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">{tag}</span>
-{date_html}
+{date_html}{body_html}{category_links_html}
 </div>
 <h3 style="margin: 10px 0; color: #1f1f1f;">{title}</h3>
 <p style="color: #666; margin: 10px 0; line-height: 1.5;">{description}</p>
@@ -208,7 +224,7 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
             st.markdown(f"""<div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background-color: {bg_color};">
 <div style="margin-bottom: 10px; display: flex; align-items: center;">
 <span style="display: inline-block; background-color: #e0e0e0; color: #333; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">{tag}</span>
-{date_html}
+{date_html}{body_html}{category_links_html}
 </div>
 <h3 style="margin: 10px 0; color: #1f1f1f;">{title}</h3>
 <p style="color: #666; margin: 10px 0; line-height: 1.5;">{description}</p>
@@ -244,6 +260,59 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
             if st.button(btn_text, key=f"expand_btn_{card_index}", use_container_width=True):
                 st.session_state[expand_key] = not st.session_state[expand_key]
                 st.rerun()
+
+def display_category_feed(category):
+    """Display a feed for a single category"""
+    driver = get_neo4j_driver()
+    
+    # Back button to return to normal feed
+    if st.button("← Tillbaka till flöde", key="back_from_category", use_container_width=False):
+        st.query_params.clear()
+        st.rerun()
+        
+    st.markdown(f"### {category}")
+    
+    try:
+        # Get 5 latest from each for this category
+        category_list = [category]
+        latest_news = query_news_by_categories(driver, category_list, limit=5)
+        latest_meetings = query_meeting_items_by_categories(driver, category_list, limit=5)
+        latest_courses = query_courses_by_categories(driver, category_list, limit=5)
+        
+        # Combine
+        all_items = []
+        for item in latest_news:
+            all_items.append({"tag": "Nyhet", "data": item, "sort_date": item.get("date", "")})
+        for item in latest_meetings:
+            all_items.append({"tag": "Mötesprotokoll", "data": item, "sort_date": item.get("date", "")})
+        for item in latest_courses:
+            all_items.append({"tag": "Kurs", "data": item, "sort_date": item.get("start_date", "")})
+        
+        # Sort descending by date and take top 5 overall
+        all_items.sort(key=lambda x: str(x["sort_date"]) if x["sort_date"] else "", reverse=True)
+        top_items = all_items[:5]
+        
+        if top_items:
+            for idx, item in enumerate(top_items):
+                tag = item["tag"]
+                data = item["data"]
+                is_meeting = (tag == "Mötesprotokoll")
+                
+                display_feed_card(
+                    tag,
+                    data.get("title", "Ingen titel"),
+                    data.get("description", "Ingen beskrivning")[:200],
+                    is_meeting=is_meeting,
+                    meeting_id=data.get("id") if is_meeting else None,
+                    card_index=f"catfeed_{idx}",
+                    full_data=data
+                )
+        else:
+            st.info(f"Inga inlägg hittades för kategori: {category}")
+    except Exception as e:
+        st.error(f"Error loading category feed: {e}")
+    finally:
+        driver.close()
 
 def display_feed(selected_categories, language):
     """Display the feed with Kriskommunikation, Nyhet, and Mötesprotocol items"""
@@ -379,7 +448,6 @@ def display_feed(selected_categories, language):
             # Get 5 latest from each
             latest_news = query_latest_news(driver, limit=5)
             latest_meetings = query_latest_meeting_items(driver, limit=5)
-            latest_courses = query_latest_courses(driver, limit=5)
             
             # Combine
             all_latest = []
@@ -387,8 +455,6 @@ def display_feed(selected_categories, language):
                 all_latest.append({"tag": "Nyhet", "data": item, "sort_date": item.get("date", "")})
             for item in latest_meetings:
                 all_latest.append({"tag": "Mötesprotokoll", "data": item, "sort_date": item.get("date", "")})
-            for item in latest_courses:
-                all_latest.append({"tag": "Kurs", "data": item, "sort_date": item.get("start_date", "")})
             
             # Sort descending by date and take top 5 overall
             all_latest.sort(key=lambda x: str(x["sort_date"]) if x["sort_date"] else "", reverse=True)

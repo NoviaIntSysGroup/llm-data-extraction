@@ -32,6 +32,7 @@ def query_news_by_categories(driver, categories, limit=3):
     query = """
     MATCH (n:News)-[:HAS_CATEGORY]->(c)
     WHERE c.name IN $categories
+    OPTIONAL MATCH (n)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         n.title as title, 
         n.description as description, 
@@ -41,7 +42,7 @@ def query_news_by_categories(driver, categories, limit=3):
         n.link as link,
         n.image as image_url,
         n.image_tag as image_description,
-        collect(DISTINCT c.name) AS matched_categories
+        collect(DISTINCT all_c.name) AS matched_categories
     ORDER BY date DESC
     LIMIT $limit
     """
@@ -52,18 +53,12 @@ def query_news_by_categories(driver, categories, limit=3):
 def query_meeting_items_by_categories(driver, categories, limit=3):
     """Get latest MeetingItem by selected categories from neo4j"""
     query = """
-    // 1. Find the MeetingItem and check its categories
     MATCH (mi:MeetingItem)-[:HAS_CATEGORY]->(c)
     WHERE c.name IN $categories
-    
-    // 2. Find the Meeting that has this item (to get the date)
     MATCH (m:Meeting)-[:HAS_ITEM]->(mi)
-    
-    // 3. Find the Errand this item belongs to (to get the context)
     MATCH (mi)-[:BELONGS_TO]->(e:Errand)
-
-    // 4. Find body this item belongs to
     MATCH (b:Body)-[:HOSTED]->(m)
+    OPTIONAL MATCH (mi)-[:HAS_CATEGORY]->(all_c)
     
     // 4. Return the specific properties from the different nodes
     RETURN DISTINCT 
@@ -75,7 +70,7 @@ def query_meeting_items_by_categories(driver, categories, limit=3):
         m.meeting_date AS date,
         mi.decision as decision,
         b.name as body,
-        collect(DISTINCT c.name) AS matched_categories,
+        collect(DISTINCT all_c.name) AS matched_categories,
         mi.id AS id
     ORDER BY date DESC
     LIMIT $limit
@@ -89,6 +84,7 @@ def query_courses_by_categories(driver, categories, limit=3):
     query = """
     MATCH (co:Course)-[:HAS_CATEGORY]->(c)
     WHERE c.name IN $categories
+    OPTIONAL MATCH (co)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         co.title as title, 
         co.description as description,
@@ -101,7 +97,7 @@ def query_courses_by_categories(driver, categories, limit=3):
         co.signup_end as signup_end,
         co.times as times,
         co.link as link,
-        collect(DISTINCT c.name) AS matched_categories
+        collect(DISTINCT all_c.name) AS matched_categories
     ORDER BY start_date DESC
     LIMIT $limit
     """
@@ -113,6 +109,7 @@ def query_latest_news(driver, limit=5):
     """Get latest News regardless of categories"""
     query = """
     MATCH (n:News)-[:HAS_CATEGORY]->(c)
+    OPTIONAL MATCH (n)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         n.title as title, 
         n.description as description, 
@@ -122,7 +119,7 @@ def query_latest_news(driver, limit=5):
         n.link as link,
         n.image as image_url,
         n.image_tag as image_description,
-        collect(DISTINCT c.name) AS matched_categories
+        collect(DISTINCT all_c.name) AS matched_categories
     ORDER BY date DESC
     LIMIT $limit
     """
@@ -137,6 +134,7 @@ def query_latest_meeting_items(driver, limit=5):
     MATCH (m:Meeting)-[:HAS_ITEM]->(mi)
     MATCH (mi)-[:BELONGS_TO]->(e:Errand)
     MATCH (b:Body)-[:HOSTED]->(m)
+    OPTIONAL MATCH (mi)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         mi.title AS title, 
         e.topic AS description, 
@@ -146,7 +144,7 @@ def query_latest_meeting_items(driver, limit=5):
         m.meeting_date AS date,
         mi.decision as decision,
         b.name as body,
-        collect(DISTINCT c.name) AS matched_categories,
+        collect(DISTINCT all_c.name) AS matched_categories,
         mi.id AS id
     ORDER BY date DESC
     LIMIT $limit
@@ -159,6 +157,7 @@ def query_latest_courses(driver, limit=5):
     """Get latest Course regardless of categories"""
     query = """
     MATCH (co:Course)-[:HAS_CATEGORY]->(c)
+    OPTIONAL MATCH (co)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         co.title as title, 
         co.description as description,
@@ -171,7 +170,7 @@ def query_latest_courses(driver, limit=5):
         co.signup_end as signup_end,
         co.times as times,
         co.link as link,
-        collect(DISTINCT c.name) AS matched_categories
+        collect(DISTINCT all_c.name) AS matched_categories
     ORDER BY start_date DESC
     LIMIT $limit
     """
@@ -186,6 +185,7 @@ def query_saved_news(driver, saved_titles):
     query = """
     MATCH (n:News)-[:HAS_CATEGORY]->(c)
     WHERE n.title IN $titles
+    OPTIONAL MATCH (n)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         n.title as title, 
         n.description as description, 
@@ -195,7 +195,7 @@ def query_saved_news(driver, saved_titles):
         n.link as link,
         n.image as image_url,
         n.image_tag as image_description,
-        collect(DISTINCT c.name) AS matched_categories
+        collect(DISTINCT all_c.name) AS matched_categories
     ORDER BY date DESC
     """
     with driver.session(database=os.getenv("NEO4J_DATABASE")) as session:
@@ -212,6 +212,7 @@ def query_saved_meeting_items(driver, saved_titles):
     MATCH (m:Meeting)-[:HAS_ITEM]->(mi)
     MATCH (mi)-[:BELONGS_TO]->(e:Errand)
     MATCH (b:Body)-[:HOSTED]->(m)
+    OPTIONAL MATCH (mi)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         mi.title AS title, 
         e.topic AS description, 
@@ -221,7 +222,7 @@ def query_saved_meeting_items(driver, saved_titles):
         m.meeting_date AS date,
         mi.decision as decision,
         b.name as body,
-        collect(DISTINCT c.name) AS matched_categories,
+        collect(DISTINCT all_c.name) AS matched_categories,
         mi.id AS id
     ORDER BY date DESC
     """
@@ -236,6 +237,7 @@ def query_saved_courses(driver, saved_titles):
     query = """
     MATCH (co:Course)-[:HAS_CATEGORY]->(c)
     WHERE co.title IN $titles
+    OPTIONAL MATCH (co)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         co.title as title, 
         co.description as description,
@@ -248,7 +250,7 @@ def query_saved_courses(driver, saved_titles):
         co.signup_end as signup_end,
         co.times as times,
         co.link as link,
-        collect(DISTINCT c.name) AS matched_categories
+        collect(DISTINCT all_c.name) AS matched_categories
     ORDER BY start_date DESC
     """
     with driver.session(database=os.getenv("NEO4J_DATABASE")) as session:
