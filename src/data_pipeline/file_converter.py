@@ -134,7 +134,7 @@ def convert_files(filepaths, output_type="xhtml", overwrite=False, add_ids_to_ta
                                fitz.TEXT_DEHYPHENATE & fitz.TEXT_PRESERVE_WHITESPACE) for page in doc)
         elif input_file_extension == ".docx":
             # Convert the DOCX file to HTML
-            with open(filepath, "rb", encoding="utf-8") as docx:
+            with open(filepath, "rb") as docx:
                 text = convert_to_html(docx)
                 text = text.value
         else:

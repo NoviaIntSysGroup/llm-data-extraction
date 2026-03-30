@@ -344,7 +344,7 @@ def extract_meeting_data_batch(df=None, type=None, filetype="html", overwrite_ba
             "Invalid type. Type must be either 'metadata', 'agenda' or None.")
 
     # if no dataframe is provided, get the default dataframe
-    if df is None or df.empty:
+    if df is None:
         print("Fetching documents dataframe...")
         df = get_documents_dataframe()
 
@@ -557,6 +557,58 @@ async def extract_meeting_data(df=None, type=None):
         # raise an error if the type is invalid
         raise ValueError(
             "Invalid type. Type must be either 'metadata', 'agenda' or None.")
+
+def generate_upcoming_metadata(df):
+    """
+    Generate stub metadata JSON files for upcoming meetings based on the scraper data.
+    Bypasses the LLM extraction since there are no protocol documents for future meetings.
+    """
+    if df is None or df.empty:
+        print("No documents found to generate metadata for.")
+        return
+
+    processed_meetings = set()
+    count = 0
+    
+    for _, row in df.iterrows():
+        filepath = row.get("filepath", "")
+        if not filepath:
+            continue
+            
+        # The path structure is typically: .../protocols_upcoming/<Body>/<Date>/<DocumentName>/<file>
+        # We want to identify the unique meeting based on Body + Date
+        body = row.get("body", "")
+        meeting_date = row.get("meeting_date", "")
+        meeting_identifier = f"{body}_{meeting_date}"
+        
+        # Only create one metadata file per meeting
+        if meeting_identifier in processed_meetings:
+            continue
+            
+        processed_meetings.add(meeting_identifier)
+        
+        doc_dir = os.path.dirname(filepath)
+        
+        # Build the exact JSON shape the schema expects
+        metadata_json = {
+            "meeting_date": row.get("meeting_date", ""),
+            "start_time": row.get("meeting_time", ""),
+            "end_time": "",
+            "place": "",
+            "meeting_reference": row.get("meeting_reference", ""),
+            "adjustment_date": "",
+            "participants": [],
+            "doc_link": row.get("doc_link", ""),
+            "meeting_items": [],
+            "page_list": row.get("page_list", []),
+            "is_upcoming": True
+        }
+        
+        save_path = os.path.join(doc_dir, "llm_meeting_metadata.json")
+        save_json_file(save_path, metadata_json)
+        count += 1
+        
+    print(f"Generated {count} stub metadata files for upcoming meetings.")
 
 if __name__ == "__main__":
     asyncio.run(extract_meeting_data())

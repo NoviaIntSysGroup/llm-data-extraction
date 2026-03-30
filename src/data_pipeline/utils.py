@@ -98,6 +98,7 @@ def filter_agenda(df):
         "Närvarande på mötet",
         "Läsnäolijat",
         "Sammanträdets laglighet och beslutförhet samt godkännande av föredragningslista",
+        "Sammanträdets laglighet och beslutförhet samt godkännande av föredragningslistan",
         "Kokouksen laillisuus ja päätösvaltaisuus sekä esityslistan hyväksyminen",
         "Pöytäkirjantarkastajien valinta"
     ]

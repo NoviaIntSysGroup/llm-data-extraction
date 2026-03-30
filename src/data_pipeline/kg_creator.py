@@ -60,12 +60,7 @@ def extract_errand_topics(driver):
             meeting_items_result = session.run("""
                 MATCH (m:Meeting)-[:HAS_ITEM]->(mi:MeetingItem)
                 WHERE mi.errand_tag = $tag
-                ORDER BY
-                    date({
-                        year:  toInteger(split(m.meeting_date, '.')[0]),
-                        month: toInteger(split(m.meeting_date, '.')[1]),
-                        day:   toInteger(split(m.meeting_date, '.')[2])
-                    }) ASC
+                ORDER BY m.meeting_date ASC
                 RETURN
                     m.meeting_date AS date,
                     mi.title       AS title,
@@ -127,19 +122,21 @@ def extract_errand_topics(driver):
             MERGE (mi)-[:BELONGS_TO]->(e)
         """)
 
-def execute_cypher_queries(driver, data):
+def execute_cypher_queries(driver, data, wipe_database=True):
     """
     Executes Cypher queries to create a knowledge graph in Neo4j
 
     Args:
         driver : neo4j driver
         data : JSON data
+        wipe_database (bool): Whether to wipe the database before creating the graph.
     """
 
-    with driver.session() as session:
-        # Delete existing nodes and relationships
-        print("Deleting existing nodes and relationships...")
-        session.run("MATCH (n) DETACH DELETE n")
+    if wipe_database:
+        with driver.session() as session:
+            # Delete existing nodes and relationships
+            print("Deleting existing nodes and relationships...")
+            session.run("MATCH (n) DETACH DELETE n")
 
     # Generate body embeddings
     bodies = data.get("body", [])
@@ -188,6 +185,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
             MATCH (b:Body {name: $body_name})
             MERGE (b)-[:HOSTED]->(m)
             SET m.meeting_location_embedding = $meeting_location_embedding
+            SET m.is_upcoming = COALESCE($is_upcoming, false)
             RETURN elementId(m)
             """,
             meeting_date=meeting.get("meeting_date", ""),
@@ -198,7 +196,8 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
             page_list=meeting.get("page_list", []),
             meeting_location=meeting_location,
             body_name=body_name,
-            meeting_location_embedding=meeting_embedding
+            meeting_location_embedding=meeting_embedding,
+            is_upcoming=meeting.get("is_upcoming", False)
             )
         meeting_id = result.single()[0]
 
@@ -505,26 +504,32 @@ def post_process_knowledge_graph(driver):
 
     print("Post-processing knowledge graph...")
     with driver.session() as session:
-        # Convert date string (yyyy.mm.dd) to datetime
+        # Convert date string (yyyy.mm.dd or yyyy-mm-dd) to datetime
         session.run("""
             MATCH (m:Meeting)
             WHERE toString(m.meeting_date) = m.meeting_date
             WITH m,
-                split(m.meeting_date, '.') AS dateParts
-            WITH m,
-                toInteger(dateParts[0]) AS year,
-                toInteger(dateParts[1]) AS month,
-                toInteger(dateParts[2]) AS day
-            SET m.meeting_date = date({ year: year, month: month, day: day })
+                 CASE 
+                     WHEN m.meeting_date CONTAINS '.' THEN split(m.meeting_date, '.')
+                     WHEN m.meeting_date CONTAINS '-' THEN split(m.meeting_date, '-')
+                     ELSE null 
+                 END AS dateParts
+            WHERE dateParts IS NOT NULL AND size(dateParts) = 3
+            SET m.meeting_date = date({ 
+                year: toInteger(dateParts[0]), 
+                month: toInteger(dateParts[1]), 
+                day: toInteger(dateParts[2]) 
+            })
         """)
     print("Post-processing complete.")
 
-def create_knowledge_graph(construct_from):
+def create_knowledge_graph(construct_from, wipe_database=True):
     """
     Creates a knowledge graph in Neo4j from the aggregate JSON data
 
     Args:
         construct_from (str): The source from which to construct the JSON. Can be "llm" or "manual".
+        wipe_database (bool): Whether to wipe the database before creating the graph.
     """
 
     if construct_from.lower() not in ["llm", "manual"]:
@@ -544,13 +549,13 @@ def create_knowledge_graph(construct_from):
     driver = GraphDatabase.driver(uri, auth=(username, password))
 
     # Execute Cypher queries to create knowledge graph
-    execute_cypher_queries(driver, data)
+    execute_cypher_queries(driver, data, wipe_database=wipe_database)
+
+    # Post-process knowledge graph (convert date strings to DATE objects)
+    post_process_knowledge_graph(driver)
 
     # Extract errand topics from meeting items
     extract_errand_topics(driver)
 
     # Create embeddings index
     create_embeddings_index(driver)
-
-    # Post-process knowledge graph
-    post_process_knowledge_graph(driver)
