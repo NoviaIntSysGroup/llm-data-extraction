@@ -14,12 +14,15 @@ def get_selections_file_path():
     os.makedirs(temp_dir, exist_ok=True)
     return os.path.join(temp_dir, "feed_selections.txt")
 
-def save_selections(categories, language):
+def save_selections(categories, language, content_types=None):
     """Save category and language selections to a file"""
+    if content_types is None:
+        content_types = ["Malax nyheter", "Malax i media", "Möten", "MI kurser"]
     filepath = get_selections_file_path()
     selections = {
         "categories": categories,
         "language": language,
+        "content_types": content_types,
         "timestamp": datetime.now().isoformat()
     }
     with open(filepath, "w", encoding="utf-8") as f:

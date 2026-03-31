@@ -25,6 +25,38 @@ import sys
 sys.path.append('..')
 from data_pipeline.utils import *
 
+def classify_question_intent(user_query: str, chat_history: List[Dict[str, str]] = None) -> str:
+    """
+    Given a user's question, uses Gemini to determine whether it is about 
+    meetings/protocols or general municipality information.
+    Includes chat history to handle follow-up questions gracefully.
+    """
+    # Use the fast, lightweight model via LangChain
+    model = ChatGoogleGenerativeAI(model="gemini-flash-lite-latest", temperature=1)
+    
+    history_text = ""
+    if chat_history:
+        history_text = "Previous conversation context:\n"
+        for msg in chat_history[-3:]: # only use last 3 messages to keep it short
+            role = "User" if msg["role"] == "user" else "Assistant"
+            history_text += f"{role}: {msg['content']}\n"
+    
+    prompt = f"""You are an intent classifier for a municipality chatbot.
+    Determine if the current user question is about official municipality meetings, protocols, or political decisions OR if it is about general municipal information, news, courses, or events.
+    
+    {history_text}
+    Current user question: "{user_query}"
+    
+    Respond STRICTLY with exactly one word: 
+    - "MEETINGS" if it is about meetings/protocols/decisions.
+    - "GENERAL" if it is about general information/news/courses.
+    """
+    
+    response = model.invoke(prompt)
+    classification = response.content.strip().upper()
+    
+    return "meetings" if "MEETINGS" in classification else "malax"
+
 def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None, thinking_level: str = "low", google_search = False) -> BaseLanguageModel:
     """
     Factory function to get the configured LLM instance.

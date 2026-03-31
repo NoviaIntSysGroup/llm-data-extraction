@@ -27,11 +27,16 @@ def query_kriskommunikation(driver, limit=3):
         result = session.run(query, limit=limit)
         return [dict(record) for record in result]
 
-def query_news_by_categories(driver, categories, limit=3):
+def query_news_by_categories(driver, categories, sources=None, limit=3):
     """Get latest News by selected categories from neo4j"""
-    query = """
+    
+    source_filter = ""
+    if sources is not None and len(sources) > 0:
+        source_filter = "AND n.source IN $sources"
+        
+    query = f"""
     MATCH (n:News)-[:HAS_CATEGORY]->(c)
-    WHERE c.name IN $categories
+    WHERE c.name IN $categories {source_filter}
     OPTIONAL MATCH (n)-[:HAS_CATEGORY]->(all_c)
     RETURN DISTINCT 
         n.title as title, 
@@ -47,7 +52,7 @@ def query_news_by_categories(driver, categories, limit=3):
     LIMIT $limit
     """
     with driver.session(database=os.getenv("NEO4J_DATABASE")) as session:
-        result = session.run(query, categories=categories, limit=limit)
+        result = session.run(query, categories=categories, sources=sources, limit=limit)
         return [dict(record) for record in result]
 
 def query_meeting_items_by_categories(driver, categories, limit=3):

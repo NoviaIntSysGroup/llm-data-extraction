@@ -41,6 +41,9 @@ def main():
     if "selected_categories" not in st.session_state.keys():
         st.session_state.selected_categories = []
     
+    if "selected_content_types" not in st.session_state.keys():
+        st.session_state.selected_content_types = ["Malax nyheter", "Malax i media", "Möten", "MI kurser"]
+    
     if "selected_language" not in st.session_state.keys():
         st.session_state.selected_language = "Svenska"
     
@@ -55,6 +58,7 @@ def main():
     if saved_selections and not st.session_state.categories_selected:
         st.session_state.selected_categories = saved_selections.get("categories", [])
         st.session_state.selected_language = saved_selections.get("language", "Svenska")
+        st.session_state.selected_content_types = saved_selections.get("content_types", ["Malax nyheter", "Malax i media", "Möten", "MI kurser"])
         st.session_state.categories_selected = True
     
     # Show category selection interface if categories haven't been selected yet
@@ -62,9 +66,9 @@ def main():
         with col2:
             result = display_category_selector()
             if result:
-                st.session_state.selected_categories, st.session_state.selected_language = result
+                st.session_state.selected_categories, st.session_state.selected_language, st.session_state.selected_content_types = result
                 st.session_state.categories_selected = True
-                save_selections(st.session_state.selected_categories, st.session_state.selected_language)
+                save_selections(st.session_state.selected_categories, st.session_state.selected_language, st.session_state.selected_content_types)
                 st.rerun()
         return  # Exit early, don't show feed until categories are selected
     
@@ -80,7 +84,7 @@ def main():
             if category_param:
                 display_category_feed(category_param)
             else:
-                display_feed(st.session_state.selected_categories, st.session_state.selected_language)
+                display_feed(st.session_state.selected_categories, st.session_state.selected_language, st.session_state.selected_content_types)
     
     # Show buttons at the bottom (outside main column)
     col_button1, col_button2, col_button3 = st.columns([1, 2, 1])
