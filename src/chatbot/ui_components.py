@@ -21,6 +21,17 @@ def display_category_selector():
     st.markdown("**Välj ditt föredragna språk:**")
     lang_sv = st.radio("Språk", ["Svenska", "Suomi", "English"], index=0, label_visibility="collapsed")
     
+    # Content type selection
+    st.markdown("**Välj vilken typ av innehåll du vill se:**")
+    prev_content_types = st.session_state.get('selected_content_types', ["Malax nyheter", "Malax i media", "Möten", "MI kurser"])
+    content_options = ["Malax nyheter", "Malax i media", "Möten", "MI kurser"]
+    selected_content_types = st.multiselect(
+        "Innehållstyper",
+        content_options,
+        default=prev_content_types,
+        label_visibility="collapsed"
+    )
+    
     # Category selection with expandable sections
     st.markdown("**Välj kategorier du vill få information om:**")
     
@@ -104,7 +115,7 @@ def display_category_selector():
             selected_categories = [cat for cat, checked in selected.items() if checked]
             
             if selected_categories:
-                return selected_categories, lang_sv
+                return selected_categories, lang_sv, selected_content_types
             else:
                 st.warning("Vänligen välj minst en kategori!")
                 return None
@@ -314,9 +325,12 @@ def display_category_feed(category):
     finally:
         driver.close()
 
-def display_feed(selected_categories, language):
+def display_feed(selected_categories, language, selected_content_types=None):
     """Display the feed with Kriskommunikation, Nyhet, and Mötesprotocol items"""
     driver = get_neo4j_driver()
+    
+    if selected_content_types is None:
+        selected_content_types = ["Malax nyheter", "Malax i media", "Möten", "MI kurser"]
     
     # Create tabs
     tab1, tab2, tab3 = st.tabs(["Personaliserat flöde", "Sparat flöde", "Senaste nytt"])
@@ -341,51 +355,60 @@ def display_feed(selected_categories, language):
                 st.info("Inga kriskommunikationsposter hittades")
             
             # Fetch Nyhet (latest 3) based on selected categories
-            st.subheader("Nyheter")
-            news_data = query_news_by_categories(driver, selected_categories, limit=3)
-            if news_data:
-                for idx, item in enumerate(news_data):
-                    display_feed_card(
-                        "Nyhet",
-                        item.get("title", "Ingen titel"),
-                        item.get("description", "Ingen beskrivning")[:200],
-                        card_index=f"news_{idx}",
-                        full_data=item
-                    )
-            else:
-                st.info("Inga nyhetsartiklar hittades för valda kategorier")
+            sources = []
+            if "Malax nyheter" in selected_content_types:
+                sources.append("Malax")
+            if "Malax i media" in selected_content_types:
+                sources.append("Yle")
+                
+            if sources:
+                st.subheader("Nyheter")
+                news_data = query_news_by_categories(driver, selected_categories, sources=sources, limit=3)
+                if news_data:
+                    for idx, item in enumerate(news_data):
+                        display_feed_card(
+                            "Nyhet",
+                            item.get("title", "Ingen titel"),
+                            item.get("description", "Ingen beskrivning")[:200],
+                            card_index=f"news_{idx}",
+                            full_data=item
+                        )
+                else:
+                    st.info("Inga nyhetsartiklar hittades för valda kategorier")
             
             # Fetch Mötesprotocol (latest 3) based on selected categories
-            st.subheader("Mötesprotokoll")
-            meeting_data = query_meeting_items_by_categories(driver, selected_categories, limit=3)
-            if meeting_data:
-                for idx, item in enumerate(meeting_data):
-                    display_feed_card(
-                        "Mötesprotokoll",
-                        item.get("title", "Ingen titel"),
-                        item.get("description", "Ingen beskrivning")[:200],
-                        is_meeting=True,
-                        meeting_id=item.get("id"),
-                        card_index=f"meeting_{idx}",
-                        full_data=item
-                    )
-            else:
-                st.info("Inga mötesprotokoll hittades för valda kategorier")
+            if "Möten" in selected_content_types:
+                st.subheader("Mötesprotokoll")
+                meeting_data = query_meeting_items_by_categories(driver, selected_categories, limit=3)
+                if meeting_data:
+                    for idx, item in enumerate(meeting_data):
+                        display_feed_card(
+                            "Mötesprotokoll",
+                            item.get("title", "Ingen titel"),
+                            item.get("description", "Ingen beskrivning")[:200],
+                            is_meeting=True,
+                            meeting_id=item.get("id"),
+                            card_index=f"meeting_{idx}",
+                            full_data=item
+                        )
+                else:
+                    st.info("Inga mötesprotokoll hittades för valda kategorier")
                 
             # Fetch Kurser (latest 3) based on selected categories
-            st.subheader("Kurser")
-            course_data = query_courses_by_categories(driver, selected_categories, limit=3)
-            if course_data:
-                for idx, item in enumerate(course_data):
-                    display_feed_card(
-                        "Kurs",
-                        item.get("title", "Ingen titel"),
-                        item.get("description", "Ingen beskrivning")[:200],
-                        card_index=f"course_{idx}",
-                        full_data=item
-                    )
-            else:
-                st.info("Inga kurser hittades för valda kategorier")
+            if "MI kurser" in selected_content_types:
+                st.subheader("Kurser")
+                course_data = query_courses_by_categories(driver, selected_categories, limit=3)
+                if course_data:
+                    for idx, item in enumerate(course_data):
+                        display_feed_card(
+                            "Kurs",
+                            item.get("title", "Ingen titel"),
+                            item.get("description", "Ingen beskrivning")[:200],
+                            card_index=f"course_{idx}",
+                            full_data=item
+                        )
+                else:
+                    st.info("Inga kurser hittades för valda kategorier")
             
             # Add button to ask general questions about Malax
             st.divider()
@@ -497,19 +520,7 @@ def display_general_question_interface(selected_categories, language):
         st.session_state.conversation_logger = llm_kg_retrieval.ConversationLogger()
     
     if "chatbot_type" not in st.session_state:
-        st.session_state.chatbot_type = "meetings"
-    
-    # Add toggle to select between meetings and malax info
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("**Välj frågetyp:**")
-        chatbot_type = st.radio(
-            "Vad vill du fråga om?",
-            ["🏛️ Möten och protokoll", "ℹ️ Malax information"],
-            index=0 if st.session_state.chatbot_type == "meetings" else 1,
-            label_visibility="collapsed"
-        )
-        st.session_state.chatbot_type = "meetings" if "Meetings" in chatbot_type else "malax"
+        st.session_state.chatbot_type = None
     
     # Build context based on selected categories
     context_prefix = f"""
@@ -551,6 +562,13 @@ Kontext - Valda kategorier och språk:
             answer_placeholder = st.empty()
             with st.spinner("Tänker..."):
                 try:
+                    # Determine chatbot type dynamically for each question
+                    # This allows the user to ask different types of questions in the same session
+                    # We pass the history excluding the very last message since that's the query itself
+                    history_for_classification = st.session_state.messages[:-1]
+                    current_intent = llm_kg_retrieval.classify_question_intent(last_user_message, history_for_classification)
+                    st.session_state.chatbot_type = current_intent
+                    
                     if st.session_state.chatbot_type == "meetings":
                         # Use Knowledge Graph RAG for meeting questions
                         processor = llm_kg_retrieval.KnowledgeGraphRAG(
