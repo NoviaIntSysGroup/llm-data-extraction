@@ -60,7 +60,12 @@ def extract_errand_topics(driver):
             meeting_items_result = session.run("""
                 MATCH (m:Meeting)-[:HAS_ITEM]->(mi:MeetingItem)
                 WHERE mi.errand_tag = $tag
-                ORDER BY m.meeting_date ASC
+                ORDER BY
+                    date({
+                        year:  toInteger(split(m.meeting_date, '.')[0]),
+                        month: toInteger(split(m.meeting_date, '.')[1]),
+                        day:   toInteger(split(m.meeting_date, '.')[2])
+                    }) ASC
                 RETURN
                     m.meeting_date AS date,
                     mi.title       AS title,
@@ -504,22 +509,17 @@ def post_process_knowledge_graph(driver):
 
     print("Post-processing knowledge graph...")
     with driver.session() as session:
-        # Convert date string (yyyy.mm.dd or yyyy-mm-dd) to datetime
+        # Convert date string (yyyy.mm.dd) to datetime
         session.run("""
             MATCH (m:Meeting)
             WHERE toString(m.meeting_date) = m.meeting_date
             WITH m,
-                 CASE 
-                     WHEN m.meeting_date CONTAINS '.' THEN split(m.meeting_date, '.')
-                     WHEN m.meeting_date CONTAINS '-' THEN split(m.meeting_date, '-')
-                     ELSE null 
-                 END AS dateParts
-            WHERE dateParts IS NOT NULL AND size(dateParts) = 3
-            SET m.meeting_date = date({ 
-                year: toInteger(dateParts[0]), 
-                month: toInteger(dateParts[1]), 
-                day: toInteger(dateParts[2]) 
-            })
+                split(m.meeting_date, '.') AS dateParts
+            WITH m,
+                toInteger(dateParts[0]) AS year,
+                toInteger(dateParts[1]) AS month,
+                toInteger(dateParts[2]) AS day
+            SET m.meeting_date = date({ year: year, month: month, day: day })
         """)
     print("Post-processing complete.")
 
@@ -551,11 +551,11 @@ def create_knowledge_graph(construct_from, wipe_database=True):
     # Execute Cypher queries to create knowledge graph
     execute_cypher_queries(driver, data, wipe_database=wipe_database)
 
-    # Post-process knowledge graph (convert date strings to DATE objects)
-    post_process_knowledge_graph(driver)
-
     # Extract errand topics from meeting items
     extract_errand_topics(driver)
 
     # Create embeddings index
     create_embeddings_index(driver)
+
+    # Post-process knowledge graph (convert date strings to DATE objects)
+    post_process_knowledge_graph(driver)
