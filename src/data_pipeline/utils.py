@@ -100,7 +100,8 @@ def filter_agenda(df):
         "Sammanträdets laglighet och beslutförhet samt godkännande av föredragningslista",
         "Sammanträdets laglighet och beslutförhet samt godkännande av föredragningslistan",
         "Kokouksen laillisuus ja päätösvaltaisuus sekä esityslistan hyväksyminen",
-        "Pöytäkirjantarkastajien valinta"
+        "Pöytäkirjantarkastajien valinta",
+        "Sammanträdets öppnande"
     ]
 
     # filter to only agenda items documents
