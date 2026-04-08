@@ -42,6 +42,7 @@ data/llm/logs
 notebooks/agenda.html
 data/upcoming
 backups
+llm_data_extraction.tar
 
 # Documentation
 docs/

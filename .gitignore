@@ -9,6 +9,8 @@ data/llm/logs
 notebooks/agenda.html
 data/upcoming
 neo4j_data
+llm_data_extraction.tar
+json
 
 # Vscode
 .vscode

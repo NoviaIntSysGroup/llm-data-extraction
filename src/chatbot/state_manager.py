@@ -17,7 +17,7 @@ def get_selections_file_path():
 def save_selections(categories, language, content_types=None):
     """Save category and language selections to a file"""
     if content_types is None:
-        content_types = ["Malax nyheter", "Malax i media", "Möten", "MI kurser"]
+        content_types = ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"]
     filepath = get_selections_file_path()
     selections = {
         "categories": categories,

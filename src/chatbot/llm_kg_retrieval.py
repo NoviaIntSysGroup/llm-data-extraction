@@ -53,7 +53,23 @@ def classify_question_intent(user_query: str, chat_history: List[Dict[str, str]]
     """
     
     response = model.invoke(prompt)
-    classification = response.content.strip().upper()
+
+    # Gemini/LangChain may return response.content as str, list, or dict-like parts
+    content = response.content if hasattr(response, "content") else response
+    if isinstance(content, str):
+        classification = content.strip().upper()
+    elif isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                parts.append(str(item.get("text", "")))
+            else:
+                parts.append(str(item))
+        classification = "".join(parts).strip().upper()
+    elif isinstance(content, dict):
+        classification = str(content.get("text", str(content))).strip().upper()
+    else:
+        classification = str(content).strip().upper()
     
     return "meetings" if "MEETINGS" in classification else "malax"
 

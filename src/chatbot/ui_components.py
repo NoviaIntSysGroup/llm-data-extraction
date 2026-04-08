@@ -19,12 +19,12 @@ def display_category_selector():
     
     # Language selection
     st.markdown("**Välj ditt föredragna språk:**")
-    lang_sv = st.radio("Språk", ["Svenska", "Suomi", "English"], index=0, label_visibility="collapsed")
+    lang_sv = st.radio("Språk", ["Svenska", "Suomi", "English"], index=0, label_visibility="collapsed", disabled=True)
     
     # Content type selection
-    st.markdown("**Välj vilken typ av innehåll du vill se:**")
-    prev_content_types = st.session_state.get('selected_content_types', ["Malax nyheter", "Malax i media", "Möten", "MI kurser"])
-    content_options = ["Malax nyheter", "Malax i media", "Möten", "MI kurser"]
+    st.markdown("**Välj vilket typ av innehåll du vill se i det personaliserade flöde**")
+    prev_content_types = st.session_state.get('selected_content_types', ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"])
+    content_options = ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"]
     selected_content_types = st.multiselect(
         "Innehållstyper",
         content_options,
@@ -143,7 +143,7 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
         
         if full_data.get("content"):
             # Escape HTML and replace newlines with <br> tags
-            content_text = str(full_data.get("content")).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>")
+            content_text = str(full_data.get("content")).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>").replace("\n", "<br>")
             expanded_html += f'<div style="margin-bottom: 12px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; font-weight: bold; margin: 0;"></p><p style="color: #333; margin: 0; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word;">{content_text}</p></div>'
         if full_data.get("date"):
             expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Datum</p><p style="color: #666; margin: 0;">{full_data.get("date")}</p></div>'
@@ -154,9 +154,11 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
         if full_data.get("body"):
             expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Verksamhetsorgan</p><p style="color: #666; margin: 0;">{full_data.get("body")}</p></div>'
         if full_data.get("errand"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Ärende</p><p style="color: #666; margin: 0;">{full_data.get("errand")}</p></div>'
+            errand_text = str(full_data.get("errand")).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>").replace("\n", "<br>")
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Ärende</p><p style="color: #666; margin: 0;">{errand_text}</p></div>'
         if full_data.get("decision"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Beslut</p><p style="color: #666; margin: 0;">{full_data.get("decision")}</p></div>'
+            decision_text = str(full_data.get("decision")).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>").replace("\n", "<br>")
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Beslut</p><p style="color: #666; margin: 0;">{decision_text}</p></div>'
         if full_data.get("location"):
             expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Plats</p><p style="color: #666; margin: 0;">{full_data.get("location")}</p></div>'
         if full_data.get("price"):
@@ -201,6 +203,11 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
             
         category_links_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">• {", ".join(links)}</span>'
     
+    if description:
+        description = str(description).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>").replace("\n", "<br>")
+    if title:
+        title = str(title).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", " ").replace("\n", " ")
+
     # Create card container with buttons in top right
     col_content, col_buttons = st.columns([0.9, 0.1])
     
@@ -243,8 +250,8 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
 </div>""", unsafe_allow_html=True)
     
     with col_buttons:
-        # Ask question button
-        if st.button("💬", key=f"ask_btn_{card_index}", help="Ask Question"):
+        # Fråga AI button
+        if st.button("💬", key=f"ask_btn_{card_index}", help="Fråga AI"):
             st.session_state.ask_question_mode = True
             st.session_state.question_meeting_id = meeting_id
             st.session_state.question_meeting_context = full_data
@@ -260,7 +267,7 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
             st.rerun()
         
         # Share button (placeholder)
-        if st.button("↗️", key=f"share_btn_{card_index}", help="Share"):
+        if st.button("↗️", key=f"share_btn_{card_index}", help="Dela"):
             pass
     
     # Show more/less button below card
@@ -312,7 +319,7 @@ def display_category_feed(category):
                 display_feed_card(
                     tag,
                     data.get("title", "Ingen titel"),
-                    data.get("description", "Ingen beskrivning")[:200],
+                    data.get("description", "Ingen beskrivning"),
                     is_meeting=is_meeting,
                     meeting_id=data.get("id") if is_meeting else None,
                     card_index=f"catfeed_{idx}",
@@ -330,51 +337,59 @@ def display_feed(selected_categories, language, selected_content_types=None):
     driver = get_neo4j_driver()
     
     if selected_content_types is None:
-        selected_content_types = ["Malax nyheter", "Malax i media", "Möten", "MI kurser"]
+        selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"]
     
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["Personaliserat flöde", "Sparat flöde", "Senaste nytt"])
+    tab1, tab2, tab3 = st.tabs(["Mitt flöde", "Mina favoriter", "Senaste nytt"])
     
     with tab1:
-        st.markdown("### 📰 Personaliserat flöde")
+        st.markdown("### 📰 Mitt flöde")
         
         try:
             # Fetch Kriskommunikation (latest 3)
-            st.subheader("Kriskommunikation")
             kriskommunikation_data = query_kriskommunikation(driver, limit=3)
             if kriskommunikation_data:
+                st.subheader("Kriskommunikation")
                 for idx, item in enumerate(kriskommunikation_data):
                     display_feed_card(
                         "Kriskommunikation",
                         item.get("title", "Ingen titel"),
-                        item.get("description", "Ingen beskrivning")[:200],
+                        item.get("description", "Ingen beskrivning"),
                         card_index=f"krisk_{idx}",
                         full_data=item
                     )
-            else:
-                st.info("Inga kriskommunikationsposter hittades")
             
-            # Fetch Nyhet (latest 3) based on selected categories
-            sources = []
-            if "Malax nyheter" in selected_content_types:
-                sources.append("Malax")
-            if "Malax i media" in selected_content_types:
-                sources.append("Yle")
-                
-            if sources:
-                st.subheader("Nyheter")
-                news_data = query_news_by_categories(driver, selected_categories, sources=sources, limit=3)
-                if news_data:
-                    for idx, item in enumerate(news_data):
+            # Fetch Kommunala nyheter (latest 3) based on selected categories
+            if "Kommunala nyheter" in selected_content_types:
+                st.subheader("Kommunala nyheter")
+                municipal_news_data = query_news_by_categories(driver, selected_categories, sources=["Malax"], limit=3)
+                if municipal_news_data:
+                    for idx, item in enumerate(municipal_news_data):
                         display_feed_card(
-                            "Nyhet",
+                            "Kommunala nyheter",
                             item.get("title", "Ingen titel"),
-                            item.get("description", "Ingen beskrivning")[:200],
-                            card_index=f"news_{idx}",
+                            item.get("description", "Ingen beskrivning"),
+                            card_index=f"municipal_news_{idx}",
                             full_data=item
                         )
                 else:
-                    st.info("Inga nyhetsartiklar hittades för valda kategorier")
+                    st.info("Inga kommunala nyheter hittades för valda kategorier")
+
+            # Fetch Malax i media (latest 3) based on selected categories
+            if "Malax i media" in selected_content_types:
+                st.subheader("Malax i media")
+                media_news_data = query_news_by_categories(driver, selected_categories, sources=["Yle"], limit=3)
+                if media_news_data:
+                    for idx, item in enumerate(media_news_data):
+                        display_feed_card(
+                            "Malax i media",
+                            item.get("title", "Ingen titel"),
+                            item.get("description", "Ingen beskrivning"),
+                            card_index=f"media_news_{idx}",
+                            full_data=item
+                        )
+                else:
+                    st.info("Inga medierelaterade nyheter hittades för valda kategorier")
             
             # Fetch Mötesprotocol (latest 3) based on selected categories
             if "Möten" in selected_content_types:
@@ -385,7 +400,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         display_feed_card(
                             "Mötesprotokoll",
                             item.get("title", "Ingen titel"),
-                            item.get("description", "Ingen beskrivning")[:200],
+                            item.get("description", "Ingen beskrivning"),
                             is_meeting=True,
                             meeting_id=item.get("id"),
                             card_index=f"meeting_{idx}",
@@ -403,7 +418,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         display_feed_card(
                             "Kurs",
                             item.get("title", "Ingen titel"),
-                            item.get("description", "Ingen beskrivning")[:200],
+                            item.get("description", "Ingen beskrivning"),
                             card_index=f"course_{idx}",
                             full_data=item
                         )
@@ -424,7 +439,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
             st.error(f"Error loading personal feed: {e}")
 
     with tab2:
-        st.markdown("### ⭐ Sparat flöde")
+        st.markdown("### ⭐ Mina favoriter")
         try:
             favorites = load_favorites()
             if not favorites:
@@ -456,7 +471,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                     display_feed_card(
                         tag,
                         data.get("title", "Ingen titel"),
-                        data.get("description", "Ingen beskrivning")[:200],
+                        data.get("description", "Ingen beskrivning"),
                         is_meeting=is_meeting,
                         meeting_id=data.get("id") if is_meeting else None,
                         card_index=f"saved_{idx}",
@@ -492,7 +507,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                     display_feed_card(
                         tag,
                         data.get("title", "Ingen titel"),
-                        data.get("description", "Ingen beskrivning")[:200],
+                        data.get("description", "Ingen beskrivning"),
                         is_meeting=is_meeting,
                         meeting_id=data.get("id") if is_meeting else None,
                         card_index=f"latest_{idx}",
@@ -634,7 +649,7 @@ Kontext - Valda kategorier och språk:
 
 def display_question_interface(selected_categories, language):
     """Display the question interface for chatting with meeting items"""
-    st.markdown("### 💬 Ställ frågor om mötesärende")
+    st.markdown("### 💬 Ställ frågor om ärendet")
     
     # Initialize session state for conversation
     if "messages" not in st.session_state:

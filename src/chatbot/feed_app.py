@@ -42,7 +42,7 @@ def main():
         st.session_state.selected_categories = []
     
     if "selected_content_types" not in st.session_state.keys():
-        st.session_state.selected_content_types = ["Malax nyheter", "Malax i media", "Möten", "MI kurser"]
+        st.session_state.selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"]
     
     if "selected_language" not in st.session_state.keys():
         st.session_state.selected_language = "Svenska"
@@ -58,7 +58,7 @@ def main():
     if saved_selections and not st.session_state.categories_selected:
         st.session_state.selected_categories = saved_selections.get("categories", [])
         st.session_state.selected_language = saved_selections.get("language", "Svenska")
-        st.session_state.selected_content_types = saved_selections.get("content_types", ["Malax nyheter", "Malax i media", "Möten", "MI kurser"])
+        st.session_state.selected_content_types = saved_selections.get("content_types", ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"])
         st.session_state.categories_selected = True
     
     # Show category selection interface if categories haven't been selected yet
