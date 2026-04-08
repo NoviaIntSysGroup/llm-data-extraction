@@ -31,8 +31,6 @@ def main():
     with col2:
         st.markdown(
             "<h1 style='text-align: center; color: white;'>Jag och min kommun</h1>", unsafe_allow_html=True)
-        st.info(
-            "Senaste nytt från Malax kommun nyheter, möten och evenemang")
 
     # Initialize session state variables
     if "categories_selected" not in st.session_state.keys():
@@ -74,43 +72,38 @@ def main():
     
     # Show feed or question interface
     with col2:
+        # Unified chat window (general + meeting-specific)
         if st.session_state.ask_question_mode:
-            if st.session_state.question_type == "general":
-                display_general_question_interface(st.session_state.selected_categories, st.session_state.selected_language)
-            else:
-                display_question_interface(st.session_state.selected_categories, st.session_state.selected_language)
+            display_question_interface(st.session_state.selected_categories, st.session_state.selected_language)
         else:
             category_param = st.query_params.get("category")
             if category_param:
                 display_category_feed(category_param)
             else:
+                # Inline input bar at top of the main feed page
+                display_general_question_interface(st.session_state.selected_categories, st.session_state.selected_language)
                 display_feed(st.session_state.selected_categories, st.session_state.selected_language, st.session_state.selected_content_types)
     
     # Show buttons at the bottom (outside main column)
-    col_button1, col_button2, col_button3 = st.columns([1, 2, 1])
-    with col_button2:
-        if st.session_state.ask_question_mode:
-            if st.button("← Tillbaka till flöde", key="back_btn", use_container_width=True):
+    if not st.session_state.ask_question_mode:
+        col_button1, col_button2, col_button3 = st.columns([1, 2, 1])
+        with col_button2:
+            if st.query_params.get("category"):
+                pass # Back button is already inside display_category_feed
+            
+            if st.button("🔧 Ändra inställningar", key="change_settings_btn", use_container_width=True):
+                delete_selections()
+                st.session_state.categories_selected = False
+                # Don't clear selected_categories here so they can be pre-filled
                 st.session_state.ask_question_mode = False
                 st.session_state.question_type = None
                 st.session_state.question_meeting_id = None
                 st.session_state.question_meeting_context = None
-                st.session_state.messages = []
+                if "general_messages" in st.session_state:
+                    st.session_state.general_messages = []
+                if "meeting_messages" in st.session_state:
+                    st.session_state.meeting_messages = []
                 st.rerun()
-        elif st.query_params.get("category"):
-            pass # Back button is already inside display_category_feed
-        
-        if st.button("🔧 Ändra inställningar", key="change_settings_btn", use_container_width=True):
-            delete_selections()
-            st.session_state.categories_selected = False
-            # Don't clear selected_categories here so they can be pre-filled
-            st.session_state.ask_question_mode = False
-            st.session_state.question_type = None
-            st.session_state.question_meeting_id = None
-            st.session_state.question_meeting_context = None
-            if "messages" in st.session_state:
-                st.session_state.messages = []
-            st.rerun()
 
 if __name__ == "__main__":
     main()

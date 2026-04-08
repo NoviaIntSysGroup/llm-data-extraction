@@ -122,7 +122,20 @@ def display_category_selector():
     
     return None
 
-def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None, card_index=None, full_data=None, bg_color=None):
+def display_feed_card(
+    tag,
+    title,
+    description,
+    is_meeting=False,
+    meeting_id=None,
+    card_index=None,
+    full_data=None,
+    bg_color=None,
+    show_action_buttons=True,
+    show_expand_button=True,
+    show_inline_question_input=True,
+    force_expanded=None,
+):
     """Display a single feed card with tag, title, and description"""
     # Set background color based on tag if not explicitly provided
     if bg_color is None:
@@ -133,8 +146,11 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
     
     # Initialize expanded state for this card
     expand_key = f"expand_{card_index}"
-    if expand_key not in st.session_state:
-        st.session_state[expand_key] = False
+    if force_expanded is None:
+        if expand_key not in st.session_state:
+            st.session_state[expand_key] = False
+    else:
+        st.session_state[expand_key] = force_expanded
     
     # Build expanded content HTML
     expanded_html = ""
@@ -208,8 +224,11 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
     if title:
         title = str(title).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", " ").replace("\n", " ")
 
-    # Create card container with buttons in top right
-    col_content, col_buttons = st.columns([0.9, 0.1])
+    # Create card container
+    if show_action_buttons:
+        col_content, col_buttons = st.columns([0.9, 0.1])
+    else:
+        col_content = st.container()
     
     with col_content:
         if has_image:
@@ -249,35 +268,72 @@ def display_feed_card(tag, title, description, is_meeting=False, meeting_id=None
 {expanded_html}
 </div>""", unsafe_allow_html=True)
     
-    with col_buttons:
-        # Fråga AI button
-        if st.button("💬", key=f"ask_btn_{card_index}", help="Fråga AI"):
+    if show_action_buttons:
+        with col_buttons:
+            # Favorite button
+            favorites = load_favorites()
+            is_favorited = title in favorites
+            star_icon = "⭐" if is_favorited else "☆"
+            
+            if st.button(star_icon, key=f"fav_btn_{card_index}", help="Spara som favorit"):
+                toggle_favorite(title, tag)
+                st.rerun()
+            
+            # Share button (placeholder)
+            if st.button("↗️", key=f"share_btn_{card_index}", help="Dela"):
+                pass
+
+    # Inline meeting question input (only when expanded)
+    if (
+        is_meeting
+        and full_data
+        and show_inline_question_input
+        and st.session_state.get(expand_key, False)
+    ):
+        input_key = f"meeting_card_input_{card_index}"
+
+        def _submit_meeting_card_question():
+            prompt_text = st.session_state.get(input_key, "").strip()
+            if not prompt_text:
+                return
+
+            if "meeting_messages" not in st.session_state:
+                st.session_state.meeting_messages = []
+
+            current_context = st.session_state.get("question_meeting_context")
+            current_id = current_context.get("id") if isinstance(current_context, dict) else None
+            new_id = full_data.get("id")
+
+            # Start a fresh meeting chat when switching to a different errand
+            if current_id != new_id:
+                st.session_state.meeting_messages = []
+                st.session_state.meeting_conversation_memory = llm_kg_retrieval.ConversationMemory()
+                st.session_state.meeting_conversation_logger = llm_kg_retrieval.ConversationLogger()
+
             st.session_state.ask_question_mode = True
-            st.session_state.question_meeting_id = meeting_id
+            st.session_state.question_type = "meeting"
+            st.session_state.question_meeting_id = meeting_id if meeting_id is not None else new_id
             st.session_state.question_meeting_context = full_data
-            st.rerun()
-        
-        # Favorite button
-        favorites = load_favorites()
-        is_favorited = title in favorites
-        star_icon = "⭐" if is_favorited else "☆"
-        
-        if st.button(star_icon, key=f"fav_btn_{card_index}", help="Spara som favorit"):
-            toggle_favorite(title, tag)
-            st.rerun()
-        
-        # Share button (placeholder)
-        if st.button("↗️", key=f"share_btn_{card_index}", help="Dela"):
-            pass
+            st.session_state.meeting_messages.append({"role": "user", "content": prompt_text})
+            st.session_state[input_key] = ""
+
+        st.text_input(
+            "Ställ en fråga om ärendet",
+            key=input_key,
+            placeholder="🔍 Ställ en fråga om ärendet",
+            label_visibility="collapsed",
+            on_change=_submit_meeting_card_question,
+        )
     
     # Show more/less button below card
-    col1, col2 = st.columns([0.9, 0.1])
-    with col1:
-        if full_data:
-            btn_text = "▲ Visa mindre" if st.session_state[expand_key] else "▼ Visa mera"
-            if st.button(btn_text, key=f"expand_btn_{card_index}", use_container_width=True):
-                st.session_state[expand_key] = not st.session_state[expand_key]
-                st.rerun()
+    if show_expand_button:
+        col1, col2 = st.columns([0.9, 0.1])
+        with col1:
+            if full_data:
+                btn_text = "▲ Visa mindre" if st.session_state[expand_key] else "▼ Visa mera"
+                if st.button(btn_text, key=f"expand_btn_{card_index}", use_container_width=True):
+                    st.session_state[expand_key] = not st.session_state[expand_key]
+                    st.rerun()
 
 def display_category_feed(category):
     """Display a feed for a single category"""
@@ -424,17 +480,6 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         )
                 else:
                     st.info("Inga kurser hittades för valda kategorier")
-            
-            # Add button to ask general questions about Malax
-            st.divider()
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col2:
-                if st.button("❓ Ställ allmänna frågor", type="secondary", use_container_width=True):
-                    st.session_state.ask_question_mode = True
-                    st.session_state.question_type = "general"
-                    st.session_state.question_meeting_id = None
-                    st.session_state.question_meeting_context = None
-                    st.rerun()
         except Exception as e:
             st.error(f"Error loading personal feed: {e}")
 
@@ -521,34 +566,74 @@ def display_feed(selected_categories, language, selected_content_types=None):
     driver.close()
 
 def display_general_question_interface(selected_categories, language):
-    """Display the general question interface for asking about Malax municipality"""
-    st.markdown("### ❓ Ställ frågor om Malax kommun")
-    
-    # Initialize session state for conversation
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    
-    if "conversation_memory" not in st.session_state:
-        st.session_state.conversation_memory = llm_kg_retrieval.ConversationMemory()
-    
-    if "conversation_logger" not in st.session_state:
-        st.session_state.conversation_logger = llm_kg_retrieval.ConversationLogger()
-    
-    if "chatbot_type" not in st.session_state:
-        st.session_state.chatbot_type = None
-    
-    # Build context based on selected categories
-    context_prefix = f"""
-Kontext - Valda kategorier och språk:
-- Kategorier: {', '.join(selected_categories)}
-- Språk: {language}
+    """Display a simple entry bar that opens the unified chat window"""
 
-"""
-    
+    if "general_messages" not in st.session_state:
+        st.session_state.general_messages = []
+
+    input_key = "general_entry_input"
+
+    def _submit_general_entry_prompt():
+        prompt_text = st.session_state.get(input_key, "").strip()
+        if not prompt_text:
+            return
+
+        st.session_state.ask_question_mode = True
+        st.session_state.question_type = "general"
+        st.session_state.question_meeting_id = None
+        st.session_state.question_meeting_context = None
+        st.session_state.general_messages.append({"role": "user", "content": prompt_text})
+        st.session_state[input_key] = ""
+
+    st.text_input(
+        "Ställ en fråga om Malax",
+        key=input_key,
+        placeholder="🔍 Ställ en fråga om Malax",
+        label_visibility="collapsed",
+        on_change=_submit_general_entry_prompt,
+    )
+
+def display_question_interface(selected_categories, language):
+    """Display unified chat window for both general and meeting-specific chats"""
+
+    is_meeting_chat = st.session_state.get("question_type") == "meeting"
+
+    messages_key = "meeting_messages" if is_meeting_chat else "general_messages"
+    memory_key = "meeting_conversation_memory" if is_meeting_chat else "general_conversation_memory"
+    logger_key = "meeting_conversation_logger" if is_meeting_chat else "general_conversation_logger"
+    input_key = "meeting_chat_window_input" if is_meeting_chat else "general_chat_window_input"
+
+    if messages_key not in st.session_state:
+        st.session_state[messages_key] = []
+    if memory_key not in st.session_state:
+        st.session_state[memory_key] = llm_kg_retrieval.ConversationMemory()
+    if logger_key not in st.session_state:
+        st.session_state[logger_key] = llm_kg_retrieval.ConversationLogger()
+    if "general_chatbot_type" not in st.session_state:
+        st.session_state.general_chatbot_type = None
+
+    # For meeting chats, show only the selected card (always expanded)
+    if is_meeting_chat and st.session_state.get("question_meeting_context"):
+        context_data = st.session_state.question_meeting_context
+        chat_card_index = f"chat_meeting_{context_data.get('id', 'selected')}"
+        display_feed_card(
+            "Mötesprotokoll",
+            context_data.get("title", "Ingen titel"),
+            context_data.get("description", "Ingen beskrivning"),
+            is_meeting=True,
+            meeting_id=context_data.get("id"),
+            card_index=chat_card_index,
+            full_data=context_data,
+            show_action_buttons=False,
+            show_expand_button=False,
+            show_inline_question_input=False,
+            force_expanded=True,
+        )
+
     # Display previous messages
-    for message in st.session_state.messages:
+    for message in st.session_state[messages_key]:
         with st.chat_message(message["role"]):
-            if message.get("intermediate_steps") and st.session_state.chatbot_type == "meetings":
+            if message.get("intermediate_steps"):
                 with st.expander("Mellanliggande steg", expanded=False):
                     if message["intermediate_steps"].get("query"):
                         st.markdown(
@@ -557,7 +642,8 @@ Kontext - Valda kategorier och språk:
                             ```
                             {message["intermediate_steps"]["query"]}
                             ```
-                            """)
+                            """
+                        )
                     if message["intermediate_steps"].get("context"):
                         st.markdown(
                             f"""
@@ -565,107 +651,21 @@ Kontext - Valda kategorier och språk:
                             ```python
                             {message["intermediate_steps"]["context"]}
                             ```
-                            """)
+                            """
+                        )
             st.write(message["content"])
-    
-    # If last message is not from assistant, generate a new response
-    if st.session_state.messages and st.session_state.messages[-1]["role"] != "assistant":
-        # Get the last user question
-        last_user_message = st.session_state.messages[-1]["content"]
-        
+
+    # If last message is from user, generate assistant response
+    if st.session_state[messages_key] and st.session_state[messages_key][-1]["role"] != "assistant":
+        last_user_message = st.session_state[messages_key][-1]["content"]
+
         with st.chat_message("assistant"):
             answer_placeholder = st.empty()
             with st.spinner("Tänker..."):
                 try:
-                    # Determine chatbot type dynamically for each question
-                    # This allows the user to ask different types of questions in the same session
-                    # We pass the history excluding the very last message since that's the query itself
-                    history_for_classification = st.session_state.messages[:-1]
-                    current_intent = llm_kg_retrieval.classify_question_intent(last_user_message, history_for_classification)
-                    st.session_state.chatbot_type = current_intent
-                    
-                    if st.session_state.chatbot_type == "meetings":
-                        # Use Knowledge Graph RAG for meeting questions
-                        processor = llm_kg_retrieval.KnowledgeGraphRAG(
-                            url=os.getenv("NEO4J_URI"),
-                            username=os.getenv("NEO4J_USERNAME"),
-                            password=os.getenv("NEO4J_PASSWORD"),
-                            database=os.getenv("NEO4J_DATABASE"),
-                            answer_placeholder=answer_placeholder,
-                            run_environment="script",
-                            enable_memory=True,
-                            memory=st.session_state.conversation_memory,
-                            enable_logging=True,
-                            logger=st.session_state.conversation_logger)
-                        
-                        final_prompt = f"{context_prefix}User question: {last_user_message}"
-                        response, query, context = processor.process_prompt(final_prompt)
-                        
-                        # Ensure response is a string
-                        response_text = str(response) if not isinstance(response, str) else response
-                        
-                        message = {"role": "assistant",
-                                   "content": response_text, "intermediate_steps": {}}
-                        if query:
-                            query = query.replace("cypher", "").replace("```", "").strip()
-                            message["intermediate_steps"]["query"] = query
-                            if context:
-                                message["intermediate_steps"]["context"] = context
-                        
-                        st.session_state.messages.append(message)
-                    else:
-                        # Use Web Search RAG for general Malax information
-                        processor = llm_kg_retrieval.WebSearchRAG(
-                            answer_placeholder=answer_placeholder,
-                            run_environment="script",
-                            enable_memory=True,
-                            memory=st.session_state.conversation_memory,
-                            enable_logging=True,
-                            logger=st.session_state.conversation_logger)
-                        
-                        final_prompt = f"{context_prefix}User question: {last_user_message}"
-                        response, _, _ = processor.process_prompt(final_prompt)
-                        
-                        # Ensure response is a string
-                        response_text = str(response) if not isinstance(response, str) else response
-                        
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": response_text,
-                            "intermediate_steps": {}
-                        })
-                
-                except Exception as e:
-                    st.error(f"Fel vid bearbetning av fråga: {str(e)}")
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": "Tyvärr stötte jag på ett fel när jag bearbetade din fråga."
-                    })
-    
-    # Prompt for user input (appears at the end after all messages are displayed)
-    if prompt := st.chat_input("Ställ en fråga"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.rerun()  # Rerun immediately so response is generated on next execution
-
-def display_question_interface(selected_categories, language):
-    """Display the question interface for chatting with meeting items"""
-    st.markdown("### 💬 Ställ frågor om ärendet")
-    
-    # Initialize session state for conversation
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    
-    if "conversation_memory" not in st.session_state:
-        st.session_state.conversation_memory = llm_kg_retrieval.ConversationMemory()
-    
-    if "conversation_logger" not in st.session_state:
-        st.session_state.conversation_logger = llm_kg_retrieval.ConversationLogger()
-    
-    # Build context from meeting data
-    meeting_context = ""
-    if "question_meeting_context" in st.session_state and st.session_state.question_meeting_context:
-        context_data = st.session_state.question_meeting_context
-        meeting_context = f"""
+                    if is_meeting_chat:
+                        context_data = st.session_state.get("question_meeting_context") or {}
+                        meeting_context = f"""
 Context - Meeting Item Information:
 - Title: {context_data.get('title', 'N/A')}
 - Description: {context_data.get('description', 'N/A')}
@@ -676,72 +676,124 @@ Context - Meeting Item Information:
 - Categories: {context_data.get('matched_categories', 'N/A')}
 
 """
-    
-    # Display previous messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            if message.get("intermediate_steps"):
-                with st.expander("Intermediate Steps", expanded=False):
-                    st.markdown(
-                        f"""
-                        Generated Cypher Query:
-                        ```
-                        {message["intermediate_steps"]["query"]}
-                        ```
-                        """)
-                    if message["intermediate_steps"].get("context"):
-                        st.markdown(
-                            f"""
-                            Retrieved Context from Knowledge Graph:
-                            ```python
-                            {message["intermediate_steps"]["context"]}
-                            ```
-                            """)
-            st.write(message["content"])
-    
-    # If last message is not from assistant, generate a new response
-    if st.session_state.messages and st.session_state.messages[-1]["role"] != "assistant":
-        # Get the last user question
-        last_user_message = st.session_state.messages[-1]["content"]
-        
-        with st.chat_message("assistant"):
-            answer_placeholder = st.empty()
-            with st.spinner("Thinking..."):
-                try:
-                    processor = llm_kg_retrieval.KnowledgeGraphRAG(
-                        url=os.getenv("NEO4J_URI"),
-                        username=os.getenv("NEO4J_USERNAME"),
-                        password=os.getenv("NEO4J_PASSWORD"),
-                        database=os.getenv("NEO4J_DATABASE"),
-                        answer_placeholder=answer_placeholder,
-                        run_environment="script",
-                        enable_memory=True,
-                        memory=st.session_state.conversation_memory,
-                        enable_logging=True,
-                        logger=st.session_state.conversation_logger)
-                    
-                    # Include meeting context in the prompt
-                    final_prompt = f"{meeting_context}User question: {last_user_message}"
-                    response, query, context = processor.process_prompt(final_prompt)
-                    
-                    message = {"role": "assistant",
-                               "content": response, "intermediate_steps": {}}
-                    if query:
-                        query = query.replace(
-                            "cypher", "").replace("```", "").strip()
-                        message["intermediate_steps"]["query"] = query
-                        if context:
-                            message["intermediate_steps"]["context"] = context
-                    
-                    st.session_state.messages.append(message)
+
+                        processor = llm_kg_retrieval.KnowledgeGraphRAG(
+                            url=os.getenv("NEO4J_URI"),
+                            username=os.getenv("NEO4J_USERNAME"),
+                            password=os.getenv("NEO4J_PASSWORD"),
+                            database=os.getenv("NEO4J_DATABASE"),
+                            answer_placeholder=answer_placeholder,
+                            run_environment="script",
+                            enable_memory=True,
+                            memory=st.session_state[memory_key],
+                            enable_logging=True,
+                            logger=st.session_state[logger_key],
+                        )
+
+                        final_prompt = f"{meeting_context}User question: {last_user_message}"
+                        response, query, context = processor.process_prompt(final_prompt)
+
+                        response_text = str(response) if not isinstance(response, str) else response
+                        assistant_message = {"role": "assistant", "content": response_text, "intermediate_steps": {}}
+                        if query:
+                            clean_query = query.replace("cypher", "").replace("```", "").strip()
+                            assistant_message["intermediate_steps"]["query"] = clean_query
+                            if context:
+                                assistant_message["intermediate_steps"]["context"] = context
+
+                        st.session_state[messages_key].append(assistant_message)
+                    else:
+                        context_prefix = f"""
+Kontext - Valda kategorier och språk:
+- Kategorier: {', '.join(selected_categories)}
+- Språk: {language}
+
+"""
+
+                        history_for_classification = st.session_state[messages_key][:-1]
+                        current_intent = llm_kg_retrieval.classify_question_intent(
+                            last_user_message, history_for_classification
+                        )
+                        st.session_state.general_chatbot_type = current_intent
+
+                        if current_intent == "meetings":
+                            processor = llm_kg_retrieval.KnowledgeGraphRAG(
+                                url=os.getenv("NEO4J_URI"),
+                                username=os.getenv("NEO4J_USERNAME"),
+                                password=os.getenv("NEO4J_PASSWORD"),
+                                database=os.getenv("NEO4J_DATABASE"),
+                                answer_placeholder=answer_placeholder,
+                                run_environment="script",
+                                enable_memory=True,
+                                memory=st.session_state[memory_key],
+                                enable_logging=True,
+                                logger=st.session_state[logger_key],
+                            )
+
+                            final_prompt = f"{context_prefix}User question: {last_user_message}"
+                            response, query, context = processor.process_prompt(final_prompt)
+                            response_text = str(response) if not isinstance(response, str) else response
+
+                            assistant_message = {"role": "assistant", "content": response_text, "intermediate_steps": {}}
+                            if query:
+                                clean_query = query.replace("cypher", "").replace("```", "").strip()
+                                assistant_message["intermediate_steps"]["query"] = clean_query
+                                if context:
+                                    assistant_message["intermediate_steps"]["context"] = context
+
+                            st.session_state[messages_key].append(assistant_message)
+                        else:
+                            processor = llm_kg_retrieval.WebSearchRAG(
+                                answer_placeholder=answer_placeholder,
+                                run_environment="script",
+                                enable_memory=True,
+                                memory=st.session_state[memory_key],
+                                enable_logging=True,
+                                logger=st.session_state[logger_key],
+                            )
+
+                            final_prompt = f"{context_prefix}User question: {last_user_message}"
+                            response, _, _ = processor.process_prompt(final_prompt)
+                            response_text = str(response) if not isinstance(response, str) else response
+
+                            st.session_state[messages_key].append(
+                                {"role": "assistant", "content": response_text, "intermediate_steps": {}}
+                            )
+
                 except Exception as e:
-                    st.error(f"Error processing question: {str(e)}")
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": "Sorry, I encountered an error while processing your question."
-                    })
-    
-    # Prompt for user input (appears at the end after all messages are displayed)
-    if prompt := st.chat_input("Ask a question about the meeting"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.rerun()  # Rerun immediately so response is generated on next execution
+                    st.error(f"Fel vid bearbetning av fråga: {str(e)}")
+                    st.session_state[messages_key].append(
+                        {
+                            "role": "assistant",
+                            "content": "Tyvärr stötte jag på ett fel när jag bearbetade din fråga.",
+                        }
+                    )
+
+    # Input bar (below chat history)
+    def _submit_chat_window_prompt():
+        prompt_text = st.session_state.get(input_key, "").strip()
+        if prompt_text:
+            st.session_state[messages_key].append({"role": "user", "content": prompt_text})
+            st.session_state[input_key] = ""
+
+    placeholder = "🔍 Ställ en fråga om ärendet" if is_meeting_chat else "🔍 Ställ en fråga om Malax"
+    st.text_input(
+        "Chat input",
+        key=input_key,
+        placeholder=placeholder,
+        label_visibility="collapsed",
+        on_change=_submit_chat_window_prompt,
+    )
+
+    # Close chat button (below input)
+    if st.button("✖ Stäng chatt", key="close_chat_window_btn", use_container_width=True):
+        st.session_state.ask_question_mode = False
+        st.session_state.question_type = None
+        st.session_state.question_meeting_id = None
+        st.session_state.question_meeting_context = None
+        st.session_state[messages_key] = []
+        st.session_state[memory_key] = llm_kg_retrieval.ConversationMemory()
+        st.session_state[logger_key] = llm_kg_retrieval.ConversationLogger()
+        if not is_meeting_chat:
+            st.session_state.general_chatbot_type = None
+        st.rerun()
