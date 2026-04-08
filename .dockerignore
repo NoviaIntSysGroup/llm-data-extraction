@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+config/secrets.env
+
+# Version control
+.git/
+.gitignore
+
+# Data (optional - uncomment if you want to exclude large data files from image)
+data/protocols
+data/scraped_data.json
+data/scraping
+data/temp
+data/pages
+data/llm/logs
+notebooks/agenda.html
+data/upcoming
+backups
+
+# Documentation
+docs/
+
+# OS
+.DS_Store
+Thumbs.db

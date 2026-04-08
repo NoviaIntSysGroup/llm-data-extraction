@@ -8,6 +8,7 @@ data/pages
 data/llm/logs
 notebooks/agenda.html
 data/upcoming
+neo4j_data
 
 # Vscode
 .vscode
