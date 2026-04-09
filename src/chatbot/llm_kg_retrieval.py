@@ -48,8 +48,8 @@ def classify_question_intent(user_query: str, chat_history: List[Dict[str, str]]
     Current user question: "{user_query}"
     
     Respond STRICTLY with exactly one word: 
-    - "MEETINGS" if it is about meetings/protocols/decisions.
-    - "GENERAL" if it is about general information/news/courses.
+    - "DATABASE" if it is about meetings, protocols, decisions, news, courses or events.
+    - "GENERAL" if it is about general information or other.
     """
     
     response = model.invoke(prompt)
@@ -71,7 +71,7 @@ def classify_question_intent(user_query: str, chat_history: List[Dict[str, str]]
     else:
         classification = str(content).strip().upper()
     
-    return "meetings" if "MEETINGS" in classification else "malax"
+    return "meetings" if "DATABASE" in classification else "malax"
 
 def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None, thinking_level: str = "low", google_search = False) -> BaseLanguageModel:
     """

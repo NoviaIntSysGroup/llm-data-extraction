@@ -202,6 +202,9 @@ def display_feed_card(
     date_html = ""
     if full_data and full_data.get("date"):
         date_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">{full_data.get("date")}</span>'
+    elif full_data and full_data.get("start_date"):
+        # For courses, show the start date
+        date_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">{full_data.get("start_date")}</span>'
 
     body_html = ""
     if is_meeting and full_data and full_data.get("body"):
@@ -283,46 +286,58 @@ def display_feed_card(
             if st.button("↗️", key=f"share_btn_{card_index}", help="Dela"):
                 pass
 
-    # Inline meeting question input (only when expanded)
+    # Inline database question input (only when expanded)
     if (
-        is_meeting
-        and full_data
+        full_data
         and show_inline_question_input
         and st.session_state.get(expand_key, False)
     ):
-        input_key = f"meeting_card_input_{card_index}"
+        input_key = f"database_card_input_{card_index}"
 
-        def _submit_meeting_card_question():
+        def _submit_database_card_question():
             prompt_text = st.session_state.get(input_key, "").strip()
             if not prompt_text:
                 return
 
-            if "meeting_messages" not in st.session_state:
-                st.session_state.meeting_messages = []
+            if "database_messages" not in st.session_state:
+                st.session_state.database_messages = []
 
-            current_context = st.session_state.get("question_meeting_context")
-            current_id = current_context.get("id") if isinstance(current_context, dict) else None
-            new_id = full_data.get("id")
+            database_context = {
+                "tag": tag,
+                "is_meeting": is_meeting,
+                "database_id": (
+                    meeting_id
+                    if meeting_id is not None
+                    else full_data.get("id")
+                    if full_data.get("id") is not None
+                    else f"{tag}:{str(title)}"
+                ),
+                "item": full_data,
+            }
 
-            # Start a fresh meeting chat when switching to a different errand
+            current_context = st.session_state.get("question_database_context")
+            current_id = current_context.get("database_id") if isinstance(current_context, dict) else None
+            new_id = database_context.get("database_id")
+
+            # Start a fresh database chat when switching to a different selected card
             if current_id != new_id:
-                st.session_state.meeting_messages = []
-                st.session_state.meeting_conversation_memory = llm_kg_retrieval.ConversationMemory()
-                st.session_state.meeting_conversation_logger = llm_kg_retrieval.ConversationLogger()
+                st.session_state.database_messages = []
+                st.session_state.database_conversation_memory = llm_kg_retrieval.ConversationMemory()
+                st.session_state.database_conversation_logger = llm_kg_retrieval.ConversationLogger()
 
             st.session_state.ask_question_mode = True
-            st.session_state.question_type = "meeting"
-            st.session_state.question_meeting_id = meeting_id if meeting_id is not None else new_id
-            st.session_state.question_meeting_context = full_data
-            st.session_state.meeting_messages.append({"role": "user", "content": prompt_text})
+            st.session_state.question_type = "database"
+            st.session_state.question_database_id = new_id
+            st.session_state.question_database_context = database_context
+            st.session_state.database_messages.append({"role": "user", "content": prompt_text})
             st.session_state[input_key] = ""
 
         st.text_input(
-            "Ställ en fråga om ärendet",
+            "Ställ en fråga om innehållet",
             key=input_key,
-            placeholder="🔍 Ställ en fråga om ärendet",
+            placeholder="🔍 Ställ en fråga om innehållet",
             label_visibility="collapsed",
-            on_change=_submit_meeting_card_question,
+            on_change=_submit_database_card_question,
         )
     
     # Show more/less button below card
@@ -332,7 +347,18 @@ def display_feed_card(
             if full_data:
                 btn_text = "▲ Visa mindre" if st.session_state[expand_key] else "▼ Visa mera"
                 if st.button(btn_text, key=f"expand_btn_{card_index}", use_container_width=True):
-                    st.session_state[expand_key] = not st.session_state[expand_key]
+                    is_currently_expanded = st.session_state.get(expand_key, False)
+
+                    if is_currently_expanded:
+                        # Collapse current card
+                        st.session_state[expand_key] = False
+                    else:
+                        # Collapse all cards, then expand only this one
+                        for key in list(st.session_state.keys()):
+                            if key.startswith("expand_") and not key.startswith("expand_btn_"):
+                                st.session_state[key] = False
+                        st.session_state[expand_key] = True
+
                     st.rerun()
 
 def display_category_feed(category):
@@ -580,8 +606,8 @@ def display_general_question_interface(selected_categories, language):
 
         st.session_state.ask_question_mode = True
         st.session_state.question_type = "general"
-        st.session_state.question_meeting_id = None
-        st.session_state.question_meeting_context = None
+        st.session_state.question_database_id = None
+        st.session_state.question_database_context = None
         st.session_state.general_messages.append({"role": "user", "content": prompt_text})
         st.session_state[input_key] = ""
 
@@ -594,14 +620,14 @@ def display_general_question_interface(selected_categories, language):
     )
 
 def display_question_interface(selected_categories, language):
-    """Display unified chat window for both general and meeting-specific chats"""
+    """Display unified chat window for both general and database chats"""
 
-    is_meeting_chat = st.session_state.get("question_type") == "meeting"
+    is_database_chat = st.session_state.get("question_type") == "database"
 
-    messages_key = "meeting_messages" if is_meeting_chat else "general_messages"
-    memory_key = "meeting_conversation_memory" if is_meeting_chat else "general_conversation_memory"
-    logger_key = "meeting_conversation_logger" if is_meeting_chat else "general_conversation_logger"
-    input_key = "meeting_chat_window_input" if is_meeting_chat else "general_chat_window_input"
+    messages_key = "database_messages" if is_database_chat else "general_messages"
+    memory_key = "database_conversation_memory" if is_database_chat else "general_conversation_memory"
+    logger_key = "database_conversation_logger" if is_database_chat else "general_conversation_logger"
+    input_key = "database_chat_window_input" if is_database_chat else "general_chat_window_input"
 
     if messages_key not in st.session_state:
         st.session_state[messages_key] = []
@@ -612,18 +638,22 @@ def display_question_interface(selected_categories, language):
     if "general_chatbot_type" not in st.session_state:
         st.session_state.general_chatbot_type = None
 
-    # For meeting chats, show only the selected card (always expanded)
-    if is_meeting_chat and st.session_state.get("question_meeting_context"):
-        context_data = st.session_state.question_meeting_context
-        chat_card_index = f"chat_meeting_{context_data.get('id', 'selected')}"
+    # For database chats, show only the selected card (always expanded)
+    if is_database_chat and st.session_state.get("question_database_context"):
+        context_payload = st.session_state.question_database_context
+        item_data = context_payload.get("item", {}) if isinstance(context_payload, dict) else {}
+        item_tag = context_payload.get("tag", "Innehåll") if isinstance(context_payload, dict) else "Innehåll"
+        item_is_meeting = context_payload.get("is_meeting", False) if isinstance(context_payload, dict) else False
+        item_database_id = context_payload.get("database_id") if isinstance(context_payload, dict) else None
+        chat_card_index = f"chat_database_{item_database_id if item_database_id is not None else 'selected'}"
         display_feed_card(
-            "Mötesprotokoll",
-            context_data.get("title", "Ingen titel"),
-            context_data.get("description", "Ingen beskrivning"),
-            is_meeting=True,
-            meeting_id=context_data.get("id"),
+            item_tag,
+            item_data.get("title", "Ingen titel"),
+            item_data.get("description", "Ingen beskrivning"),
+            is_meeting=item_is_meeting,
+            meeting_id=item_database_id,
             card_index=chat_card_index,
-            full_data=context_data,
+            full_data=item_data,
             show_action_buttons=False,
             show_expand_button=False,
             show_inline_question_input=False,
@@ -663,15 +693,27 @@ def display_question_interface(selected_categories, language):
             answer_placeholder = st.empty()
             with st.spinner("Tänker..."):
                 try:
-                    if is_meeting_chat:
-                        context_data = st.session_state.get("question_meeting_context") or {}
-                        meeting_context = f"""
-Context - Meeting Item Information:
+                    if is_database_chat:
+                        context_payload = st.session_state.get("question_database_context") or {}
+                        context_data = context_payload.get("item", {}) if isinstance(context_payload, dict) else {}
+                        context_tag = context_payload.get("tag", "N/A") if isinstance(context_payload, dict) else "N/A"
+                        context_database = f"""
+Context - Database Item Information:
+- Type: {context_tag}
 - Title: {context_data.get('title', 'N/A')}
 - Description: {context_data.get('description', 'N/A')}
 - Content: {context_data.get('content', 'N/A')}
 - Date: {context_data.get('date', 'N/A')}
+- Start Date: {context_data.get('start_date', 'N/A')}
+- End Date: {context_data.get('end_date', 'N/A')}
+- Author: {context_data.get('author', 'N/A')}
+- Source: {context_data.get('source', 'N/A')}
+- Body: {context_data.get('body', 'N/A')}
 - Errand: {context_data.get('errand', 'N/A')}
+- Decision: {context_data.get('decision', 'N/A')}
+- Location: {context_data.get('location', 'N/A')}
+- Price: {context_data.get('price', 'N/A')}
+- Times: {context_data.get('times', 'N/A')}
 - Link: {context_data.get('link', 'N/A')}
 - Categories: {context_data.get('matched_categories', 'N/A')}
 
@@ -690,7 +732,7 @@ Context - Meeting Item Information:
                             logger=st.session_state[logger_key],
                         )
 
-                        final_prompt = f"{meeting_context}User question: {last_user_message}"
+                        final_prompt = f"{context_database}User question: {last_user_message}"
                         response, query, context = processor.process_prompt(final_prompt)
 
                         response_text = str(response) if not isinstance(response, str) else response
@@ -716,7 +758,8 @@ Kontext - Valda kategorier och språk:
                         )
                         st.session_state.general_chatbot_type = current_intent
 
-                        if current_intent == "meetings":
+                        if current_intent in ["meetings", "database"]:
+                            st.session_state.general_chatbot_type = "database"
                             processor = llm_kg_retrieval.KnowledgeGraphRAG(
                                 url=os.getenv("NEO4J_URI"),
                                 username=os.getenv("NEO4J_USERNAME"),
@@ -743,6 +786,7 @@ Kontext - Valda kategorier och språk:
 
                             st.session_state[messages_key].append(assistant_message)
                         else:
+                            st.session_state.general_chatbot_type = "general"
                             processor = llm_kg_retrieval.WebSearchRAG(
                                 answer_placeholder=answer_placeholder,
                                 run_environment="script",
@@ -776,7 +820,7 @@ Kontext - Valda kategorier och språk:
             st.session_state[messages_key].append({"role": "user", "content": prompt_text})
             st.session_state[input_key] = ""
 
-    placeholder = "🔍 Ställ en fråga om ärendet" if is_meeting_chat else "🔍 Ställ en fråga om Malax"
+    placeholder = "🔍 Ställ en fråga om innehållet" if is_database_chat else "🔍 Ställ en fråga om Malax"
     st.text_input(
         "Chat input",
         key=input_key,
@@ -789,11 +833,11 @@ Kontext - Valda kategorier och språk:
     if st.button("✖ Stäng chatt", key="close_chat_window_btn", use_container_width=True):
         st.session_state.ask_question_mode = False
         st.session_state.question_type = None
-        st.session_state.question_meeting_id = None
-        st.session_state.question_meeting_context = None
+        st.session_state.question_database_id = None
+        st.session_state.question_database_context = None
         st.session_state[messages_key] = []
         st.session_state[memory_key] = llm_kg_retrieval.ConversationMemory()
         st.session_state[logger_key] = llm_kg_retrieval.ConversationLogger()
-        if not is_meeting_chat:
+        if not is_database_chat:
             st.session_state.general_chatbot_type = None
         st.rerun()

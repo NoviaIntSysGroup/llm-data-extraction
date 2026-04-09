@@ -422,6 +422,7 @@ def link_meeting_items_to_categories(driver, item_category_mapping):
 def link_news_and_courses_to_categories(driver, item_category_mapping):
     """
     Link News articles and Courses to Category nodes based on LLM assignments.
+    Also links all Courses to the "Evenemang och kurser" category.
     
     Args:
         driver: Neo4j driver instance
@@ -458,6 +459,27 @@ def link_news_and_courses_to_categories(driver, item_category_mapping):
                     print(f"Error linking news/course {item_id} to category: {e}")
                     pbar.update(2)
                     continue
+    
+    # Link all Courses to "Evenemang och kurser" category
+    print("Linking all courses to 'Evenemang och kurser' category...")
+    try:
+        with driver.session() as session:
+            session.run("""
+                MATCH (c:Course)
+                MATCH (cat:Category {name: 'Evenemang och kurser'})
+                MERGE (c)-[:HAS_CATEGORY {confidence: 1.0, reasoning: "Automatic category assignment for all courses"}]->(cat)
+            """)
+        
+        # Count courses linked
+        with driver.session() as session:
+            result = session.run("""
+                MATCH (c:Course)-[:HAS_CATEGORY]->(cat:Category {name: 'Evenemang och kurser'})
+                RETURN count(DISTINCT c) as count
+            """)
+            count = result.single()["count"]
+            print(f"Linked {count} courses to 'Evenemang och kurser' category")
+    except Exception as e:
+        print(f"Error linking courses to 'Evenemang och kurser': {e}")
     
     print("Category linking for news articles and courses completed")
 

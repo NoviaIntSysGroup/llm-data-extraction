@@ -523,7 +523,7 @@ def post_process_knowledge_graph(driver):
         """)
     print("Post-processing complete.")
 
-def create_knowledge_graph(construct_from, wipe_database=True):
+def create_knowledge_graph(construct_from, wipe_database=True, is_upcoming=False):
     """
     Creates a knowledge graph in Neo4j from the aggregate JSON data
 
@@ -552,10 +552,12 @@ def create_knowledge_graph(construct_from, wipe_database=True):
     execute_cypher_queries(driver, data, wipe_database=wipe_database)
 
     # Extract errand topics from meeting items
-    extract_errand_topics(driver)
+    if not is_upcoming:
+        extract_errand_topics(driver)
 
     # Create embeddings index
-    create_embeddings_index(driver)
+    if not is_upcoming:
+        create_embeddings_index(driver)
 
     # Post-process knowledge graph (convert date strings to DATE objects)
     post_process_knowledge_graph(driver)
