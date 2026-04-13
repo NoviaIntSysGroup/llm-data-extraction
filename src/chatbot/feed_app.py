@@ -18,7 +18,8 @@ from chatbot.ui_components import (
     display_feed, 
     display_category_feed,
     display_general_question_interface, 
-    display_question_interface
+    display_question_interface,
+    display_tutorial
 )
 
 def main():
@@ -54,6 +55,18 @@ def main():
     if "show_reset_confirmation" not in st.session_state.keys():
         st.session_state.show_reset_confirmation = False
     
+    if "show_tutorial" not in st.session_state.keys():
+        st.session_state.show_tutorial = False
+    
+    if "tutorial_page" not in st.session_state.keys():
+        st.session_state.tutorial_page = 0
+    
+    if "first_time_setup" not in st.session_state.keys():
+        st.session_state.first_time_setup = False
+    
+    if "tutorial_shown" not in st.session_state.keys():
+        st.session_state.tutorial_shown = False
+    
     # Try to load saved selections
     saved_selections = load_selections()
     if saved_selections and not st.session_state.categories_selected:
@@ -69,9 +82,19 @@ def main():
             if result:
                 st.session_state.selected_categories, st.session_state.selected_language, st.session_state.selected_content_types = result
                 st.session_state.categories_selected = True
+                # Only show tutorial if not already shown during this session
+                if not st.session_state.tutorial_shown:
+                    st.session_state.show_tutorial = True
+                    st.session_state.tutorial_shown = True
                 save_selections(st.session_state.selected_categories, st.session_state.selected_language, st.session_state.selected_content_types)
                 st.rerun()
         return  # Exit early, don't show feed until categories are selected
+    
+    # Show tutorial if needed
+    if st.session_state.show_tutorial:
+        with col2:
+            display_tutorial()
+        return  # Exit early, don't show feed while tutorial is displayed
     
     # Show feed or question interface
     with col2:
@@ -94,9 +117,15 @@ def main():
             if st.query_params.get("category"):
                 pass # Back button is already inside display_category_feed
             
-            button_col1, button_col2 = st.columns(2, gap="small")
+            button_col1, button_col2, button_col3 = st.columns(3, gap="small")
             
             with button_col1:
+                if st.button("📖 Visa guide", key="show_tutorial_btn", use_container_width=True):
+                    st.session_state.show_tutorial = True
+                    st.session_state.tutorial_page = 0
+                    st.rerun()
+            
+            with button_col2:
                 if st.button("🔧 Ändra inställningar", key="change_settings_btn", use_container_width=True):
                     delete_selections()
                     st.session_state.categories_selected = False
@@ -121,7 +150,7 @@ def main():
                         del st.session_state.database_conversation_logger
                     st.rerun()
             
-            with button_col2:
+            with button_col3:
                 if st.button("🗑️ Återställ allt", key="reset_btn", use_container_width=True):
                     st.session_state.show_reset_confirmation = True
                     st.rerun()
@@ -149,6 +178,9 @@ def main():
                         st.session_state.ask_question_mode = False
                         st.session_state.question_type = None
                         st.session_state.show_reset_confirmation = False
+                        st.session_state.tutorial_shown = False
+                        st.session_state.show_tutorial = True
+                        st.session_state.tutorial_page = 0
                         
                         for key in list(st.session_state.keys()):
                             if key.startswith("expand_") and not key.startswith("expand_btn_"):

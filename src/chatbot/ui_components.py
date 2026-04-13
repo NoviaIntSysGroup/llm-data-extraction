@@ -11,6 +11,66 @@ from chatbot.database import (
     query_courses_by_categories, query_latest_news, query_latest_meeting_items, query_latest_courses, query_saved_news, query_saved_meeting_items, query_saved_courses
 )
 
+def display_tutorial():
+    """Display tutorial pages with images and navigation"""
+    # Get the path to the assets folder (at project root)
+    import os
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    
+    tutorial_pages = [
+        {
+            "title": "Guide",
+            "text": "Detta är din personliga kommunguide. Här kan du hitta nyheter, möten och information som är relevant för dig.",
+            "image": os.path.join(project_root, "assets", "Tutorial1.png")
+        },
+        {
+            "title": "Guide",
+            "text": "Välj vilka kategorier du vill följa och vilken typ av innehåll som intresserar dig mest. Du kan när som helst ändra dina inställningar.",
+            "image": os.path.join(project_root, "assets", "Tutorial2.png")
+        },
+        {
+            "title": "Guide",
+            "text": "Använd sökfunktionen för att ställa frågor om Malax kommun. Vår AI-assistent hjälper dig att hitta den information du behöver.",
+            "image": os.path.join(project_root, "assets", "Tutorial3.png")
+        }
+    ]
+    
+    # Initialize tutorial page if not already done
+    if "tutorial_page" not in st.session_state:
+        st.session_state.tutorial_page = 0
+    
+    current_page = st.session_state.tutorial_page
+    page_data = tutorial_pages[current_page]
+    
+    st.markdown(f"<h2 style='text-align: center;'>{page_data['title']}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center; font-size: 16px;'>{page_data['text']}</p>", unsafe_allow_html=True)
+    
+    # Display image
+    try:
+        st.image(page_data['image'], use_container_width=True)
+    except Exception as e:
+        st.error(f"Kunde inte ladda bild: {e}")
+    
+    # Navigation buttons
+    button_col1, button_col2, button_col3 = st.columns([1, 1, 1], gap="small")
+    
+    with button_col1:
+        if current_page > 0:
+            if st.button("← Föregående sida", key="tutorial_prev_btn", use_container_width=True):
+                st.session_state.tutorial_page -= 1
+                st.rerun()
+    
+    with button_col3:
+        if current_page < len(tutorial_pages) - 1:
+            if st.button("Nästa sida →", key="tutorial_next_btn", use_container_width=True):
+                st.session_state.tutorial_page += 1
+                st.rerun()
+        else:
+            if st.button("Avsluta guide", key="tutorial_close_btn", use_container_width=True):
+                st.session_state.show_tutorial = False
+                st.session_state.tutorial_page = 0
+                st.rerun()
+
 def display_category_selector():
     """Display interactive category selection interface with language selection"""
     categories_data = load_categories()
