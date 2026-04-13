@@ -40,7 +40,7 @@ def main():
         st.session_state.selected_categories = []
     
     if "selected_content_types" not in st.session_state.keys():
-        st.session_state.selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"]
+        st.session_state.selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten"]
     
     if "selected_language" not in st.session_state.keys():
         st.session_state.selected_language = "Svenska"
@@ -59,7 +59,7 @@ def main():
     if saved_selections and not st.session_state.categories_selected:
         st.session_state.selected_categories = saved_selections.get("categories", [])
         st.session_state.selected_language = saved_selections.get("language", "Svenska")
-        st.session_state.selected_content_types = saved_selections.get("content_types", ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"])
+        st.session_state.selected_content_types = saved_selections.get("content_types", ["Kommunala nyheter", "Malax i media", "Möten"])
         st.session_state.categories_selected = True
     
     # Show category selection interface if categories haven't been selected yet
@@ -108,6 +108,9 @@ def main():
                     st.session_state.question_type = None
                     st.session_state.question_database_id = None
                     st.session_state.question_database_context = None
+                    for key in ["limit_krisk", "limit_municipal", "limit_media", "limit_meeting", "limit_latest_news", "limit_latest_meetings", "limit_latest_courses"]:
+                        if key in st.session_state:
+                            del st.session_state[key]
                     if "general_messages" in st.session_state:
                         st.session_state.general_messages = []
                     if "database_messages" in st.session_state:
@@ -135,20 +138,22 @@ def main():
                         favorites_path = "../../data/temp/favorites.json"
                         if os.path.exists(favorites_path):
                             with open(favorites_path, 'w') as f:
-                                json.dump([], f)
+                                json.dump({}, f)
                         
                         # Clear all selections and state
                         delete_selections()
                         st.session_state.categories_selected = False
                         st.session_state.selected_categories = []
                         st.session_state.selected_language = "Svenska"
-                        st.session_state.selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"]
+                        st.session_state.selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten"]
                         st.session_state.ask_question_mode = False
                         st.session_state.question_type = None
                         st.session_state.show_reset_confirmation = False
                         
                         for key in list(st.session_state.keys()):
                             if key.startswith("expand_") and not key.startswith("expand_btn_"):
+                                del st.session_state[key]
+                            if key.startswith("limit_"):
                                 del st.session_state[key]
                         if "general_messages" in st.session_state:
                             st.session_state.general_messages = []

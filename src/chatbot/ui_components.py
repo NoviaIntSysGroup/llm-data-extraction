@@ -23,8 +23,8 @@ def display_category_selector():
     
     # Content type selection
     st.markdown("**Välj vilket typ av innehåll du vill se i det personaliserade flöde**")
-    prev_content_types = st.session_state.get('selected_content_types', ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"])
-    content_options = ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"]
+    prev_content_types = st.session_state.get('selected_content_types', ["Kommunala nyheter", "Malax i media", "Möten"])
+    content_options = ["Kommunala nyheter", "Malax i media", "Möten"]
     selected_content_types = st.multiselect(
         "Innehållstyper",
         content_options,
@@ -365,19 +365,24 @@ def display_category_feed(category):
     """Display a feed for a single category"""
     driver = get_neo4j_driver()
     
+    if "limit_category" not in st.session_state:
+        st.session_state.limit_category = 5
+        
     # Back button to return to normal feed
     if st.button("← Tillbaka till flöde", key="back_from_category", use_container_width=False):
         st.query_params.clear()
+        if "limit_category" in st.session_state:
+            del st.session_state["limit_category"]
         st.rerun()
         
     st.markdown(f"### {category}")
     
     try:
-        # Get 5 latest from each for this category
+        # Get latest from each for this category
         category_list = [category]
-        latest_news = query_news_by_categories(driver, category_list, limit=5)
-        latest_meetings = query_meeting_items_by_categories(driver, category_list, limit=5)
-        latest_courses = query_courses_by_categories(driver, category_list, limit=5)
+        latest_news = query_news_by_categories(driver, category_list, limit=st.session_state.limit_category)
+        latest_meetings = query_meeting_items_by_categories(driver, category_list, limit=st.session_state.limit_category)
+        latest_courses = query_courses_by_categories(driver, category_list, limit=st.session_state.limit_category)
         
         # Combine
         all_items = []
@@ -388,9 +393,9 @@ def display_category_feed(category):
         for item in latest_courses:
             all_items.append({"tag": "Kurs", "data": item, "sort_date": item.get("start_date", "")})
         
-        # Sort descending by date and take top 5 overall
+        # Sort descending by date and take top N overall
         all_items.sort(key=lambda x: str(x["sort_date"]) if x["sort_date"] else "", reverse=True)
-        top_items = all_items[:5]
+        top_items = all_items[:st.session_state.limit_category]
         
         if top_items:
             for idx, item in enumerate(top_items):
@@ -407,6 +412,10 @@ def display_category_feed(category):
                     card_index=f"catfeed_{idx}",
                     full_data=data
                 )
+                
+            if st.button("Visa flera inlägg", key="btn_more_category", disabled=len(top_items) < st.session_state.limit_category, use_container_width=True):
+                st.session_state.limit_category += 5
+                st.rerun()
         else:
             st.info(f"Inga inlägg hittades för kategori: {category}")
     except Exception as e:
@@ -418,11 +427,26 @@ def display_feed(selected_categories, language, selected_content_types=None):
     """Display the feed with Kriskommunikation, Nyhet, and Mötesprotocol items"""
     driver = get_neo4j_driver()
     
+    if "limit_krisk" not in st.session_state:
+        st.session_state.limit_krisk = 3
+    if "limit_municipal" not in st.session_state:
+        st.session_state.limit_municipal = 3
+    if "limit_media" not in st.session_state:
+        st.session_state.limit_media = 3
+    if "limit_meeting" not in st.session_state:
+        st.session_state.limit_meeting = 3
+    if "limit_latest_news" not in st.session_state:
+        st.session_state.limit_latest_news = 5
+    if "limit_latest_meetings" not in st.session_state:
+        st.session_state.limit_latest_meetings = 5
+    if "limit_latest_courses" not in st.session_state:
+        st.session_state.limit_latest_courses = 5
+
     if selected_content_types is None:
-        selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten", "MI kurser"]
+        selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten"]
     
     # Create tabs
-    tab1, tab2, tab3 = st.tabs(["Mitt flöde", "Mina favoriter", "Senaste nytt"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Mitt flöde", "Mina favoriter", "Senaste nyheter", "Senaste möten", "Kurser och evenemang"])
     
     with tab1:
         st.markdown("### 📰 Mitt flöde")
@@ -444,7 +468,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
             # Fetch Kommunala nyheter (latest 3) based on selected categories
             if "Kommunala nyheter" in selected_content_types:
                 st.subheader("Kommunala nyheter")
-                municipal_news_data = query_news_by_categories(driver, selected_categories, sources=["Malax"], limit=3)
+                municipal_news_data = query_news_by_categories(driver, selected_categories, sources=["Malax"], limit=st.session_state.limit_municipal)
                 if municipal_news_data:
                     for idx, item in enumerate(municipal_news_data):
                         display_feed_card(
@@ -454,13 +478,16 @@ def display_feed(selected_categories, language, selected_content_types=None):
                             card_index=f"municipal_news_{idx}",
                             full_data=item
                         )
+                    if st.button("Visa flera nyheter", key="btn_more_municipal", disabled=len(municipal_news_data) < st.session_state.limit_municipal, use_container_width=True):
+                        st.session_state.limit_municipal += 5
+                        st.rerun()
                 else:
                     st.info("Inga kommunala nyheter hittades för valda kategorier")
 
             # Fetch Malax i media (latest 3) based on selected categories
             if "Malax i media" in selected_content_types:
                 st.subheader("Malax i media")
-                media_news_data = query_news_by_categories(driver, selected_categories, sources=["Yle"], limit=3)
+                media_news_data = query_news_by_categories(driver, selected_categories, sources=["Yle"], limit=st.session_state.limit_media)
                 if media_news_data:
                     for idx, item in enumerate(media_news_data):
                         display_feed_card(
@@ -470,13 +497,16 @@ def display_feed(selected_categories, language, selected_content_types=None):
                             card_index=f"media_news_{idx}",
                             full_data=item
                         )
+                    if st.button("Visa flera nyheter", key="btn_more_media", disabled=len(media_news_data) < st.session_state.limit_media, use_container_width=True):
+                        st.session_state.limit_media += 5
+                        st.rerun()
                 else:
                     st.info("Inga medierelaterade nyheter hittades för valda kategorier")
             
             # Fetch Mötesprotocol (latest 3) based on selected categories
             if "Möten" in selected_content_types:
                 st.subheader("Mötesprotokoll")
-                meeting_data = query_meeting_items_by_categories(driver, selected_categories, limit=3)
+                meeting_data = query_meeting_items_by_categories(driver, selected_categories, limit=st.session_state.limit_meeting)
                 if meeting_data:
                     for idx, item in enumerate(meeting_data):
                         display_feed_card(
@@ -488,24 +518,11 @@ def display_feed(selected_categories, language, selected_content_types=None):
                             card_index=f"meeting_{idx}",
                             full_data=item
                         )
+                    if st.button("Visa flera möten", key="btn_more_meeting", disabled=len(meeting_data) < st.session_state.limit_meeting, use_container_width=True):
+                        st.session_state.limit_meeting += 5
+                        st.rerun()
                 else:
                     st.info("Inga mötesprotokoll hittades för valda kategorier")
-                
-            # Fetch Kurser (latest 3) based on selected categories
-            if "MI kurser" in selected_content_types:
-                st.subheader("Kurser")
-                course_data = query_courses_by_categories(driver, selected_categories, limit=3)
-                if course_data:
-                    for idx, item in enumerate(course_data):
-                        display_feed_card(
-                            "Kurs",
-                            item.get("title", "Ingen titel"),
-                            item.get("description", "Ingen beskrivning"),
-                            card_index=f"course_{idx}",
-                            full_data=item
-                        )
-                else:
-                    st.info("Inga kurser hittades för valda kategorier")
         except Exception as e:
             st.error(f"Error loading personal feed: {e}")
 
@@ -552,42 +569,69 @@ def display_feed(selected_categories, language, selected_content_types=None):
             st.error(f"Error loading saved feed: {e}")
 
     with tab3:
-        st.markdown("### 🕒 Senaste nytt")
+        st.markdown("### 🕒 Senaste nyheter")
         try:
-            # Get 5 latest from each
-            latest_news = query_latest_news(driver, limit=5)
-            latest_meetings = query_latest_meeting_items(driver, limit=5)
-            
-            # Combine
-            all_latest = []
-            for item in latest_news:
-                all_latest.append({"tag": "Nyhet", "data": item, "sort_date": item.get("date", "")})
-            for item in latest_meetings:
-                all_latest.append({"tag": "Mötesprotokoll", "data": item, "sort_date": item.get("date", "")})
-            
-            # Sort descending by date and take top 5 overall
-            all_latest.sort(key=lambda x: str(x["sort_date"]) if x["sort_date"] else "", reverse=True)
-            top_5_latest = all_latest[:5]
-            
-            if top_5_latest:
-                for idx, item in enumerate(top_5_latest):
-                    tag = item["tag"]
-                    data = item["data"]
-                    is_meeting = (tag == "Mötesprotokoll")
-                    
+            latest_news = query_latest_news(driver, limit=st.session_state.limit_latest_news)
+            if latest_news:
+                for idx, item in enumerate(latest_news):
                     display_feed_card(
-                        tag,
-                        data.get("title", "Ingen titel"),
-                        data.get("description", "Ingen beskrivning"),
-                        is_meeting=is_meeting,
-                        meeting_id=data.get("id") if is_meeting else None,
-                        card_index=f"latest_{idx}",
-                        full_data=data
+                        "Nyhet",
+                        item.get("title", "Ingen titel"),
+                        item.get("description", "Ingen beskrivning"),
+                        card_index=f"latest_news_{idx}",
+                        full_data=item
                     )
+                if st.button("Visa flera nyheter", key="btn_more_latest_news", disabled=len(latest_news) < st.session_state.limit_latest_news, use_container_width=True):
+                    st.session_state.limit_latest_news += 5
+                    st.rerun()
             else:
-                st.info("Inga nya inlägg hittades.")
+                st.info("Inga nya nyheter hittades.")
         except Exception as e:
-            st.error(f"Error loading latest feed: {e}")
+            st.error(f"Error loading latest news: {e}")
+            
+    with tab4:
+        st.markdown("### 🕒 Senaste möten")
+        try:
+            latest_meetings = query_latest_meeting_items(driver, limit=st.session_state.limit_latest_meetings)
+            if latest_meetings:
+                for idx, item in enumerate(latest_meetings):
+                    display_feed_card(
+                        "Mötesprotokoll",
+                        item.get("title", "Ingen titel"),
+                        item.get("description", "Ingen beskrivning"),
+                        is_meeting=True,
+                        meeting_id=item.get("id"),
+                        card_index=f"latest_meetings_{idx}",
+                        full_data=item
+                    )
+                if st.button("Visa flera möten", key="btn_more_latest_meetings", disabled=len(latest_meetings) < st.session_state.limit_latest_meetings, use_container_width=True):
+                    st.session_state.limit_latest_meetings += 5
+                    st.rerun()
+            else:
+                st.info("Inga nya möten hittades.")
+        except Exception as e:
+            st.error(f"Error loading latest meetings: {e}")
+
+    with tab5:
+        st.markdown("### 🎓 Kurser och evenemang")
+        try:
+            latest_courses = query_latest_courses(driver, limit=st.session_state.limit_latest_courses)
+            if latest_courses:
+                for idx, item in enumerate(latest_courses):
+                    display_feed_card(
+                        "Kurs",
+                        item.get("title", "Ingen titel"),
+                        item.get("description", "Ingen beskrivning"),
+                        card_index=f"latest_courses_{idx}",
+                        full_data=item
+                    )
+                if st.button("Visa flera kurser och evenemang", key="btn_more_latest_courses", disabled=len(latest_courses) < st.session_state.limit_latest_courses, use_container_width=True):
+                    st.session_state.limit_latest_courses += 5
+                    st.rerun()
+            else:
+                st.info("Inga nya kurser hittades.")
+        except Exception as e:
+            st.error(f"Error loading latest courses: {e}")
             
     driver.close()
 

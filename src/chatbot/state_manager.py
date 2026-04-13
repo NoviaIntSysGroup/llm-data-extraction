@@ -61,7 +61,10 @@ def load_favorites():
     if os.path.exists(filepath):
         try:
             with open(filepath, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if isinstance(data, list):
+                    return {}
+                return data
         except Exception as e:
             print(f"Error loading favorites: {e}")
             return {}
