@@ -1,9 +1,49 @@
-# Democracy Chatbot
+# Democracy Feed and Chatbot
 ![Chatbot](assets/democracy_chatbot_demo.gif)
 
-Democracy Chatbot is a project that aims to extract structured data from unstructured meeting protocols and create a knowledge graph for efficient data retrieval and querying. The project utilizes a Large Language Model (LLM) to extract metadata from PDF files obtained by scraping the website of the city of nykarleby. The extracted data is then converted into a knowledge graph, enabling quick access to the information. Additionally, the project includes a chatbot app that allows users to interact with the extracted data. 
+Democracy Chatbot is a project that aims to extract structured data from unstructured meeting protocols and create a knowledge graph for efficient data retrieval and querying. The project utilizes a Large Language Model (LLM) to extract metadata from PDF files obtained by scraping the website of the city of Malax. The extracted data is then converted into a knowledge graph, enabling quick access to the information. The project also includes scraping for news and MI courses, that along with the meeting protocols get categorized in the database. The database content can then be viewed using an streamlit app with a personalized feed and a chatbot that can answer user question based on the data.
 
-## Project Setup
+## Docker setup
+If database setup is needed use the full project setup, currently the docker setup is only supported for running the app itself.
+
+To setup project first make sure docker, docker compose and buildx plugin is installed. If using docker desktop these should all be installed by default. Check docker documentation for more info: https://docs.docker.com/.
+
+For setting up the app, follow the steps below:
+
+1. Clone the repository by executing the following command:
+
+    ```bash
+    git clone https://github.com/NoviaIntSysGroup/llm-data-extraction.git
+    ```
+
+1. Create a secrets.env file in the config folder and add the following environment variables:
+
+    ```bash
+    GEMINI_API_KEY=<your-gemini-api-key>
+    OPENAI_API_KEY=<your-openai-api-key>
+    NEO4J_URI=<neo4j-uri>
+    NEO4J_USERNAME=<neo4j-username>
+    NEO4J_PASSWORD=<neo4j-password>
+    NEO4J_DATABASE=<neo4j-database>
+    ```
+    There is an example file in the config folder called secret_example.env. You can copy the contents of this file and replace the placeholders with your own values.
+
+1. Navigate to the root of the project folder and build the docker image by executing the following command:
+
+    ```bash
+    docker build -t llm-data-extraction .
+    ```
+
+1. Run the docker container by executing the following command:
+
+    ```bash
+    docker-compose up
+    ```
+
+1. Open the app in your browser with the url shown in the terminal.
+
+
+## Full Project Setup
 
 To set up the project, follow the steps below:
 
@@ -31,15 +71,14 @@ To set up the project, follow the steps below:
 
 1. Create a secrets.env file in the config folder and add the following environment variables:
     ```bash
-    OPENAI_API_KEY = "<your-openai-api-key>"
-    NEO4J_URI="<neo4j-uri>"
-    NEO4J_USERNAME="<neo4j-username>"
-    NEO4J_PASSWORD="<neo4j-password>"
+    GEMINI_API_KEY=<your-gemini-api-key>
+    OPENAI_API_KEY=<your-openai-api-key>
+    NEO4J_URI=<neo4j-uri>
+    NEO4J_USERNAME=<neo4j-username>
+    NEO4J_PASSWORD=<neo4j-password>
+    NEO4J_DATABASE=<neo4j-database>
     ```
     There is an example file in the config folder called secret_example.env. You can copy the contents of this file and replace the placeholders with your own values.
-
-
-## Running the Project
 
 > To run the data extraction pipeline, perform the following steps:
 
@@ -48,9 +87,11 @@ To set up the project, follow the steps below:
     cd llm-data-extraction
     ```
 
-1. Open the `notebooks/data_pipeline.ipynb` file.
+2. Open the `notebooks/data_pipeline.ipynb` file.
 
-2. Execute the notebook to run the data extraction pipeline. This will scrape the website, download the PDFs, convert them to HTML, extract the data with llm, and convert the extracted data into a knowledge graph.
+3. Execute the notebook to run the data extraction pipeline. This will scrape the website, download the PDFs, convert them to HTML, extract the data with llm, and convert the extracted data into a knowledge graph.
+
+4. Repeat steps 2-3 for every other notebook in the folder in this order: `upcoming_pipeline.ipynb` > `news_pipeline.ipynb` > `courses_pipeline.ipynb` > `category_database.ipynb`
 
 > To run the chatbot app, perform the following steps:
 
@@ -61,7 +102,7 @@ To set up the project, follow the steps below:
 
 2. Run the streamlit app:
     ```bash
-    streamlit run app.py
+    streamlit run feed_app.py
     ```
 3. Open the app in your browser with the url shown in the terminal.
 
@@ -84,6 +125,7 @@ The project directory contains the following files and folders:
 ---
 
 ## Project Progress
+NOT UP TO DATE
 
 ### Data Processing Workflow
 
