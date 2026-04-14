@@ -20,10 +20,14 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
 from openai import OpenAI
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 
 import sys
 sys.path.append('..')
 from data_pipeline.utils import *
+
+current_dir = Path(__file__).resolve().parent
+PROJECT_ROOT = current_dir.parent.parent
 
 def classify_question_intent(user_query: str, chat_history: List[Dict[str, str]] = None) -> str:
     """
@@ -397,7 +401,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(os.path.join("..", os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
+            with open(os.path.join(PROJECT_ROOT, os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             generated_cypher = self.cypher_generation_chain.invoke({
@@ -510,14 +514,14 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(os.path.join("..", os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
+            with open(os.path.join(PROJECT_ROOT, os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             # Check if the cypher includes a vector search
             contains_vector_search = "db.index.vector" in generated_cypher
             if contains_vector_search:
                 # open filter prompt template file
-                with open(os.path.join("..", os.getenv("CYPHER_FILTER_PROMPT_PATH")), "r") as file:
+                with open(os.path.join(PROJECT_ROOT, os.getenv("CYPHER_FILTER_PROMPT_PATH")), "r") as file:
                     CYPHER_FILTER_TEMPLATE = file.read()
 
                 # Create a prompt template for filtering items
@@ -634,7 +638,7 @@ class KnowledgeGraphRAG:
         categories_str = "\n".join(categories_list)
 
         # open cypher generation prompt template file
-        with open(os.path.join("..", os.getenv("CYPHER_GENERATION_PROMPT_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("CYPHER_GENERATION_PROMPT_PATH")), "r") as file:
             CYPHER_GENERATION_TEMPLATE = file.read()
 
             # fstring replace index info and categories in the template
@@ -647,7 +651,7 @@ class KnowledgeGraphRAG:
             template=CYPHER_GENERATION_TEMPLATE
         )
 
-        with open(os.path.join("..", os.getenv("CYPHER_QA_PROMPT_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("CYPHER_QA_PROMPT_PATH")), "r") as file:
             CYPHER_QA_TEMPLATE = file.read()
 
         CYPHER_QA_PROMPT = PromptTemplate(
@@ -684,7 +688,7 @@ class KnowledgeGraphRAG:
             )
 
         # open diagram prompt template file
-        with open(os.path.join("..", os.getenv("DIAGRAM_GENERATION_PROMPT_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("DIAGRAM_GENERATION_PROMPT_PATH")), "r") as file:
             DIAGRAM_PROMPT_TEMPLATE = file.read()
 
         # Create a prompt template for diagram generation
@@ -696,7 +700,7 @@ class KnowledgeGraphRAG:
         self.diagram_chain = DIAGRAM_PROMPT | get_llm(temperature=0)
 
         # open timeline prompt template file
-        with open(os.path.join("..", os.getenv("TIMELINE_GENERATION_PROMPT_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("TIMELINE_GENERATION_PROMPT_PATH")), "r") as file:
             TIMELINE_PROMPT_TEMPLATE = file.read()
 
         # create a prompt template for timeline generation
@@ -776,7 +780,7 @@ class KnowledgeGraphRAG:
         try:
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(os.path.join("..", os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
+            with open(os.path.join(PROJECT_ROOT, os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             code = self.diagram_chain.invoke({
@@ -810,7 +814,7 @@ class KnowledgeGraphRAG:
 
         # load field descriptions from json
         FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-        with open(os.path.join("..", os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
             field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
         try:
@@ -856,7 +860,7 @@ class WebSearchRAG:
         
         # Load the Malax info search prompt template
         try:
-            with open(os.path.join("..", os.getenv("MALAX_INFO_SEARCH_PROMPT_PATH")), "r") as file:
+            with open(os.path.join(PROJECT_ROOT, os.getenv("MALAX_INFO_SEARCH_PROMPT_PATH")), "r") as file:
                 self.prompt_template = file.read()
         except Exception as e:
             print(f"Warning: Could not load Malax info search prompt: {e}")

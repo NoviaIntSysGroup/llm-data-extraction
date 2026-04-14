@@ -93,6 +93,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+secrets.env
 
 # mkdocs documentation
 /site

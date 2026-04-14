@@ -27,12 +27,13 @@ ENV/
 .env
 .env.local
 config/secrets.env
+secrets.env
 
 # Version control
 .git/
 .gitignore
 
-# Data (optional - uncomment if you want to exclude large data files from image)
+# Data 
 data/protocols
 data/scraped_data.json
 data/scraping
@@ -40,8 +41,8 @@ data/temp
 data/pages
 data/llm/logs
 notebooks/agenda.html
-data/upcoming
-backups
+data/upcoming/
+backups/
 llm_data_extraction.tar
 
 # Documentation

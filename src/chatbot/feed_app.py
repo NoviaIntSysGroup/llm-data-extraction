@@ -1,11 +1,14 @@
 import sys
 import streamlit as st
+from pathlib import Path
 from dotenv import load_dotenv
 
-# load secrets
-load_dotenv("../../config/config.env")
-load_dotenv("../../config/secrets.env")
+current_dir = Path(__file__).resolve().parent
+PROJECT_ROOT = current_dir.parent.parent
 
+# load secrets
+load_dotenv(PROJECT_ROOT / "config" / "config.env")
+load_dotenv(PROJECT_ROOT / "config" / "secrets.env")
 try:
     __import__("pysqlite3")
     sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
