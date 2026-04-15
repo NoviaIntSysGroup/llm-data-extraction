@@ -3,7 +3,7 @@
 
 Democracy Chatbot is a project that aims to extract structured data from unstructured meeting protocols and create a knowledge graph for efficient data retrieval and querying. The project utilizes a Large Language Model (LLM) to extract metadata from PDF files obtained by scraping the website of the city of Malax. The extracted data is then converted into a knowledge graph, enabling quick access to the information. The project also includes scraping for news and MI courses, that along with the meeting protocols get categorized in the database. The database content can then be viewed using an streamlit app with a personalized feed and a chatbot that can answer user question based on the data.
 
-## Docker setup
+## Docker Setup
 If database setup is needed use the full project setup, currently the docker setup is only supported for running the app itself.
 
 To setup project first make sure docker, docker compose and buildx plugin is installed. If using docker desktop these should all be installed by default. Check docker documentation for more info: https://docs.docker.com/.
@@ -26,7 +26,7 @@ For setting up the app, follow the steps below:
     NEO4J_PASSWORD=<neo4j-password>
     NEO4J_DATABASE=<neo4j-database>
     ```
-    There is an example file in the config folder called secret_example.env. You can copy the contents of this file and replace the placeholders with your own values.
+    There is an example file in the config folder called secret_example.env. You can copy the contents of this file and replace the placeholders with your own values. Note that for the variables to work properly with docker, only the variable names and values should be in the file. Don't add any comments or extra characters or else it will break.
 
 1. Navigate to the root of the project folder and build the docker image by executing the following command:
 
@@ -125,7 +125,7 @@ The project directory contains the following files and folders:
 ---
 
 ## Project Progress
-NOT UP TO DATE
+OUTDATED
 
 ### Data Processing Workflow
 

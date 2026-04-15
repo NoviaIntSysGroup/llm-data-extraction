@@ -20,17 +20,34 @@ def display_tutorial():
     tutorial_pages = [
         {
             "title": "Guide",
-            "text": "Detta är din personliga kommunguide. Här kan du hitta nyheter, möten och information som är relevant för dig.",
+            "text": """Här är en kort handledning hur ditt personliga flöde fungerar.<br>
+            1. I sökbaren kan du ställa frågor till vår AI chatbot gällande Malax kommun nyheter, möten mm.<br>
+            2. Här kan du byta mellan flöden.<br>
+                &emsp;Mitt flöde: Ditt personliga flöde baserat på dina val av kategorier och innehållstyper.<br>
+                &emsp;Mina favoriter: Dina sparade favoritartiklar.<br>
+                &emsp;Senaste nyheter: De senaste kommunala nyheterna oberoende av dina personliga val.<br>
+                &emsp;Senaste möten: De senaste mötesprotokollen oberoende av dina personliga val.<br>
+                &emsp;Kurser och evenemang: Kommande kurser och evenemang.<br>
+            3. Klicka på sjtärnan bredvid en artikel för att spara som favorit.<br>
+            4. Dela artikeln (OBS: Inte ännu implementerad).<br>
+            5. Klicka på Visa mera för att se fulla artikeln.""" ,
             "image": os.path.join(project_root, "assets", "Tutorial1.png")
         },
         {
             "title": "Guide",
-            "text": "Välj vilka kategorier du vill följa och vilken typ av innehåll som intresserar dig mest. Du kan när som helst ändra dina inställningar.",
+            "text": """1. Indikerar vilken typ av artikel det är (kriskommunikation, nyhet, mötesprotokoll, kurs).<br>
+            2. Kategorier artikeln hör till. Kategorierna kan klickas för att visa all senaste information från den kategorin.<br>
+            3. Länk till var artikeln är tagen från, kan vara t.ex. yle eller malax.fi.<br>
+            4. Här kan du ställa direkta frågor om artikeln från chatbotten.<br>""",
             "image": os.path.join(project_root, "assets", "Tutorial2.png")
         },
         {
             "title": "Guide",
-            "text": "Använd sökfunktionen för att ställa frågor om Malax kommun. Vår AI-assistent hjälper dig att hitta den information du behöver.",
+            "text": """Längst ner på sidan finns dessa knappar:<br>
+            1. Laddar in flera möten/nyheter/kurser beroende på vilket flöde som visas.<br>
+            2. Visa den här guiden igen ifall du behöver hjälp.<br>
+            3. Ändra dina kategori inställningar.<br>
+            4. Återställ allt tillbaka till början, det här tar bort alla dina favoriter och valda kategorier.<br>""",
             "image": os.path.join(project_root, "assets", "Tutorial3.png")
         }
     ]
@@ -43,11 +60,11 @@ def display_tutorial():
     page_data = tutorial_pages[current_page]
     
     st.markdown(f"<h2 style='text-align: center;'>{page_data['title']}</h2>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align: center; font-size: 16px;'>{page_data['text']}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: left; font-size: 16px;'>{page_data['text']}</p>", unsafe_allow_html=True)
     
     # Display image
     try:
-        st.image(page_data['image'], use_container_width=True)
+        st.image(page_data['image'], width=800)
     except Exception as e:
         st.error(f"Kunde inte ladda bild: {e}")
     
