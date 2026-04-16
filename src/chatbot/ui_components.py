@@ -98,16 +98,8 @@ def display_category_selector():
     st.markdown("**Välj ditt föredragna språk:**")
     lang_sv = st.radio("Språk", ["Svenska", "Suomi", "English"], index=0, label_visibility="collapsed", disabled=True)
     
-    # Content type selection
-    st.markdown("**Välj vilket typ av innehåll du vill se i det personaliserade flöde**")
-    prev_content_types = st.session_state.get('selected_content_types', ["Kommunala nyheter", "Malax i media", "Möten"])
-    content_options = ["Kommunala nyheter", "Malax i media", "Möten"]
-    selected_content_types = st.multiselect(
-        "Innehållstyper",
-        content_options,
-        default=prev_content_types,
-        label_visibility="collapsed"
-    )
+    # Content type selection - hidden from UI, all types always selected for compatibility
+    selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten"]
     
     # Category selection with expandable sections
     st.markdown("**Välj kategorier du vill få information om:**")
