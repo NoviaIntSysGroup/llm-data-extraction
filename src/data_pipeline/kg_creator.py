@@ -119,6 +119,9 @@ def extract_errand_topics(driver):
                     e.topic_embedding = $topic_embedding
             """, tag=tag, topic=topic, topic_embedding=topic_embedding)
 
+    attach_meetingitem_to_errand(driver)
+
+def attach_meetingitem_to_errand(driver):
     # Add MeetingItem -> Errand relationship
     with driver.session() as session:
         session.run("""
@@ -554,6 +557,8 @@ def create_knowledge_graph(construct_from, wipe_database=True, is_upcoming=False
     # Extract errand topics from meeting items
     if not is_upcoming:
         extract_errand_topics(driver)
+    else:
+        attach_meetingitem_to_errand(driver)
 
     # Create embeddings index
     if not is_upcoming:
