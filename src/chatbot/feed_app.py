@@ -34,7 +34,7 @@ def main():
     # center the title
     with col2:
         st.markdown(
-            "<h1 style='text-align: center; color: white;'>Jag och min kommun</h1>", unsafe_allow_html=True)
+            "<h1 style='text-align: center;'>Jag och min kommun</h1>", unsafe_allow_html=True)
 
     # Initialize session state variables
     if "categories_selected" not in st.session_state.keys():

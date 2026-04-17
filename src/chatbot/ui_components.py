@@ -21,12 +21,12 @@ def display_tutorial():
         {
             "title": "Guide",
             "text": """Här är en kort handledning hur ditt personliga flöde fungerar.<br>
-            1. I sökbaren kan du ställa frågor till vår AI chatbot gällande Malax kommun nyheter, möten mm.<br>
+            1. I sökbaren kan du ställa frågor till vår AI chattbot gällande Malax kommun nyheter, möten mm.<br>
             2. Här kan du byta mellan flöden.<br>
-                &emsp;Mitt flöde: Ditt personliga flöde baserat på dina val av kategorier och innehållstyper.<br>
+                &emsp;Mitt flöde: Ditt personliga flöde baserat på dina inställningar.<br>
                 &emsp;Mina favoriter: Dina sparade favoritartiklar.<br>
-                &emsp;Senaste nyheter: De senaste kommunala nyheterna oberoende av dina personliga val.<br>
-                &emsp;Senaste möten: De senaste mötesprotokollen oberoende av dina personliga val.<br>
+                &emsp;Senaste nyheter: De senaste kommunala nyheterna oberoende av dina personliga inställningar.<br>
+                &emsp;Senaste möten: De senaste mötesprotokollen oberoende av dina personliga inställningar.<br>
                 &emsp;Kurser och evenemang: Kommande kurser och evenemang.<br>
             3. Klicka på sjtärnan bredvid en artikel för att spara som favorit.<br>
             4. Dela artikeln (OBS: Inte ännu implementerad).<br>
@@ -35,19 +35,19 @@ def display_tutorial():
         },
         {
             "title": "Guide",
-            "text": """1. Indikerar vilken typ av artikel det är (kriskommunikation, nyhet, mötesprotokoll, kurs).<br>
-            2. Kategorier artikeln hör till. Kategorierna kan klickas för att visa all senaste information från den kategorin.<br>
-            3. Länk till var artikeln är tagen från, kan vara t.ex. yle eller malax.fi.<br>
-            4. Här kan du ställa direkta frågor om artikeln från chatbotten.<br>""",
+            "text": """6. Indikerar vilken typ av artikel det är (kriskommunikation, nyhet, mötesprotokoll, kurs).<br>
+            7. Kategorier artikeln hör till. Kategorierna kan klickas för att visa all senaste information från den kategorin.<br>
+            8. Länk till var artikeln är tagen från.<br>
+            9. Här kan du ställa direkta frågor om artikeln från chattbotten.<br>""",
             "image": os.path.join(project_root, "assets", "Tutorial2.png")
         },
         {
             "title": "Guide",
             "text": """Längst ner på sidan finns dessa knappar:<br>
-            1. Laddar in flera möten/nyheter/kurser beroende på vilket flöde som visas.<br>
-            2. Visa den här guiden igen ifall du behöver hjälp.<br>
-            3. Ändra dina kategori inställningar.<br>
-            4. Återställ allt tillbaka till början, det här tar bort alla dina favoriter och valda kategorier.<br>""",
+            10. Laddar in flera möten/nyheter/kurser beroende på vilket flöde som visas.<br>
+            11. Visa den här guiden igen ifall du behöver hjälp.<br>
+            12. Ändra dina personliga inställningar.<br>
+            13. Återställ alla inställningar till ursprungsläget, detta raderar dina favoriter och personliga val.<br>""",
             "image": os.path.join(project_root, "assets", "Tutorial3.png")
         }
     ]
@@ -60,13 +60,18 @@ def display_tutorial():
     page_data = tutorial_pages[current_page]
     
     st.markdown(f"<h2 style='text-align: center;'>{page_data['title']}</h2>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align: left; font-size: 16px;'>{page_data['text']}</p>", unsafe_allow_html=True)
     
-    # Display image
-    try:
-        st.image(page_data['image'], width=800)
-    except Exception as e:
-        st.error(f"Kunde inte ladda bild: {e}")
+    # Display text and image side-by-side
+    text_col, image_col = st.columns([1, 1], gap="medium")
+    
+    with text_col:
+        st.markdown(f"<p style='text-align: left; font-size: 16px;'>{page_data['text']}</p>", unsafe_allow_html=True)
+    
+    with image_col:
+        try:
+            st.image(page_data['image'], width=700)
+        except Exception as e:
+            st.error(f"Kunde inte ladda bild: {e}")
     
     # Navigation buttons
     button_col1, button_col2, button_col3 = st.columns([1, 1, 1], gap="small")
@@ -77,15 +82,16 @@ def display_tutorial():
                 st.session_state.tutorial_page -= 1
                 st.rerun()
     
+    with button_col2:
+        if st.button("Avsluta guide", key="tutorial_close_btn", use_container_width=True):
+            st.session_state.show_tutorial = False
+            st.session_state.tutorial_page = 0
+            st.rerun()
+    
     with button_col3:
         if current_page < len(tutorial_pages) - 1:
             if st.button("Nästa sida →", key="tutorial_next_btn", use_container_width=True):
                 st.session_state.tutorial_page += 1
-                st.rerun()
-        else:
-            if st.button("Avsluta guide", key="tutorial_close_btn", use_container_width=True):
-                st.session_state.show_tutorial = False
-                st.session_state.tutorial_page = 0
                 st.rerun()
 
 def display_category_selector():
