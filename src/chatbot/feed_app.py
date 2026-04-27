@@ -15,7 +15,7 @@ try:
 except ImportError:
     pass
 
-from chatbot.state_manager import save_selections, load_selections, delete_selections
+from chatbot.state_manager import save_selections, load_selections, delete_selections, get_favorites_file_path
 from chatbot.ui_components import (
     display_category_selector, 
     display_feed, 
@@ -167,7 +167,7 @@ def main():
                         # Clear favorites file
                         import os
                         import json
-                        favorites_path = "../../data/temp/favorites.json"
+                        favorites_path = get_favorites_file_path()
                         if os.path.exists(favorites_path):
                             with open(favorites_path, 'w') as f:
                                 json.dump({}, f)
