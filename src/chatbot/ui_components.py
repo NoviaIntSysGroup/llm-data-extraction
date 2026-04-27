@@ -865,9 +865,8 @@ Context - Database Item Information:
                         st.session_state[messages_key].append(assistant_message)
                     else:
                         context_prefix = f"""
-Kontext - Valda kategorier och språk:
+Kontext - Valda kategorier:
 - Kategorier: {', '.join(selected_categories)}
-- Språk: {language}
 
 """
 

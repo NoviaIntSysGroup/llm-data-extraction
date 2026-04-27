@@ -533,11 +533,32 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                 # Chain the prompt with the LLM to get a new context
                 filter_chain = CYPHER_FILTER_PROMPT | get_llm(temperature=0)
 
-                context = filter_chain.invoke({
+                response = filter_chain.invoke({
                     "context": context,
                     "question": question,
                     "conversation_history": inputs.get("conversation_history", ""),
-                }).content
+                })
+
+                # Extract text content from response - handle various response types
+                context_text = ""
+                if hasattr(response, 'content'):
+                    content = response.content
+                    # If content is a string, use it directly
+                    if isinstance(content, str):
+                        context_text = content
+                    # If content is a list (can happen with tool responses), extract text
+                    elif isinstance(content, list):
+                        context_text = "".join(
+                            str(item) if not isinstance(item, dict) else item.get('text', str(item))
+                            for item in content
+                        )
+                    else:
+                        # For any other type, convert to string
+                        context_text = str(content)
+                else:
+                    context_text = str(response)
+
+                context = context_text.strip()
 
                 _run_manager.on_text("The filter LLM returned:", end="\n", verbose=self.verbose)
                 _run_manager.on_text(context, color="green", end="\n", verbose=self.verbose)
