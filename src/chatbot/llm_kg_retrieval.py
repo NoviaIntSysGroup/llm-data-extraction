@@ -96,9 +96,8 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
         OPENAI_MODEL_NAME: The OpenAI model to use (e.g., "gpt-4-mini")
     """
     llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
-    
-    if llm_provider == "gemini":
-        if google_search == True:
+
+    if google_search == True:
             return ChatGoogleGenerativeAI(
                 model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
                 temperature=1,  # Gemini temp should always be 1
@@ -106,14 +105,16 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
                 callbacks=callbacks or [],
                 thinking_level=thinking_level
             ).bind_tools([{"google_search": {}}])
-        else:
-            return ChatGoogleGenerativeAI(
-                model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
-                temperature=1,  # Gemini temp should always be 1
-                streaming=streaming,
-                callbacks=callbacks or [],
-                thinking_level=thinking_level
-            )
+    
+    elif llm_provider == "gemini":
+    
+        return ChatGoogleGenerativeAI(
+            model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
+            temperature=1,  # Gemini temp should always be 1
+            streaming=streaming,
+            callbacks=callbacks or [],
+            thinking_level=thinking_level
+        )
     elif llm_provider == "openai":
         return ChatOpenAI(
             model=os.getenv("OPENAI_MODEL_NAME", "gpt-4-mini"),

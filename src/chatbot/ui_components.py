@@ -21,30 +21,31 @@ def display_tutorial():
         {
             "title": "Guide",
             "text": """Här är en kort handledning hur ditt personliga flöde fungerar.<br>
-            1. I sökbaren kan du ställa frågor till vår AI chattbot gällande Malax kommun nyheter, möten mm.<br>
-            2. Här kan du byta mellan flöden.<br>
-                &emsp;Mitt flöde: Ditt personliga flöde baserat på dina inställningar.<br>
-                &emsp;Mina favoriter: Dina sparade favoritartiklar.<br>
-                &emsp;Senaste nyheter: De senaste kommunala nyheterna oberoende av dina personliga inställningar.<br>
-                &emsp;Senaste möten: De senaste mötesprotokollen oberoende av dina personliga inställningar.<br>
-                &emsp;Kurser och evenemang: Kommande kurser och evenemang.<br>
-            3. Klicka på sjtärnan bredvid en artikel för att spara som favorit.<br>
-            4. Dela artikeln (OBS: Inte ännu implementerad).<br>
-            5. Klicka på Visa mera för att se fulla artikeln.""" ,
+            <br>
+            1. I sökfältet kan du ställa frågor till vår AI-chattbot gällande Malax kommun, nyheter, möten mm.<br>
+            2. Här kan du byta mellan flöden:<br>
+                &emsp;&emsp;Mitt flöde: Ditt personliga flöde baserat på dina inställningar.<br>
+                &emsp;&emsp;Mina favoriter: Dina sparade favoritartiklar.<br>
+                &emsp;&emsp;Senaste nyheterna: De senaste kommunala nyheterna oberoende av dina personliga inställningar.<br>
+                &emsp;&emsp;Senaste mötena: De senaste mötesprotokollen oberoende av dina personliga inställningar.<br>
+                &emsp;&emsp;Kurser och evenemang: Kommande kurser och evenemang.<br>
+            3. Klicka på stjärnan bredvid ett inlägg för att spara som favorit.<br>
+            4. Dela inlägget (OBS: Inte ännu implementerad).<br>
+            5. Klicka på Visa mera för att se fulla inlägget.""" ,
             "image": os.path.join(project_root, "assets", "Tutorial1.png")
         },
         {
             "title": "Guide",
-            "text": """6. Indikerar vilken typ av artikel det är (kriskommunikation, nyhet, mötesprotokoll, kurs).<br>
-            7. Kategorier artikeln hör till. Kategorierna kan klickas för att visa all senaste information från den kategorin.<br>
-            8. Länk till var artikeln är tagen från.<br>
-            9. Här kan du ställa direkta frågor om artikeln från chattbotten.<br>""",
+            "text": """6. Indikerar vilken typ av inlägg det är (kriskommunikation, nyhet, mötesprotokoll, kurs).<br>
+            7. Kategorier som inlägget hör till. Du kan klicka på kategorierna för att visa senaste informationen från den kategorin.<br>
+            8. Länk till källan för informationen i posten.<br>
+            9. Här kan du ställa direkta frågor om innehållet i posten till chattbotten.<br>""",
             "image": os.path.join(project_root, "assets", "Tutorial2.png")
         },
         {
             "title": "Guide",
             "text": """Längst ner på sidan finns dessa knappar:<br>
-            10. Laddar in flera möten/nyheter/kurser beroende på vilket flöde som visas.<br>
+            10. Ladda in flera möten/nyheter/kurser beroende på vilket flöde som visas.<br>
             11. Visa den här guiden igen ifall du behöver hjälp.<br>
             12. Ändra dina personliga inställningar.<br>
             13. Återställ alla inställningar till ursprungsläget, detta raderar dina favoriter och personliga val.<br>""",
@@ -369,8 +370,8 @@ def display_feed_card(
     ):
         input_key = f"database_card_input_{card_index}"
 
-        def _submit_database_card_question():
-            prompt_text = st.session_state.get(input_key, "").strip()
+        def _submit_database_card_question(prompt_text):
+            prompt_text = prompt_text.strip()
             if not prompt_text:
                 return
 
@@ -405,15 +406,14 @@ def display_feed_card(
             st.session_state.question_database_id = new_id
             st.session_state.question_database_context = database_context
             st.session_state.database_messages.append({"role": "user", "content": prompt_text})
-            st.session_state[input_key] = ""
 
-        st.text_input(
-            "Ställ en fråga om innehållet",
-            key=input_key,
+        user_input = st.chat_input(
             placeholder="🔍 Ställ en fråga om innehållet",
-            label_visibility="collapsed",
-            on_change=_submit_database_card_question,
+            key=input_key,
         )
+        if user_input:
+            _submit_database_card_question(user_input)
+            st.rerun()
     
     # Show more/less button below card
     if show_expand_button:
@@ -521,7 +521,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
         selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten"]
     
     # Create tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Mitt flöde", "Mina favoriter", "Senaste nyheter", "Senaste möten", "Kurser och evenemang"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Mitt flöde", "Mina favoriter", "Senaste nyheterna", "Senaste mötena", "Kurser och evenemang"])
     
     with tab1:
         st.markdown("### 📰 Mitt flöde")
@@ -718,8 +718,8 @@ def display_general_question_interface(selected_categories, language):
 
     input_key = "general_entry_input"
 
-    def _submit_general_entry_prompt():
-        prompt_text = st.session_state.get(input_key, "").strip()
+    def _submit_general_entry_prompt(prompt_text):
+        prompt_text = prompt_text.strip()
         if not prompt_text:
             return
 
@@ -728,15 +728,39 @@ def display_general_question_interface(selected_categories, language):
         st.session_state.question_database_id = None
         st.session_state.question_database_context = None
         st.session_state.general_messages.append({"role": "user", "content": prompt_text})
-        st.session_state[input_key] = ""
 
-    st.text_input(
-        "Ställ en fråga om Malax",
-        key=input_key,
+    # Display suggested questions
+    suggest_col1, suggest_col2, suggest_col3 = st.columns(3, gap="small")
+    
+    suggested_questions = [
+        "Vilka ärenden togs upp i det senaste mötet?",
+        "Hur ska jag bygga hus i Malax?",
+        "Vad är de senaste nyheterna om Malax?"
+    ]
+    
+    with suggest_col1:
+        if st.button(suggested_questions[0], key="suggest_btn_1", use_container_width=True):
+            _submit_general_entry_prompt(suggested_questions[0])
+            st.rerun()
+    
+    with suggest_col2:
+        if st.button(suggested_questions[1], key="suggest_btn_2", use_container_width=True):
+            _submit_general_entry_prompt(suggested_questions[1])
+            st.rerun()
+    
+    with suggest_col3:
+        if st.button(suggested_questions[2], key="suggest_btn_3", use_container_width=True):
+            _submit_general_entry_prompt(suggested_questions[2])
+            st.rerun()
+      # Add spacing
+
+    user_input = st.chat_input(
         placeholder="🔍 Ställ en fråga om Malax",
-        label_visibility="collapsed",
-        on_change=_submit_general_entry_prompt,
+        key=input_key,
     )
+    if user_input:
+        _submit_general_entry_prompt(user_input)
+        st.rerun()
 
 def display_question_interface(selected_categories, language):
     """Display unified chat window for both general and database chats"""
@@ -932,20 +956,19 @@ Kontext - Valda kategorier:
                     )
 
     # Input bar (below chat history)
-    def _submit_chat_window_prompt():
-        prompt_text = st.session_state.get(input_key, "").strip()
+    def _submit_chat_window_prompt(prompt_text):
+        prompt_text = prompt_text.strip()
         if prompt_text:
             st.session_state[messages_key].append({"role": "user", "content": prompt_text})
-            st.session_state[input_key] = ""
+            st.rerun()
 
     placeholder = "🔍 Ställ en fråga om innehållet" if is_database_chat else "🔍 Ställ en fråga om Malax"
-    st.text_input(
-        "Chat input",
-        key=input_key,
+    user_input = st.chat_input(
         placeholder=placeholder,
-        label_visibility="collapsed",
-        on_change=_submit_chat_window_prompt,
+        key=input_key,
     )
+    if user_input:
+        _submit_chat_window_prompt(user_input)
 
     # Close chat button (below input)
     if st.button("✖ Stäng chatt", key="close_chat_window_btn", use_container_width=True):
