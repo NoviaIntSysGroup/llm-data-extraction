@@ -93,7 +93,6 @@ def query_courses_by_categories(driver, categories, limit=3):
     RETURN DISTINCT 
         co.title as title, 
         co.description as description,
-        co.description as content, 
         co.location as location, 
         co.price as price,
         co.start_date as start_date,
@@ -166,7 +165,6 @@ def query_latest_courses(driver, limit=5):
     RETURN DISTINCT 
         co.title as title, 
         co.description as description,
-        co.description as content, 
         co.location as location, 
         co.price as price,
         co.start_date as start_date,
@@ -246,7 +244,6 @@ def query_saved_courses(driver, saved_titles):
     RETURN DISTINCT 
         co.title as title, 
         co.description as description,
-        co.description as content, 
         co.location as location, 
         co.price as price,
         co.start_date as start_date,

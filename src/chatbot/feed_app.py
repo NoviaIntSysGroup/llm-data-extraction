@@ -129,7 +129,7 @@ def main():
                     st.rerun()
             
             with button_col2:
-                if st.button("🔧 Ändra inställningar", key="change_settings_btn", use_container_width=True):
+                if st.button("🔧 Ändra personliga inställningar", key="change_settings_btn", use_container_width=True):
                     delete_selections()
                     st.session_state.categories_selected = False
                     for key in list(st.session_state.keys()):

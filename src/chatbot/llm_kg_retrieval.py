@@ -432,7 +432,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
             Check if Cypher query contains database manipulation statements
             """
 
-            manipulation_keywords = ["create", "merge",
+            manipulation_keywords = ["create ", "merge",
                                      "set", "delete", "remove", "detach", "drop", "load"]
 
             for keyword in manipulation_keywords:

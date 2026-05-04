@@ -39,6 +39,7 @@ Rules:
 - ALWAYS return the full entity with queries such as 'RETURN m;'. NEVER limit the query to specific properties (e.g. 'RETURN m.name, m.age;').
 - ALWAYS return the top 20 items unless explicitly specified by the user.
 - ALWAYS return a meaningful alias for computed properties.
+- The users preferred categories are usually provided, use them in the query ONLY if the user asks.
 - If asked about a category that exists, ALWAYS search on the category
 - NEVER include similarity score.
 - Use date format DD.MM.YYYY and time format HH:MM.
@@ -48,5 +49,5 @@ Rules:
 Conversation History (use to provide context-aware responses):
 {{conversation_history}}
 
-Question:
+
 {{question}}

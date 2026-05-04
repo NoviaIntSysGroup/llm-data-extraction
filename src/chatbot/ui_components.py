@@ -407,13 +407,36 @@ def display_feed_card(
             st.session_state.question_database_context = database_context
             st.session_state.database_messages.append({"role": "user", "content": prompt_text})
 
-        user_input = st.chat_input(
-            placeholder="🔍 Ställ en fråga om innehållet",
-            key=input_key,
-        )
-        if user_input:
-            _submit_database_card_question(user_input)
-            st.rerun()
+        # Apply white background styling using a unique marker to target ONLY this specific chat input
+        col_input, col_spacer = st.columns([0.9, 0.1])
+        with col_input:
+            st.html(
+                f"""
+                <div id="white-chat-input-{card_index}"></div>
+                <style>
+                /* Target the chat input wrapper right after our marker */
+                .element-container:has(#white-chat-input-{card_index}) + .element-container [data-testid="stChatInput"] {{
+                    background-color: white !important;
+                    border-radius: 8px !important;
+                }}
+                
+                /* Target the main input area */
+                .element-container:has(#white-chat-input-{card_index}) + .element-container [data-testid="stChatInput"] textarea {{
+                    background-color: white !important;
+                    color: black !important;
+                    -webkit-text-fill-color: black !important;
+                }}
+                </style>
+                """
+            )
+            
+            user_input = st.chat_input(
+                placeholder="🔍 Ställ en fråga om innehållet",
+                key=input_key,
+            )
+            if user_input:
+                _submit_database_card_question(user_input)
+                st.rerun()
     
     # Show more/less button below card
     if show_expand_button:
@@ -488,7 +511,7 @@ def display_category_feed(category):
                     full_data=data
                 )
                 
-            if st.button("Visa flera inlägg", key="btn_more_category", disabled=len(top_items) < st.session_state.limit_category, use_container_width=True):
+            if st.button("Visa fler inlägg", key="btn_more_category", disabled=len(top_items) < st.session_state.limit_category, use_container_width=True):
                 st.session_state.limit_category += 5
                 st.rerun()
         else:
@@ -553,7 +576,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                             card_index=f"municipal_news_{idx}",
                             full_data=item
                         )
-                    if st.button("Visa flera nyheter", key="btn_more_municipal", disabled=len(municipal_news_data) < st.session_state.limit_municipal, use_container_width=True):
+                    if st.button("Visa fler nyheter", key="btn_more_municipal", disabled=len(municipal_news_data) < st.session_state.limit_municipal, use_container_width=True):
                         st.session_state.limit_municipal += 5
                         st.rerun()
                 else:
@@ -572,7 +595,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                             card_index=f"media_news_{idx}",
                             full_data=item
                         )
-                    if st.button("Visa flera nyheter", key="btn_more_media", disabled=len(media_news_data) < st.session_state.limit_media, use_container_width=True):
+                    if st.button("Visa fler nyheter", key="btn_more_media", disabled=len(media_news_data) < st.session_state.limit_media, use_container_width=True):
                         st.session_state.limit_media += 5
                         st.rerun()
                 else:
@@ -593,7 +616,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                             card_index=f"meeting_{idx}",
                             full_data=item
                         )
-                    if st.button("Visa flera möten", key="btn_more_meeting", disabled=len(meeting_data) < st.session_state.limit_meeting, use_container_width=True):
+                    if st.button("Visa fler möten", key="btn_more_meeting", disabled=len(meeting_data) < st.session_state.limit_meeting, use_container_width=True):
                         st.session_state.limit_meeting += 5
                         st.rerun()
                 else:
@@ -656,7 +679,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         card_index=f"latest_news_{idx}",
                         full_data=item
                     )
-                if st.button("Visa flera nyheter", key="btn_more_latest_news", disabled=len(latest_news) < st.session_state.limit_latest_news, use_container_width=True):
+                if st.button("Visa fler nyheter", key="btn_more_latest_news", disabled=len(latest_news) < st.session_state.limit_latest_news, use_container_width=True):
                     st.session_state.limit_latest_news += 5
                     st.rerun()
             else:
@@ -665,7 +688,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
             st.error(f"Error loading latest news: {e}")
             
     with tab4:
-        st.markdown("### 🕒 Senaste möten")
+        st.markdown("### 📋 Senaste möten")
         try:
             latest_meetings = query_latest_meeting_items(driver, limit=st.session_state.limit_latest_meetings)
             if latest_meetings:
@@ -679,7 +702,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         card_index=f"latest_meetings_{idx}",
                         full_data=item
                     )
-                if st.button("Visa flera möten", key="btn_more_latest_meetings", disabled=len(latest_meetings) < st.session_state.limit_latest_meetings, use_container_width=True):
+                if st.button("Visa fler möten", key="btn_more_latest_meetings", disabled=len(latest_meetings) < st.session_state.limit_latest_meetings, use_container_width=True):
                     st.session_state.limit_latest_meetings += 5
                     st.rerun()
             else:
@@ -700,7 +723,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         card_index=f"latest_courses_{idx}",
                         full_data=item
                     )
-                if st.button("Visa flera kurser och evenemang", key="btn_more_latest_courses", disabled=len(latest_courses) < st.session_state.limit_latest_courses, use_container_width=True):
+                if st.button("Visa fler kurser och evenemang", key="btn_more_latest_courses", disabled=len(latest_courses) < st.session_state.limit_latest_courses, use_container_width=True):
                     st.session_state.limit_latest_courses += 5
                     st.rerun()
             else:
