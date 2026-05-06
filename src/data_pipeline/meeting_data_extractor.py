@@ -64,7 +64,17 @@ def update_json_with_html(json_data, html_content):
         if isinstance(value, str):
             ids = [id_val.strip() for id_val in value.split(",")]
             # Replace each ID with its text content from HTML or keep the ID if not found
-            return " ".join(soup.find(id=id_val).get_text(strip=True) if soup.find(id=id_val) else id_val for id_val in ids)
+            parts = []
+            for id_val in ids:
+                elem = soup.find(id=id_val)
+                if elem:
+                    # Get text with internal whitespace preserved, then clean up
+                    text = elem.get_text()
+                    text = " ".join(text.split())  # Normalize internal whitespace
+                    parts.append(text)
+                else:
+                    parts.append(id_val)
+            return "\n".join(parts)  # Join with newlines instead of spaces
         return value
 
     def process_json(data):
@@ -84,7 +94,7 @@ def update_json_with_html(json_data, html_content):
         For example, [] for arrays, {} for objects, and "" for strings.
         """
         if isinstance(data, dict):
-            return {k: replace_null_in_json(v) if v is None else v for k, v in data.items()}
+            return {k: replace_null_in_json(v) for k, v in data.items()}
         elif isinstance(data, list):
             return [replace_null_in_json(item) for item in data]
         elif data is None:

@@ -176,6 +176,16 @@ def process_body(driver, body, body_embedding):
             process_meeting(driver, body_name, meeting, meeting_embeddings[j])
 
 def process_meeting(driver, body_name, meeting, meeting_embedding):
+    # Sanitize meeting data to remove None values from lists to prevent Neo4j errors
+    def remove_none_from_lists(obj):
+        if isinstance(obj, dict):
+            return {k: remove_none_from_lists(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [remove_none_from_lists(v) for v in obj if v is not None]
+        return obj
+        
+    meeting = remove_none_from_lists(meeting)
+
     with driver.session() as session:
         # Merge Meeting
         meeting_location = meeting.get("meeting_location", "")
