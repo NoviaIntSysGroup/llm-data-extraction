@@ -198,6 +198,14 @@ def display_category_selector():
     
     return None
 
+def display_load_more_button(button_text, key, limit_state_key, data_length, increment=5):
+    """Refactored helper function to render the 'Load More' button neatly formatted to 90% width"""
+    col1, col2 = st.columns([0.9, 0.1])
+    with col1:
+        if st.button(button_text, key=key, disabled=data_length < st.session_state[limit_state_key], use_container_width=True):
+            st.session_state[limit_state_key] += increment
+            st.rerun()
+
 def display_feed_card(
     tag,
     title,
@@ -236,31 +244,31 @@ def display_feed_card(
         if full_data.get("content"):
             # Escape HTML and replace newlines with <br> tags
             content_text = str(full_data.get("content")).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>").replace("\n", "<br>")
-            expanded_html += f'<div style="margin-bottom: 12px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 3px; font-weight: bold; margin: 0;"></p><p style="color: #333; margin: 0; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word;">{content_text}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 12px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 3px; font-weight: bold; margin: 0;"></p><p style="color: #555; font-size: 14px; margin: 0; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word;">{content_text}</p></div>'
         if full_data.get("date"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Datum</p><p style="color: #666; margin: 0;">{full_data.get("date")}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Datum</p><p style="color: #555; font-size: 14px; margin: 0;">{full_data.get("date")}</p></div>'
         if full_data.get("start_date") and full_data.get("end_date"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Datum</p><p style="color: #666; margin: 0;">{full_data.get("start_date")} till {full_data.get("end_date")}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Datum</p><p style="color: #555; font-size: 14px; margin: 0;">{full_data.get("start_date")} till {full_data.get("end_date")}</p></div>'
         if full_data.get("author"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Författare</p><p style="color: #666; margin: 0;">{full_data.get("author")}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Författare</p><p style="color: #555; font-size: 14px; margin: 0;">{full_data.get("author")}</p></div>'
         if full_data.get("body"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Verksamhetsorgan</p><p style="color: #666; margin: 0;">{full_data.get("body")}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Verksamhetsorgan</p><p style="color: #555; font-size: 14px; margin: 0;">{full_data.get("body")}</p></div>'
         if full_data.get("errand"):
             errand_text = str(full_data.get("errand")).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>").replace("\n", "<br>")
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Ärende</p><p style="color: #666; margin: 0;">{errand_text}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Ärende</p><p style="color: #555; font-size: 14px; margin: 0;">{errand_text}</p></div>'
         if full_data.get("decision"):
             decision_text = str(full_data.get("decision")).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>").replace("\n", "<br>")
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Beslut</p><p style="color: #666; margin: 0;">{decision_text}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Beslut</p><p style="color: #555; font-size: 14px; margin: 0;">{decision_text}</p></div>'
         if full_data.get("location"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Plats</p><p style="color: #666; margin: 0;">{full_data.get("location")}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Plats</p><p style="color: #555; font-size: 14px; margin: 0;">{full_data.get("location")}</p></div>'
         if full_data.get("price"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Pris</p><p style="color: #666; margin: 0;">{full_data.get("price")}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Pris</p><p style="color: #555; font-size: 14px; margin: 0;">{full_data.get("price")}</p></div>'
         if full_data.get("times"):
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Tider</p><p style="color: #666; margin: 0;">{full_data.get("times")}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Tider</p><p style="color: #555; font-size: 14px; margin: 0;">{full_data.get("times")}</p></div>'
         if full_data.get("link"):
             # Determine the link label based on tag type
             link_label = "Länk"
-            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">{link_label}</p><p style="color: #666; margin: 0;"><a href="{full_data.get("link")}" target="_blank">Mera info</a></p></div>'
+            expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">{link_label}</p><p style="color: #555; font-size: 14px; margin: 0;"><a href="{full_data.get("link")}" target="_blank" style="color: #0066cc; text-decoration: none;">Mera info</a></p></div>'
         if full_data.get("matched_categories"):
             # Handle both list and string formats for matched categories
             categories = full_data.get("matched_categories")
@@ -268,7 +276,7 @@ def display_feed_card(
                 categories_text = ", ".join(str(c) for c in categories)
             else:
                 categories_text = str(categories)
-            expanded_html += f'<div style="margin-bottom: 0;"><p style="color: #999; font-size: 10px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Kategorier</p><p style="color: #666; margin: 0;">{categories_text}</p></div>'
+            expanded_html += f'<div style="margin-bottom: 0;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Kategorier</p><p style="color: #555; font-size: 14px; margin: 0;">{categories_text}</p></div>'
         
         expanded_html += "</div>"
     
@@ -277,14 +285,14 @@ def display_feed_card(
     
     date_html = ""
     if full_data and full_data.get("date"):
-        date_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">{full_data.get("date")}</span>'
+        date_html = f'<span style="margin-left: 10px; color: #555; font-size: 14px;">{full_data.get("date")}</span>'
     elif full_data and full_data.get("start_date"):
         # For courses, show the start date
-        date_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">{full_data.get("start_date")}</span>'
+        date_html = f'<span style="margin-left: 10px; color: #555; font-size: 14px;">{full_data.get("start_date")}</span>'
 
     body_html = ""
     if is_meeting and full_data and full_data.get("body"):
-        body_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">• {full_data.get("body")}</span>'
+        body_html = f'<span style="margin-left: 10px; color: #555; font-size: 14px;">• {full_data.get("body")}</span>'
         
     category_links_html = ""
     if full_data and full_data.get("matched_categories"):
@@ -294,9 +302,9 @@ def display_feed_card(
             
         links = []
         for cat in categories:
-            links.append(f'<a href="?category={cat}" style="color: #0066cc; text-decoration: none;" target="_self">{cat}</a>')
+            links.append(f'<a href="?category={cat}" style="color: #0066cc; text-decoration: none; font-size: 14px;" target="_self">{cat}</a>')
             
-        category_links_html = f'<span style="margin-left: 10px; color: #777; font-size: 13px;">• {", ".join(links)}</span>'
+        category_links_html = f'<span style="margin-left: 10px; color: #555; font-size: 14px;">• {", ".join(links)}</span>'
     
     if description:
         description = str(description).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>").replace("\n", "<br>")
@@ -316,7 +324,7 @@ def display_feed_card(
             
             image_caption_html = ""
             if full_data.get("image_description"):
-                image_caption_html = f'<p style="font-size: 10px; color: #777; margin-top: 8px; margin-bottom: 0; max-width: 150px; line-height: 1.2;"><em>{full_data.get("image_description")}</em></p>'
+                image_caption_html = f'<p style="font-size: 10px; color: #555; margin-top: 8px; margin-bottom: 0; max-width: 150px; line-height: 1.2;"><em>{full_data.get("image_description")}</em></p>'
             
             # Layout with image on right using flexbox
             # Note: Removed indentation to prevent Markdown from rendering as a code block
@@ -326,8 +334,8 @@ def display_feed_card(
 <span style="display: inline-block; background-color: #e0e0e0; color: #333; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">{tag}</span>
 {date_html}{body_html}{category_links_html}
 </div>
-<h3 style="margin: 10px 0; color: #1f1f1f;">{title}</h3>
-<p style="color: #666; margin: 10px 0; line-height: 1.5;">{description}</p>
+<h3 style="margin: 10px 0; color: #1f1f1f; font-size: 24px;">{title}</h3>
+<p style="color: #555; font-size: 14px; margin: 10px 0; line-height: 1.5;">{description}</p>
 {expanded_html}
 </div>
 <div style="flex-shrink: 0; display: flex; flex-direction: column;">
@@ -342,8 +350,8 @@ def display_feed_card(
 <span style="display: inline-block; background-color: #e0e0e0; color: #333; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">{tag}</span>
 {date_html}{body_html}{category_links_html}
 </div>
-<h3 style="margin: 10px 0; color: #1f1f1f;">{title}</h3>
-<p style="color: #666; margin: 10px 0; line-height: 1.5;">{description}</p>
+<h3 style="margin: 10px 0; color: #1f1f1f; font-size: 24px;">{title}</h3>
+<p style="color: #555; font-size: 14px; margin: 10px 0; line-height: 1.5;">{description}</p>
 {expanded_html}
 </div>""", unsafe_allow_html=True)
     
@@ -354,12 +362,27 @@ def display_feed_card(
             is_favorited = title in favorites
             star_icon = "⭐" if is_favorited else "☆"
             
+            # Inject CSS to force both buttons to be exactly the same fixed size
+            st.html(
+                f"""
+                <div id="btn-marker-{card_index}"></div>
+                <style>
+                .element-container:has(#btn-marker-{card_index}) ~ .element-container button {{
+                    width: 50px !important;
+                    height: 50px !important;
+                    min-width: 50px !important;
+                    margin: 0 auto; /* centers the button inside its own container */
+                }}
+                </style>
+                """
+            )
+            
             if st.button(star_icon, key=f"fav_btn_{card_index}", help="Spara som favorit"):
                 toggle_favorite(title, tag)
                 st.rerun()
             
             # Share button (placeholder)
-            if st.button("↗️", key=f"share_btn_{card_index}", help="Dela"):
+            if st.button("↩️", key=f"share_btn_{card_index}", help="Dela"):
                 pass
 
     # Inline database question input (only when expanded)
@@ -425,6 +448,11 @@ def display_feed_card(
                     background-color: white !important;
                     color: black !important;
                     -webkit-text-fill-color: black !important;
+                }}
+                
+                /* Reduce gap below chat input */
+                .element-container:has(#white-chat-input-{card_index}) + .element-container {{
+                    margin-bottom: -1rem !important;
                 }}
                 </style>
                 """
@@ -511,9 +539,7 @@ def display_category_feed(category):
                     full_data=data
                 )
                 
-            if st.button("Visa fler inlägg", key="btn_more_category", disabled=len(top_items) < st.session_state.limit_category, use_container_width=True):
-                st.session_state.limit_category += 5
-                st.rerun()
+            display_load_more_button("Visa fler inlägg", "btn_more_category", "limit_category", len(top_items))
         else:
             st.info(f"Inga inlägg hittades för kategori: {category}")
     except Exception as e:
@@ -543,6 +569,18 @@ def display_feed(selected_categories, language, selected_content_types=None):
     if selected_content_types is None:
         selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten"]
     
+    # Inject custom CSS to increase the font size of the tabs
+    st.markdown("""
+<style>
+    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+        font-size: 24px;
+    }
+    .stTabs [data-baseweb="tab-list"] button {
+        font-size: 24px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
     # Create tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Mitt flöde", "Mina favoriter", "Senaste nyheterna", "Senaste mötena", "Kurser och evenemang"])
     
@@ -553,74 +591,72 @@ def display_feed(selected_categories, language, selected_content_types=None):
             # Fetch Kriskommunikation (latest 3)
             kriskommunikation_data = query_kriskommunikation(driver, limit=3)
             if kriskommunikation_data:
-                st.subheader("Kriskommunikation")
-                for idx, item in enumerate(kriskommunikation_data):
-                    display_feed_card(
-                        "Kriskommunikation",
-                        item.get("title", "Ingen titel"),
-                        item.get("description", "Ingen beskrivning"),
-                        card_index=f"krisk_{idx}",
-                        full_data=item
-                    )
+                with st.container(border=True):
+                    st.markdown("<h2 style='font-size: 24px; margin-bottom: 1rem;'>Kriskommunikation</h2>", unsafe_allow_html=True)
+                    for idx, item in enumerate(kriskommunikation_data):
+                        display_feed_card(
+                            "Kriskommunikation",
+                            item.get("title", "Ingen titel"),
+                            item.get("description", "Ingen beskrivning"),
+                            card_index=f"krisk_{idx}",
+                            full_data=item
+                        )
             
             # Fetch Kommunala nyheter (latest 3) based on selected categories
             if "Kommunala nyheter" in selected_content_types:
-                st.subheader("Kommunala nyheter")
-                municipal_news_data = query_news_by_categories(driver, selected_categories, sources=["Malax"], limit=st.session_state.limit_municipal)
-                if municipal_news_data:
-                    for idx, item in enumerate(municipal_news_data):
-                        display_feed_card(
-                            "Kommunala nyheter",
-                            item.get("title", "Ingen titel"),
-                            item.get("description", "Ingen beskrivning"),
-                            card_index=f"municipal_news_{idx}",
-                            full_data=item
-                        )
-                    if st.button("Visa fler nyheter", key="btn_more_municipal", disabled=len(municipal_news_data) < st.session_state.limit_municipal, use_container_width=True):
-                        st.session_state.limit_municipal += 5
-                        st.rerun()
-                else:
-                    st.info("Inga kommunala nyheter hittades för valda kategorier")
+                with st.container(border=True):
+                    st.markdown("<h2 style='font-size: 24px; margin-bottom: 1rem;'>Kommunala nyheter</h2>", unsafe_allow_html=True)
+                    municipal_news_data = query_news_by_categories(driver, selected_categories, sources=["Malax"], limit=st.session_state.limit_municipal)
+                    if municipal_news_data:
+                        for idx, item in enumerate(municipal_news_data):
+                            display_feed_card(
+                                "Kommunala nyheter",
+                                item.get("title", "Ingen titel"),
+                                item.get("description", "Ingen beskrivning"),
+                                card_index=f"municipal_news_{idx}",
+                                full_data=item
+                            )
+                        display_load_more_button("Visa fler nyheter", "btn_more_municipal", "limit_municipal", len(municipal_news_data))
+                    else:
+                        st.info("Inga kommunala nyheter hittades för valda kategorier")
 
             # Fetch Malax i media (latest 3) based on selected categories
             if "Malax i media" in selected_content_types:
-                st.subheader("Malax i media")
-                media_news_data = query_news_by_categories(driver, selected_categories, sources=["Yle"], limit=st.session_state.limit_media)
-                if media_news_data:
-                    for idx, item in enumerate(media_news_data):
-                        display_feed_card(
-                            "Malax i media",
-                            item.get("title", "Ingen titel"),
-                            item.get("description", "Ingen beskrivning"),
-                            card_index=f"media_news_{idx}",
-                            full_data=item
-                        )
-                    if st.button("Visa fler nyheter", key="btn_more_media", disabled=len(media_news_data) < st.session_state.limit_media, use_container_width=True):
-                        st.session_state.limit_media += 5
-                        st.rerun()
-                else:
-                    st.info("Inga medierelaterade nyheter hittades för valda kategorier")
+                with st.container(border=True):
+                    st.markdown("<h2 style='font-size: 24px; margin-bottom: 1rem;'>Malax i media</h2>", unsafe_allow_html=True)
+                    media_news_data = query_news_by_categories(driver, selected_categories, sources=["Yle"], limit=st.session_state.limit_media)
+                    if media_news_data:
+                        for idx, item in enumerate(media_news_data):
+                            display_feed_card(
+                                "Malax i media",
+                                item.get("title", "Ingen titel"),
+                                item.get("description", "Ingen beskrivning"),
+                                card_index=f"media_news_{idx}",
+                                full_data=item
+                            )
+                        display_load_more_button("Visa fler nyheter", "btn_more_media", "limit_media", len(media_news_data))
+                    else:
+                        st.info("Inga medierelaterade nyheter hittades för valda kategorier")
             
             # Fetch Mötesprotocol (latest 3) based on selected categories
             if "Möten" in selected_content_types:
-                st.subheader("Mötesprotokoll")
-                meeting_data = query_meeting_items_by_categories(driver, selected_categories, limit=st.session_state.limit_meeting)
-                if meeting_data:
-                    for idx, item in enumerate(meeting_data):
-                        display_feed_card(
-                            "Mötesprotokoll",
-                            item.get("title", "Ingen titel"),
-                            item.get("description", "Ingen beskrivning"),
-                            is_meeting=True,
-                            meeting_id=item.get("id"),
-                            card_index=f"meeting_{idx}",
-                            full_data=item
-                        )
-                    if st.button("Visa fler möten", key="btn_more_meeting", disabled=len(meeting_data) < st.session_state.limit_meeting, use_container_width=True):
-                        st.session_state.limit_meeting += 5
-                        st.rerun()
-                else:
-                    st.info("Inga mötesprotokoll hittades för valda kategorier")
+                with st.container(border=True):
+                    st.markdown("<h2 style='font-size: 24px; margin-bottom: 1rem;'>Mötesprotokoll</h2>", unsafe_allow_html=True)
+                    meeting_data = query_meeting_items_by_categories(driver, selected_categories, limit=st.session_state.limit_meeting)
+                    if meeting_data:
+                        for idx, item in enumerate(meeting_data):
+                            display_feed_card(
+                                "Mötesprotokoll",
+                                item.get("title", "Ingen titel"),
+                                item.get("description", "Ingen beskrivning"),
+                                is_meeting=True,
+                                meeting_id=item.get("id"),
+                                card_index=f"meeting_{idx}",
+                                full_data=item
+                            )
+                        display_load_more_button("Visa fler möten", "btn_more_meeting", "limit_meeting", len(meeting_data))
+                    else:
+                        st.info("Inga mötesprotokoll hittades för valda kategorier")
         except Exception as e:
             st.error(f"Error loading personal feed: {e}")
 
@@ -679,9 +715,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         card_index=f"latest_news_{idx}",
                         full_data=item
                     )
-                if st.button("Visa fler nyheter", key="btn_more_latest_news", disabled=len(latest_news) < st.session_state.limit_latest_news, use_container_width=True):
-                    st.session_state.limit_latest_news += 5
-                    st.rerun()
+                display_load_more_button("Visa fler nyheter", "btn_more_latest_news", "limit_latest_news", len(latest_news))
             else:
                 st.info("Inga nya nyheter hittades.")
         except Exception as e:
@@ -702,9 +736,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         card_index=f"latest_meetings_{idx}",
                         full_data=item
                     )
-                if st.button("Visa fler möten", key="btn_more_latest_meetings", disabled=len(latest_meetings) < st.session_state.limit_latest_meetings, use_container_width=True):
-                    st.session_state.limit_latest_meetings += 5
-                    st.rerun()
+                display_load_more_button("Visa fler möten", "btn_more_latest_meetings", "limit_latest_meetings", len(latest_meetings))
             else:
                 st.info("Inga nya möten hittades.")
         except Exception as e:
@@ -723,9 +755,7 @@ def display_feed(selected_categories, language, selected_content_types=None):
                         card_index=f"latest_courses_{idx}",
                         full_data=item
                     )
-                if st.button("Visa fler kurser och evenemang", key="btn_more_latest_courses", disabled=len(latest_courses) < st.session_state.limit_latest_courses, use_container_width=True):
-                    st.session_state.limit_latest_courses += 5
-                    st.rerun()
+                display_load_more_button("Visa fler kurser och evenemang", "btn_more_latest_courses", "limit_latest_courses", len(latest_courses))
             else:
                 st.info("Inga nya kurser hittades.")
         except Exception as e:
@@ -775,7 +805,29 @@ def display_general_question_interface(selected_categories, language):
         if st.button(suggested_questions[2], key="suggest_btn_3", use_container_width=True):
             _submit_general_entry_prompt(suggested_questions[2])
             st.rerun()
-      # Add spacing
+            
+    # Inject CSS to make the chat input larger and vertically centered. 
+    # To adjust sizes later, simply change the 'font-size' and padding values below.
+    st.html(
+        """
+        <div id="general-chat-input-marker"></div>
+        <style>
+        /* Center the send button vertically */
+        .element-container:has(#general-chat-input-marker) + .element-container [data-testid="stChatInput"] > div,
+        .element-container:has(#general-chat-input-marker) + .element-container [data-testid="stChatInput"] button {
+            align-items: center !important;
+            align-self: center !important;
+        }
+        /* Target the main text area inside the chat input */
+        .element-container:has(#general-chat-input-marker) + .element-container [data-testid="stChatInput"] textarea {
+            font-size: 20px !important;     /* Adjust text size here */
+            padding-top: 12px !important;   /* Use padding instead of min-height to naturally center vertically */
+            padding-bottom: 12px !important;
+            text-align: center !important;  /* Centers the text horizontally */
+        }
+        </style>
+        """
+    )
 
     user_input = st.chat_input(
         placeholder="🔍 Ställ en fråga om Malax",
