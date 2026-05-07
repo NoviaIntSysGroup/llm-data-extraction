@@ -17,15 +17,36 @@ def generate_embeddings(texts):
 
     texts = [text.strip()[:8192] if text and text.strip() else "[empty]" for text in texts]
 
+    # Filter out "[empty]" texts that resulted from empty/whitespace-only inputs
+    filtered_texts = [text for text in texts if text != "[empty]"]
+    
+    # If all texts were empty, return embeddings filled with zeros
+    if not filtered_texts:
+        # Return zero embeddings (dimension should match the model's embedding size, typically 1536)
+        embedding_dim = 1536
+        return [[0.0] * embedding_dim for _ in texts]
+
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     with llm_limiter:
         response = client.embeddings.create(
-            input=texts,
+            input=filtered_texts,
             model=os.getenv("OPENAI_TEXT_EMBEDDING_MODEL_NAME")
         )
 
-    return [item.embedding for item in response.data]
+    # Create a mapping of filtered texts to embeddings
+    embedding_dict = {filtered_texts[i]: response.data[i].embedding for i in range(len(filtered_texts))}
+    
+    # Return embeddings in the original order, using zero embeddings for "[empty]" entries
+    embedding_dim = len(response.data[0].embedding)
+    result = []
+    for text in texts:
+        if text == "[empty]":
+            result.append([0.0] * embedding_dim)
+        else:
+            result.append(embedding_dict[text])
+    
+    return result
 
 def extract_errand_topics(driver):
     """

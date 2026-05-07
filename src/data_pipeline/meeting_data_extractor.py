@@ -604,7 +604,7 @@ def generate_upcoming_metadata(df):
             "meeting_date": row.get("meeting_date", ""),
             "start_time": row.get("meeting_time", ""),
             "end_time": "",
-            "place": "",
+            "meeting_location": "",
             "meeting_reference": row.get("meeting_reference", ""),
             "adjustment_date": "",
             "participants": [],

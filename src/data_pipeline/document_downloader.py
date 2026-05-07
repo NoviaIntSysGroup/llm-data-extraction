@@ -393,7 +393,7 @@ def download_files(scraped_data, protocols_path, scraped_data_file_path, overwri
                     progress.update(1)
 
     # save the final scraped data, passing 20 as the count_downloaded as it is the minimum number of documents after which save is triggered
-    save_scraped_data(progress.n, scraped_data, scraped_data_file_path)
+    save_scraped_data(20, scraped_data, scraped_data_file_path)
     progress.close()
     return scraped_data
 
