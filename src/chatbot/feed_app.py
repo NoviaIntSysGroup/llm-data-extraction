@@ -86,9 +86,9 @@ def main():
                 st.session_state.selected_categories, st.session_state.selected_language, st.session_state.selected_content_types = result
                 st.session_state.categories_selected = True
                 # Only show tutorial if not already shown during this session
-                if not st.session_state.tutorial_shown:
-                    st.session_state.show_tutorial = True
-                    st.session_state.tutorial_shown = True
+                #if not st.session_state.tutorial_shown:
+                #    st.session_state.show_tutorial = True
+                #    st.session_state.tutorial_shown = True
                 save_selections(st.session_state.selected_categories, st.session_state.selected_language, st.session_state.selected_content_types)
                 st.rerun()
         return  # Exit early, don't show feed until categories are selected

@@ -22,33 +22,33 @@ def display_tutorial():
             "title": "Guide",
             "text": """Här är en kort handledning hur ditt personliga flöde fungerar.<br>
             <br>
-            1. I sökfältet kan du ställa frågor till vår AI-chattbot gällande Malax kommun, nyheter, möten mm.<br>
-            2. Här kan du byta mellan flöden:<br>
+            ➀. I sökfältet kan du ställa frågor till vår AI-chattbot gällande Malax kommun, nyheter, möten mm.<br>
+            ➁. Här kan du byta mellan flöden:<br>
                 &emsp;&emsp;Mitt flöde: Ditt personliga flöde baserat på dina inställningar.<br>
                 &emsp;&emsp;Mina favoriter: Dina sparade favoritartiklar.<br>
                 &emsp;&emsp;Senaste nyheterna: De senaste kommunala nyheterna oberoende av dina personliga inställningar.<br>
                 &emsp;&emsp;Senaste mötena: De senaste mötesprotokollen oberoende av dina personliga inställningar.<br>
                 &emsp;&emsp;Kurser och evenemang: Kommande kurser och evenemang.<br>
-            3. Klicka på stjärnan bredvid ett inlägg för att spara som favorit.<br>
-            4. Dela inlägget (OBS: Inte ännu implementerad).<br>
-            5. Klicka på Visa mera för att se fulla inlägget.""" ,
+            ➂. Klicka på stjärnan bredvid ett inlägg för att spara som favorit.<br>
+            ➃. Dela inlägget (OBS: Inte ännu implementerad).<br>
+            ➄. Klicka på Visa mera för att se fulla inlägget.""" ,
             "image": os.path.join(project_root, "assets", "Tutorial1.png")
         },
         {
             "title": "Guide",
-            "text": """6. Indikerar vilken typ av inlägg det är (kriskommunikation, nyhet, mötesprotokoll, kurs).<br>
-            7. Kategorier som inlägget hör till. Du kan klicka på kategorierna för att visa senaste informationen från den kategorin.<br>
-            8. Länk till källan för informationen i posten.<br>
-            9. Här kan du ställa direkta frågor om innehållet i posten till chattbotten.<br>""",
+            "text": """➅. Indikerar vilken typ av inlägg det är (kriskommunikation, nyhet, mötesprotokoll, kurs).<br>
+            ➆. Kategorier som inlägget hör till. Du kan klicka på kategorierna för att visa senaste informationen från den kategorin.<br>
+            ➇. Länk till källan för informationen i posten.<br>
+            ➈. Här kan du ställa direkta frågor om innehållet i posten till chattbotten.<br>""",
             "image": os.path.join(project_root, "assets", "Tutorial2.png")
         },
         {
             "title": "Guide",
             "text": """Längst ner på sidan finns dessa knappar:<br>
-            10. Ladda in flera möten/nyheter/kurser beroende på vilket flöde som visas.<br>
-            11. Visa den här guiden igen ifall du behöver hjälp.<br>
-            12. Ändra dina personliga inställningar.<br>
-            13. Återställ alla inställningar till ursprungsläget, detta raderar dina favoriter och personliga val.<br>""",
+            ➉. Ladda in flera möten/nyheter/kurser beroende på vilket flöde som visas.<br>
+            ⑪. Visa den här guiden igen ifall du behöver hjälp.<br>
+            ⑫. Ändra dina personliga inställningar.<br>
+            ⑬. Återställ alla inställningar till ursprungsläget, detta raderar dina favoriter och personliga val.<br>""",
             "image": os.path.join(project_root, "assets", "Tutorial3.png")
         }
     ]
@@ -109,7 +109,7 @@ def display_category_selector():
     selected_content_types = ["Kommunala nyheter", "Malax i media", "Möten"]
     
     # Category selection with expandable sections
-    st.markdown("**Välj kategorier du vill få information om:**")
+    st.markdown("**Välj kategorier du vill få information om i mitt flöde:**")
     
     # Pre-fill states from previous selections if going back to settings
     prev_selections = st.session_state.get('selected_categories', [])
@@ -167,11 +167,14 @@ def display_category_selector():
                 # Initialize subcategory to True when main category is first checked
                 if sub_key not in st.session_state:
                     st.session_state[sub_key] = True
-                    
-                selected[subcat_name] = st.checkbox(
-                    f"↳ {subcat_name}", 
-                    key=sub_key
-                )
+                
+                # Create indented subcategory with custom spacing
+                col1, col2 = st.columns([0.1, 0.9])
+                with col2:
+                    selected[subcat_name] = st.checkbox(
+                        f"↳ {subcat_name}", 
+                        key=sub_key
+                    )
         elif not selected[main_cat_name] and "subcategories" in main_cat:
             # Clean up session state if main category is unchecked so they default to True next time
             for subcat in main_cat["subcategories"]:
@@ -200,11 +203,13 @@ def display_category_selector():
 
 def display_load_more_button(button_text, key, limit_state_key, data_length, increment=5):
     """Refactored helper function to render the 'Load More' button neatly formatted to 90% width"""
-    col1, col2 = st.columns([0.9, 0.1])
-    with col1:
-        if st.button(button_text, key=key, disabled=data_length < st.session_state[limit_state_key], use_container_width=True):
-            st.session_state[limit_state_key] += increment
-            st.rerun()
+    # Only show the button if there are more items to load
+    if data_length >= st.session_state[limit_state_key]:
+        col1, col2 = st.columns([0.9, 0.1])
+        with col1:
+            if st.button(button_text, key=key, use_container_width=True):
+                st.session_state[limit_state_key] += increment
+                st.rerun()
 
 def display_feed_card(
     tag,
@@ -267,7 +272,7 @@ def display_feed_card(
             expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">Tider</p><p style="color: #555; font-size: 14px; margin: 0;">{full_data.get("times")}</p></div>'
         if full_data.get("link"):
             # Determine the link label based on tag type
-            link_label = "Länk"
+            link_label = "Ursprungslänk"
             expanded_html += f'<div style="margin-bottom: 8px;"><p style="color: #555; font-size: 14px; text-transform: uppercase; margin-bottom: 2px; font-weight: bold; margin: 0;">{link_label}</p><p style="color: #555; font-size: 14px; margin: 0;"><a href="{full_data.get("link")}" target="_blank" style="color: #0066cc; text-decoration: none;">Mera info</a></p></div>'
         if full_data.get("matched_categories"):
             # Handle both list and string formats for matched categories
@@ -573,10 +578,10 @@ def display_feed(selected_categories, language, selected_content_types=None):
     st.markdown("""
 <style>
     .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-        font-size: 24px;
+        font-size: 22px;
     }
     .stTabs [data-baseweb="tab-list"] button {
-        font-size: 24px;
+        font-size: 22px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -783,28 +788,29 @@ def display_general_question_interface(selected_categories, language):
         st.session_state.general_messages.append({"role": "user", "content": prompt_text})
 
     # Display suggested questions
-    suggest_col1, suggest_col2, suggest_col3 = st.columns(3, gap="small")
-    
-    suggested_questions = [
-        "Vilka ärenden togs upp i det senaste mötet?",
-        "Hur ska jag bygga hus i Malax?",
-        "Vad är de senaste nyheterna om Malax?"
-    ]
-    
-    with suggest_col1:
-        if st.button(suggested_questions[0], key="suggest_btn_1", use_container_width=True):
-            _submit_general_entry_prompt(suggested_questions[0])
-            st.rerun()
-    
-    with suggest_col2:
-        if st.button(suggested_questions[1], key="suggest_btn_2", use_container_width=True):
-            _submit_general_entry_prompt(suggested_questions[1])
-            st.rerun()
-    
-    with suggest_col3:
-        if st.button(suggested_questions[2], key="suggest_btn_3", use_container_width=True):
-            _submit_general_entry_prompt(suggested_questions[2])
-            st.rerun()
+    # HIDDEN - Suggested questions are currently disabled
+    # suggest_col1, suggest_col2, suggest_col3 = st.columns(3, gap="small")
+    # 
+    # suggested_questions = [
+    #     "Vilka ärenden togs upp i det senaste mötet?",
+    #     "Hur ska jag bygga hus i Malax?",
+    #     "Vad är de senaste nyheterna om Malax?"
+    # ]
+    # 
+    # with suggest_col1:
+    #     if st.button(suggested_questions[0], key="suggest_btn_1", use_container_width=True):
+    #         _submit_general_entry_prompt(suggested_questions[0])
+    #         st.rerun()
+    # 
+    # with suggest_col2:
+    #     if st.button(suggested_questions[1], key="suggest_btn_2", use_container_width=True):
+    #         _submit_general_entry_prompt(suggested_questions[1])
+    #         st.rerun()
+    # 
+    # with suggest_col3:
+    #     if st.button(suggested_questions[2], key="suggest_btn_3", use_container_width=True):
+    #         _submit_general_entry_prompt(suggested_questions[2])
+    #         st.rerun()
             
     # Inject CSS to make the chat input larger and vertically centered. 
     # To adjust sizes later, simply change the 'font-size' and padding values below.
@@ -823,7 +829,7 @@ def display_general_question_interface(selected_categories, language):
             font-size: 20px !important;     /* Adjust text size here */
             padding-top: 12px !important;   /* Use padding instead of min-height to naturally center vertically */
             padding-bottom: 12px !important;
-            text-align: center !important;  /* Centers the text horizontally */
+            text-align: left !important;  /* Lefts the text horizontally */
         }
         </style>
         """
@@ -1037,7 +1043,7 @@ Kontext - Valda kategorier:
             st.session_state[messages_key].append({"role": "user", "content": prompt_text})
             st.rerun()
 
-    placeholder = "🔍 Ställ en fråga om innehållet" if is_database_chat else "🔍 Ställ en fråga om Malax"
+    placeholder = "🔍 Har du flera frågor?"
     user_input = st.chat_input(
         placeholder=placeholder,
         key=input_key,

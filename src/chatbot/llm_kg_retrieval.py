@@ -77,7 +77,7 @@ def classify_question_intent(user_query: str, chat_history: List[Dict[str, str]]
     
     return "meetings" if "DATABASE" in classification else "malax"
 
-def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None, thinking_level: str = "low", google_search = False) -> BaseLanguageModel:
+def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None, thinking_level: str = "low", google_search = False, force_gemini: bool = False) -> BaseLanguageModel:
     """
     Factory function to get the configured LLM instance.
     This makes it easy to switch between different LLM providers by just changing environment variables.
@@ -106,7 +106,7 @@ def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = N
                 thinking_level=thinking_level
             ).bind_tools([{"google_search": {}}])
     
-    elif llm_provider == "gemini":
+    elif llm_provider == "gemini" or force_gemini:
     
         return ChatGoogleGenerativeAI(
             model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
@@ -686,7 +686,7 @@ class KnowledgeGraphRAG:
         if run_environment == "script" and answer_placeholder:
             stream_handler = StreamHandler(container=answer_placeholder)
             self.chain = MyGraphCypherQAChain.from_llm(
-                cypher_llm=get_llm(temperature=0),
+                cypher_llm=get_llm(temperature=0, force_gemini=True),
                 qa_llm=get_llm(temperature=0, streaming=True, callbacks=[stream_handler]),
                 cypher_prompt=CYPHER_GENERATION_PROMPT,
                 qa_prompt=CYPHER_QA_PROMPT,
@@ -698,7 +698,7 @@ class KnowledgeGraphRAG:
             )
         else:
             self.chain = MyGraphCypherQAChain.from_llm(
-                cypher_llm=get_llm(temperature=0),
+                cypher_llm=get_llm(temperature=0, force_gemini=True),
                 qa_llm=get_llm(temperature=0),
                 cypher_prompt=CYPHER_GENERATION_PROMPT,
                 qa_prompt=CYPHER_QA_PROMPT,
