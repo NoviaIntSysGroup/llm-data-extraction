@@ -387,7 +387,7 @@ def display_feed_card(
                 st.rerun()
             
             # Share button (placeholder)
-            if st.button("↩️", key=f"share_btn_{card_index}", help="Dela"):
+            if st.button("📨", key=f"share_btn_{card_index}", help="Dela"):
                 pass
 
     # Inline database question input (only when expanded)
