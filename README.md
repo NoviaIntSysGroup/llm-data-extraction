@@ -1,6 +1,6 @@
 # Democracy Feed and Chatbot
-![Chatbot](assets/democracy_chatbot_demo.gif)
 ![Feed](assets/Feed_screenshot.png)
+![Chatbot](assets/democracy_chatbot_demo.gif)
 
 Democracy Chatbot is a project that aims to extract structured data from unstructured meeting protocols and create a knowledge graph for efficient data retrieval and querying. The project utilizes a Large Language Model (LLM) to extract metadata from PDF files obtained by scraping the website of the city of Malax. The extracted data is then converted into a knowledge graph, enabling quick access to the information. The project also includes scraping for news and MI courses, that along with the meeting protocols get categorized in the database. The database content can then be viewed using an streamlit app with a personalized feed and a chatbot that can answer user question based on the data.
 
