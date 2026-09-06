@@ -26,7 +26,7 @@
                 "string",
                 "null"
             ],
-            "description": "Description of the current meeting protocol, if any. This typically comes after the decision of the last previous reference. Do not include ANYTHING from 'Beslutshistorik' or 'Tidigare behandling' sections."
+            "description": "Description of the current meeting protocol, if any. This typically comes after the decision of the last previous reference. Do not include ANYTHING from 'Beslutshistorik' or 'Tidigare behandling' sections. Do not include ANYTHING from previous references."
         },
         "prepared_by": {
             "type": [

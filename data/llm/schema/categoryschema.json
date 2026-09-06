@@ -1,0 +1,55 @@
+{
+    "type": "object",
+    "properties": {
+        "categories": {
+            "type": "array",
+            "description": "List of main categories",
+            "items": {
+                "type": "object",
+                "description": "A main category with only a name property",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the category"
+                    },
+                    "subcategories": {
+                        "type": "array",
+                        "description": "List of subcategories (1st level deep)",
+                        "items": {
+                            "type": "object",
+                            "description": "A subcategory with only a name property",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "Name of the subcategory"
+                                },
+                                "sub_subcategories": {
+                                    "type": "array",
+                                    "description": "List of sub-subcategories (2nd level deep)",
+                                    "items": {
+                                        "type": "object",
+                                        "description": "A sub-subcategory with only a name property",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string",
+                                                "description": "Name of the sub-subcategory"
+                                            }
+                                        },
+                                        "required": ["name"],
+                                        "additionalProperties": false
+                                    }
+                                }
+                            },
+                            "required": ["name"],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": ["name"],
+                "additionalProperties": false
+            }
+        }
+    },
+    "required": ["categories"],
+    "additionalProperties": false
+}

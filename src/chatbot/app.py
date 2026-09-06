@@ -1,12 +1,13 @@
-import sys
-import streamlit as st
-import streamlit.components.v1 as components
 import chatbot.llm_kg_retrieval as llm_kg_retrieval
+import base64
+import json
 import os
 import re
-import json
 import requests
-import base64
+import streamlit as st
+import streamlit.components.v1 as components
+import sys
+
 from dotenv import load_dotenv
 
 # load secrets
@@ -14,22 +15,101 @@ load_dotenv("../../config/config.env")
 load_dotenv("../../config/secrets.env")
 
 try:
-    __import__('pysqlite3')
-    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+    __import__("pysqlite3")
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
 except ImportError:
     pass
 
+def load_categories():
+    """Load categories from JSON file"""
+    categories_path = os.path.join(os.path.dirname(__file__), "../../data/llm/schema/categories.json")
+    with open(categories_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def display_category_selector():
+    """Display interactive category selection interface with language selection"""
+    categories_data = load_categories()
+    
+    st.subheader("📋 Select Categories and Language")
+    
+    # Language selection
+    st.markdown("**Select your preferred language:**")
+    lang_sv = st.radio("Language", ["Svenska", "Suomi", "English", "Yкраїнська", "日本語", "繁體中文"], index=0, label_visibility="collapsed")
+    
+    # Category selection with expandable sections
+    st.markdown("**Choose which categories you want to get info about:**")
+    
+    selected = {}
+    
+    # Iterate through main categories and create expandable sections
+    for main_cat in categories_data["categories"]:
+        main_cat_name = main_cat["name"]
+        
+        with st.expander(f" {main_cat_name}", expanded=False):
+            # Main category checkbox
+            selected[main_cat_name] = st.checkbox(
+                main_cat_name, 
+                value=False, 
+                key=f"main_{main_cat_name}"
+            )
+            
+            # Subcategories
+            if "subcategories" in main_cat:
+                st.markdown("*Subcategories:*")
+                for subcat in main_cat["subcategories"]:
+                    subcat_full_name = f"{main_cat_name} > {subcat['name']}"
+                    selected[subcat_full_name] = st.checkbox(
+                        f"  {subcat['name']}", 
+                        value=False, 
+                        key=f"sub_{subcat_full_name}"
+                    )
+    
+    # Submit button
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("Submit & Start Chat", type="primary", use_container_width=True):
+            # Filter to only selected categories
+            selected_categories = [cat for cat, checked in selected.items() if checked]
+            
+            if selected_categories:
+                return selected_categories, lang_sv
+            else:
+                st.warning("Please select at least one category!")
+                return None
+    
+    return None
 
 def extract_doc_id(filename):
-    """Extracts the document ID from the filename."""
-    match = re.search(r'_(\d{6})\.pdf$', filename)
+    """
+    Extract the document ID from a given filename.
+
+    Args:
+        filename (str): The filename to parse, which should end with an underscore,
+            followed by six digits, then ".pdf".
+
+    Returns:
+        str or None: The six-digit document ID if found, otherwise None.
+    """
+
+    match = re.search(r"_(\d{6})\.pdf$", filename)
     if match:
         return match.group(1)
     return None
 
-
 def generate_markdown_link(filename, doc_id):
-    """Generates a markdown hyperlink."""
+    """
+    Generate a Markdown hyperlink pointing to a specific PDF document.
+
+    Args:
+        filename (str): Display text or filename to show in the link.
+        doc_id (str or None): The document ID to append to the base URL. If None,
+            a hyperlink is not created, and the filename is returned as is.
+
+    Returns:
+        str: A Markdown-formatted string that either displays a link to the PDF,
+            or the plain filename if `doc_id` is None.
+    """
+
     if doc_id is None:
         return filename
 
@@ -38,9 +118,18 @@ def generate_markdown_link(filename, doc_id):
 
     return f"[{filename}]({url})"
 
-
 def display_pdf(doc_id, col):
-    """Displays the PDF in streamlit."""
+    """
+    Retrieve and display a PDF file within a Streamlit application.
+
+    Args:
+        doc_id (str): The document ID used to construct the download URL for the PDF.
+        col (streamlit.delta_generator.DeltaGenerator): A Streamlit container in which to display the PDF.
+
+    Returns:
+        None
+    """
+
     doc_id = "162526"
     if doc_id is None:
         doc_id = "162526"
@@ -59,31 +148,27 @@ def display_pdf(doc_id, col):
         return
 
     # Encode the content of the PDF in base64
-    encoded_pdf = base64.b64encode(response.content).decode('utf-8')
+    encoded_pdf = base64.b64encode(response.content).decode("utf-8")
 
     # Create a data URL for the PDF
-    data_url = f'data:application/pdf;base64,{encoded_pdf}'
+    data_url = f"data:application/pdf;base64,{encoded_pdf}"
     with col:
         st.empty()
         st.markdown(f'<iframe src="{data_url}#zoom=85&view=FitH,0&scrollbar=0&toolbar=0&navpanes=0" style="width:100%; height:80vh"></iframe>',
                     unsafe_allow_html=True)
-        
+
 def timeline(data, height=400):
     """Create a new timeline component with a dark pastel theme and a full-screen button.
 
-    Parameters
-    ----------
-    data: str or dict
-        String or dict in the timeline json format: https://timeline.knightlab.com/docs/json-format.html
-    height: int or None
-        Height of the timeline in px
+    Args:
+        data (str or dict): String or dict in the timeline json format:
+            https://timeline.knightlab.com/docs/json-format.html
+        height (int or None): Height of the timeline in px
 
-    Returns
-    -------
-    static_component: Boolean
-        Returns a static component with a timeline
+    Returns:
+        (bool): Returns a static component with a timeline
     """
-    
+
     import json  # Ensure the json module is imported
     import streamlit.components.v1 as components  # Import components for rendering
 
@@ -95,8 +180,8 @@ def timeline(data, height=400):
     json_text = json.dumps(data)
 
     # Load the JSON data into JavaScript
-    source_param = 'timeline_json'
-    source_block = f'var {source_param} = {json_text};'
+    source_param = "timeline_json"
+    source_block = f"var {source_param} = {json_text};"
 
     # Define the CDN paths for TimelineJS3's CSS and JS
     css_block = '<link title="timeline-styles" rel="stylesheet" href="https://cdn.knightlab.com/libs/timeline3/latest/css/timeline.css">'
@@ -186,7 +271,7 @@ def timeline(data, height=400):
         position: absolute;
         top: 3px;
         right: 3px;
-        background-color: #2e2e2e; 
+        background-color: #2e2e2e;
         color: #FFFFFF;
         border: none;
         padding: 2px 6px;
@@ -281,7 +366,7 @@ def timeline(data, height=400):
     </script>
     """
     # Create the HTML block that will embed the timeline
-    htmlcode = css_block + ''' 
+    htmlcode = css_block + '''
     ''' + js_block + '''
     ''' + custom_css + '''
         <div id='timeline-embed' style="width: 95%; height: ''' + str(height) + '''px; margin: 1px; position: relative;">
@@ -303,9 +388,6 @@ def timeline(data, height=400):
 
     return static_component
 
-
-
-
 def main():
     st.set_page_config(page_title="Democracy Chatbot", page_icon="🗳",
                        layout="wide", initial_sidebar_state="auto", menu_items=None)
@@ -316,19 +398,66 @@ def main():
         st.markdown(
             "<h1 style='text-align: center; color: white;'>🗳 Democracy Chatbot</h1>", unsafe_allow_html=True)
         st.info(
-            'Chat with the documents of municipality of Nykarleby. Easy information access for everyone!')
+            "Chat with the documents of municipality of Malax. Easy information access for everyone!")
 
+    # Initialize session state variables
+    if "categories_selected" not in st.session_state.keys():
+        st.session_state.categories_selected = False
+    
+    if "selected_categories" not in st.session_state.keys():
+        st.session_state.selected_categories = []
+    
+    if "selected_language" not in st.session_state.keys():
+        st.session_state.selected_language = "Swedish"
+    
     if "messages" not in st.session_state.keys():  # Initialize the chat messages history
-        st.session_state.messages = [
-            {"role": "assistant",
-                "content": "Hi, ask me a question about the meeting decisions and protocols!"}
-        ]
+        st.session_state.messages = []
+    
+    if "conversation_memory" not in st.session_state.keys():  # Initialize conversation memory
+        st.session_state.conversation_memory = llm_kg_retrieval.ConversationMemory()
+    
+    if "conversation_logger" not in st.session_state.keys():  # Initialize conversation logger
+        st.session_state.conversation_logger = llm_kg_retrieval.ConversationLogger()
+
+    # Show category selection interface if categories haven't been selected yet
+    if not st.session_state.categories_selected:
+        with col2:
+            result = display_category_selector()
+            if result:
+                st.session_state.selected_categories, st.session_state.selected_language = result
+                st.session_state.categories_selected = True
+                st.rerun()
+        return  # Exit early, don't show chat until categories are selected
+    
+    # Initialize chat with automatic first query if it's the first time with categories selected
+    if len(st.session_state.messages) == 0:
+        categories_str = ", ".join(st.session_state.selected_categories)
+        language = st.session_state.selected_language
+        
+        # Store the system context for later use in prompts
+        st.session_state.category_context = f"The user is interested in the following categories: {categories_str}. Please provide information about the latest meeting items and decisions from these specific categories. Focus on recent and relevant updates. Respond in {language}."
+        
+        # Add an automatic user message to trigger LLM response with latest information
+        st.session_state.messages.append({
+            "role": "user",
+            "content": "Give me the latest information in my selected categories."
+        })
 
     # Prompt for user input and save to chat history
     if prompt := st.chat_input("Your question"):
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-    enable_graph = st.toggle("Enable Graph")
+    col_graph, col_reset = st.columns([5, 1])
+    # with col_graph:
+    #     enable_graph = st.toggle("Enable Graph")
+    with col_reset:
+        if st.button("Change Settings", help="Select different categories"):
+            st.session_state.categories_selected = False
+            st.session_state.selected_categories = []
+            st.session_state.selected_language = "Swedish"
+            st.session_state.messages = []
+            st.session_state.conversation_memory = llm_kg_retrieval.ConversationMemory()
+            st.rerun()
 
     with col2:
         # Display the prior chat messages
@@ -338,7 +467,7 @@ def main():
                     with st.expander("Intermediate Steps", expanded=False):
                         st.markdown(
                             f"""
-                            Generated Cypher Query:   
+                            Generated Cypher Query:
                             ```
                             {message["intermediate_steps"]["query"]}
                             ```
@@ -346,30 +475,43 @@ def main():
                         if message["intermediate_steps"].get("context"):
                             st.markdown(
                                 f"""
-                                Retrieved Context from Knowledge Graph:     
+                                Retrieved Context from Knowledge Graph:
                                 ```python
                                 {message["intermediate_steps"]["context"]}
                                 ```
                                 """)
                 st.write(message["content"])
-                if message.get("timeline_json"):
-                    timeline(message["timeline_json"])
+                # Uncomment for timeline
+                # if message.get("timeline_json"):
+                #     timeline(message["timeline_json"])
 
         # If last message is not from assistant, generate a new response
         if st.session_state.messages[-1]["role"] != "assistant":
             with st.chat_message("assistant"):
                 intermediate_placeholder = st.empty()
                 answer_placeholder = st.empty()
-                # Initialize the LLM Query Processor
+                # Initialize the LLM Query Processor with shared conversation memory
                 with st.spinner("Thinking..."):
+                    # Create a fresh processor for each query with the shared conversation memory and logger
                     processor = llm_kg_retrieval.KnowledgeGraphRAG(
                         url=os.getenv("NEO4J_URI"),
                         username=os.getenv("NEO4J_USERNAME"),
                         password=os.getenv("NEO4J_PASSWORD"),
+                        database=os.getenv("NEO4J_DATABASE"),
                         answer_placeholder=answer_placeholder,
-                        run_environment="script")
+                        run_environment="script",
+                        enable_memory=True,
+                        memory=st.session_state.conversation_memory,
+                        enable_logging=True,
+                        logger=st.session_state.conversation_logger)
+                    
+                    # Prepend category context to the prompt if categories are selected
+                    final_prompt = prompt
+                    if st.session_state.get("category_context"):
+                        final_prompt = f"{st.session_state.category_context}\n\nUser question: {prompt}"
+                    
                     # get response from LLM
-                    response, query, context = processor.process_prompt(prompt)
+                    response, query, context = processor.process_prompt(final_prompt)
 
                 # add context provided to the llm to streamlit expander
                 message = {"role": "assistant",
@@ -381,7 +523,7 @@ def main():
                     with intermediate_placeholder.expander("Intermediate Steps", expanded=False):
                         st.markdown(
                             f"""
-                            Generated Cypher Query:    
+                            Generated Cypher Query:
                             ```
                             {query}
                             ```
@@ -395,27 +537,26 @@ def main():
                                 {context}
                                 ```
                                 """)
-                        
+
 
                 # Add response to message history
                 st.session_state.messages.append(message)
 
-                with st.spinner("Generating Timeline..."):
-                    timeline_json = processor.get_timeline_from_data(context, prompt)
-                    if timeline_json:
-                            message["timeline_json"] = timeline_json
-                            timeline(timeline_json)
+                # Uncomment for timeline
+                # with st.spinner("Generating Timeline..."):
+                #     timeline_json = processor.get_timeline_from_data(context, prompt)
+                #     if timeline_json:
+                #             message["timeline_json"] = timeline_json
+                #             timeline(timeline_json)
 
-
-                if context and enable_graph:
-                    with st.spinner("Generating figure..."):
-                        figure = processor.get_diagram(prompt, context)
-                        print(figure)
-                        if figure and "base64" in figure:
-                            st.image(figure, use_column_width=True)
-                        elif figure and "html" in figure:
-                            st.components.v1.html(figure, height=500)
-
+                # if context and enable_graph:
+                #     with st.spinner("Generating figure..."):
+                #         figure = processor.get_diagram(prompt, context)
+                #         print(figure)
+                #         if figure and "base64" in figure:
+                #             st.image(figure, use_column_width=True)
+                #         elif figure and "html" in figure:
+                #             st.components.v1.html(figure, height=500)
 
 if __name__ == "__main__":
     main()

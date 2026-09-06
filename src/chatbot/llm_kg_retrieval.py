@@ -1,23 +1,282 @@
 import json
 import langchain
+import langchain_core
 import logging
 import os
 import re
 import retry
 import types
 
-#langchain.debug = True
+langchain.debug = True
 
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.callbacks.manager import CallbackManagerForChainRun
+from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.callbacks.manager import CallbackManagerForChainRun
 from langchain_core.prompts.prompt import PromptTemplate
+from langchain_core.language_models import BaseLanguageModel
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from neo4j import GraphDatabase
 from neo4j.exceptions import SessionExpired
 from openai import OpenAI
-from ratelimit import limits
 from typing import Any, Dict, List, Optional
+from pathlib import Path
+
+import sys
+sys.path.append('..')
+from data_pipeline.utils import *
+
+current_dir = Path(__file__).resolve().parent
+PROJECT_ROOT = current_dir.parent.parent
+
+def classify_question_intent(user_query: str, chat_history: List[Dict[str, str]] = None) -> str:
+    """
+    Given a user's question, uses Gemini to determine whether it is about 
+    meetings/protocols or general municipality information.
+    Includes chat history to handle follow-up questions gracefully.
+    """
+    # Use the fast, lightweight model via LangChain
+    model = ChatGoogleGenerativeAI(model="gemini-flash-lite-latest", temperature=1)
+    
+    history_text = ""
+    if chat_history:
+        history_text = "Previous conversation context:\n"
+        for msg in chat_history[-3:]: # only use last 3 messages to keep it short
+            role = "User" if msg["role"] == "user" else "Assistant"
+            history_text += f"{role}: {msg['content']}\n"
+    
+    prompt = f"""You are an intent classifier for a municipality chatbot.
+    Determine if the current user question is about official municipality meetings, protocols, or political decisions OR if it is about general municipal information, news, courses, or events.
+    
+    {history_text}
+    Current user question: "{user_query}"
+    
+    Respond STRICTLY with exactly one word: 
+    - "DATABASE" if it is about meetings, protocols, decisions, news, courses or events.
+    - "GENERAL" if it is about general information or other.
+    """
+    
+    response = model.invoke(prompt)
+
+    # Gemini/LangChain may return response.content as str, list, or dict-like parts
+    content = response.content if hasattr(response, "content") else response
+    if isinstance(content, str):
+        classification = content.strip().upper()
+    elif isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                parts.append(str(item.get("text", "")))
+            else:
+                parts.append(str(item))
+        classification = "".join(parts).strip().upper()
+    elif isinstance(content, dict):
+        classification = str(content.get("text", str(content))).strip().upper()
+    else:
+        classification = str(content).strip().upper()
+    
+    return "meetings" if "DATABASE" in classification else "malax"
+
+def get_llm(temperature: float = 0, streaming: bool = False, callbacks: List = None, thinking_level: str = "low", google_search = False, force_gemini: bool = False) -> BaseLanguageModel:
+    """
+    Factory function to get the configured LLM instance.
+    This makes it easy to switch between different LLM providers by just changing environment variables.
+    
+    Args:
+        temperature (float): Temperature parameter for LLM (0-1). Default is 0.
+        streaming (bool): Whether to enable streaming for the LLM. Default is False.
+        callbacks (List): Optional list of callbacks for the LLM.
+    
+    Returns:
+        BaseLanguageModel: An instance of the configured LLM.
+    
+    Environment Variables:
+        LLM_PROVIDER: The LLM provider to use. Options: "gemini", "openai". Default: "gemini"
+        GEMINI_MODEL_NAME: The Gemini model to use (e.g., "gemini-3-pro-preview")
+        OPENAI_MODEL_NAME: The OpenAI model to use (e.g., "gpt-4-mini")
+    """
+    llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+
+    if google_search == True:
+            return ChatGoogleGenerativeAI(
+                model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
+                temperature=1,  # Gemini temp should always be 1
+                streaming=streaming,
+                callbacks=callbacks or [],
+                thinking_level=thinking_level
+            ).bind_tools([{"google_search": {}}])
+    
+    elif llm_provider == "gemini" or force_gemini:
+    
+        return ChatGoogleGenerativeAI(
+            model=os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash"),
+            temperature=1,  # Gemini temp should always be 1
+            streaming=streaming,
+            callbacks=callbacks or [],
+            thinking_level=thinking_level
+        )
+    elif llm_provider == "openai":
+        return ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL_NAME", "gpt-4-mini"),
+            temperature=temperature,
+            streaming=streaming,
+            callbacks=callbacks or [],
+        )
+    else:
+        raise ValueError(f"Unsupported LLM provider: {llm_provider}. Supported providers are: 'gemini', 'openai'")
+
+
+class ConversationMemory:
+    """
+    Manages short-term conversation memory for the chatbot.
+    Stores user questions and corresponding AI answers to provide context to all queries.
+    """
+    
+    def __init__(self, max_exchanges: int = 5):
+        """
+        Initialize conversation memory.
+        
+        Args:
+            max_exchanges (int): Maximum number of user-answer exchanges to keep in memory.
+        """
+        self.max_exchanges = max_exchanges
+        self.exchanges = []  # List of {"user_question": str, "ai_answer": str}
+    
+    def add_exchange(self, user_question: str, ai_answer: str) -> None:
+        """
+        Add a user question and AI answer to memory.
+        
+        Args:
+            user_question (str): The user's question
+            ai_answer (str): The AI's answer
+        """
+        self.exchanges.append({
+            "user_question": user_question,
+            "ai_answer": ai_answer
+        })
+        
+        # Keep only the most recent exchanges
+        if len(self.exchanges) > self.max_exchanges:
+            self.exchanges = self.exchanges[-self.max_exchanges:]
+    
+    def get_context_string(self) -> str:
+        """
+        Get conversation history formatted as a context string for prompts.
+        
+        Returns:
+            str: Formatted conversation history, empty string if no history
+        """
+        if not self.exchanges:
+            return ""
+        
+        context_lines = ["Previous conversation history:"]
+        for i, exchange in enumerate(self.exchanges, 1):
+            context_lines.append(f"\nQuestion {i}: {exchange['user_question']}")
+            context_lines.append(f"Answer {i}: {exchange['ai_answer'][:500]}...")  # Truncate long answers
+        
+        return "\n".join(context_lines)
+    
+    def clear(self) -> None:
+        """Clear all conversation history."""
+        self.exchanges = []
+    
+    def get_exchanges(self) -> List[Dict[str, str]]:
+        """Get all stored exchanges."""
+        return self.exchanges.copy()
+
+
+class ConversationLogger:
+    """
+    Logs conversation history to JSON files.
+    Each conversation session gets its own file named by creation timestamp.
+    """
+    
+    def __init__(self, log_dir: str = None):
+        """
+        Initialize conversation logger.
+        
+        Args:
+            log_dir (str): Directory where log files will be stored. If None, uses default from config.
+        """
+        from datetime import datetime
+        
+        # Use provided log_dir or construct from config/environment
+        if log_dir is None:
+            # Try to get from environment variable, otherwise use default relative to project root
+            log_dir = os.getenv("CONVERSATION_LOG_DIR", None)
+            if log_dir is None:
+                # Construct path relative to this script location (chatbot folder)
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                log_dir = os.path.join(script_dir, "..", "..", "data", "llm", "logs")
+        
+        # Convert to absolute path
+        self.log_dir = os.path.abspath(log_dir)
+        self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.log_file = os.path.join(self.log_dir, f"{self.session_id}.json")
+        self.conversation_data = {
+            "session_id": self.session_id,
+            "created_at": datetime.now().isoformat(),
+            "exchanges": []
+        }
+        
+        # Create logs directory if it doesn't exist
+        try:
+            os.makedirs(self.log_dir, exist_ok=True)
+            print(f"Conversation log directory: {self.log_dir}")
+        except Exception as e:
+            print(f"Error creating log directory {self.log_dir}: {e}")
+            raise
+        
+        # Save initial empty log file
+        self._save_to_file()
+        print(f"Conversation log file created: {self.log_file}")
+    
+    def add_exchange(self, user_question: str, ai_answer: str, query: str = None, context: List = None) -> None:
+        """
+        Add a user question and AI answer exchange to the log.
+        
+        Args:
+            user_question (str): The user's question
+            ai_answer (str): The AI's answer
+            query (str): Optional Cypher query generated
+            context (List): Optional context/data retrieved from the knowledge graph
+        """
+        from datetime import datetime
+        
+        exchange = {
+            "timestamp": datetime.now().isoformat(),
+            "user_question": user_question,
+            "ai_answer": ai_answer,
+        }
+        
+        # Add optional fields if provided
+        if query:
+            exchange["cypher_query"] = query
+        if context:
+            exchange["context"] = context
+        
+        self.conversation_data["exchanges"].append(exchange)
+        self._save_to_file()
+    
+    def _save_to_file(self) -> None:
+        """Save conversation data to JSON file."""
+        try:
+            with open(self.log_file, 'w', encoding='utf-8') as f:
+                json.dump(self.conversation_data, f, indent=2, ensure_ascii=False, default=str)
+        except IOError as e:
+            print(f"Error saving conversation log to {self.log_file}: {e}")
+        except TypeError as e:
+            print(f"Error serializing conversation data: {e}")
+    
+    def get_log_file_path(self) -> str:
+        """Get the path to the current log file."""
+        return self.log_file
+    
+    def get_session_id(self) -> str:
+        """Get the session ID."""
+        return self.session_id
+
+
 
 def extract_cypher(text: str) -> str:
     """Extract Cypher code from a text.
@@ -83,7 +342,6 @@ def replace_query_with_embedding(cypher):
 
     return cypher
 
-@limits(calls=100, period=60)
 def generate_embeddings(texts: List[str]) -> List[List[float]]:
     """
     Generate vector embeddings for a list of texts using the OpenAI API.
@@ -102,10 +360,11 @@ def generate_embeddings(texts: List[str]) -> List[List[float]]:
 
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    response = client.embeddings.create(
-        input=texts,
-        model=os.getenv("OPENAI_TEXT_EMBEDDING_MODEL_NAME")
-    )
+    with llm_limiter:
+        response = client.embeddings.create(
+            input=texts,
+            model=os.getenv("OPENAI_TEXT_EMBEDDING_MODEL_NAME")
+        )
 
     return [item.embedding for item in response.data]
 
@@ -143,13 +402,14 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+            with open(os.path.join(PROJECT_ROOT, os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             generated_cypher = self.cypher_generation_chain.invoke({
                 "question": question,
                 "schema": self.graph_schema,
                 "field_descriptions": field_descriptions,
+                "conversation_history": inputs.get("conversation_history", ""),
             }, callbacks=callbacks)
 
             # Extract Cypher code if it is wrapped in backticks
@@ -172,7 +432,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
             Check if Cypher query contains database manipulation statements
             """
 
-            manipulation_keywords = ["create", "merge",
+            manipulation_keywords = ["create ", "merge",
                                      "set", "delete", "remove", "detach", "drop", "load"]
 
             for keyword in manipulation_keywords:
@@ -202,13 +462,32 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                 context = self.graph.query(generated_cypher_with_embeddings)[:self.top_k]
                 return result_description, context, generated_cypher
             else:
-                return "Warning: Let users know manipulation of the database is not permitted", generated_cypher
+                return "Warning: Let users know manipulation of the database is not permitted", context, generated_cypher
 
         try:
             result_description, context, generated_cypher = execute_query()
         except:
+            result_description = "Cannot fetch data from database"
             context = "!!Cannot fetch data from database!!"
             generated_cypher = "Invalid Cypher Query"
+
+        # Remove any embeddings or page links
+        def delete_keys(data):
+            if isinstance(data, dict):
+                for key in list(data.keys()):
+                    if "embedding" in key or "page_list" in key:
+                        try:
+                            del data[key]
+                        except KeyError:
+                            pass
+                for value in data.values():
+                    if isinstance(value, (dict, list)):
+                        delete_keys(value)
+            elif isinstance(data, list):
+                for item in data:
+                    if isinstance(item, (dict, list)):
+                        delete_keys(item)
+        delete_keys(context)
 
         # Display the generated Cypher code
         _run_manager.on_text("Based on the user prompt:", end="\n", verbose=self.verbose)
@@ -236,31 +515,51 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
 
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+            with open(os.path.join(PROJECT_ROOT, os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             # Check if the cypher includes a vector search
             contains_vector_search = "db.index.vector" in generated_cypher
             if contains_vector_search:
                 # open filter prompt template file
-                with open(os.path.join("..", os.getenv("CYPHER_FILTER_PROMPT_PATH")), "r") as file:
+                with open(os.path.join(PROJECT_ROOT, os.getenv("CYPHER_FILTER_PROMPT_PATH")), "r") as file:
                     CYPHER_FILTER_TEMPLATE = file.read()
 
                 # Create a prompt template for filtering items
                 CYPHER_FILTER_PROMPT = PromptTemplate(
-                    input_variables=["context", "question"],
+                    input_variables=["context", "question", "conversation_history"],
                     template=CYPHER_FILTER_TEMPLATE
                 )
 
-                # Chain the prompt with the ChatOpenAI LLM to get a new context
-                filter_chain = CYPHER_FILTER_PROMPT | ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")
-                )
+                # Chain the prompt with the LLM to get a new context
+                filter_chain = CYPHER_FILTER_PROMPT | get_llm(temperature=0)
 
-                context = filter_chain.invoke({
+                response = filter_chain.invoke({
                     "context": context,
                     "question": question,
-                }).content
+                    "conversation_history": inputs.get("conversation_history", ""),
+                })
+
+                # Extract text content from response - handle various response types
+                context_text = ""
+                if hasattr(response, 'content'):
+                    content = response.content
+                    # If content is a string, use it directly
+                    if isinstance(content, str):
+                        context_text = content
+                    # If content is a list (can happen with tool responses), extract text
+                    elif isinstance(content, list):
+                        context_text = "".join(
+                            str(item) if not isinstance(item, dict) else item.get('text', str(item))
+                            for item in content
+                        )
+                    else:
+                        # For any other type, convert to string
+                        context_text = str(content)
+                else:
+                    context_text = str(response)
+
+                context = context_text.strip()
 
                 _run_manager.on_text("The filter LLM returned:", end="\n", verbose=self.verbose)
                 _run_manager.on_text(context, color="green", end="\n", verbose=self.verbose)
@@ -270,6 +569,7 @@ class MyGraphCypherQAChain(GraphCypherQAChain):
                 "result_description": result_description,
                 "field_descriptions": field_descriptions,
                 "context": context,
+                "conversation_history": inputs.get("conversation_history", ""),
             }, callbacks=callbacks)
 
         chain_result: Dict[str, Any] = {self.output_key: final_result}
@@ -284,11 +584,24 @@ class StreamHandler(BaseCallbackHandler):
         self.text = initial_text
 
     def on_llm_new_token(self, token: str, **kwargs) -> None:
-        self.text += token
-        self.container.markdown(self.text)
+        # Extract text content from token if it's a dict (Gemini format)
+        token_text = token
+        if isinstance(token, dict):
+            # Gemini sends tokens as dicts with 'text' key
+            token_text = token.get('text', str(token))
+        elif isinstance(token, list):
+            # Handle list of tokens
+            token_text = "".join(str(t) if not isinstance(t, dict) else t.get('text', str(t)) for t in token)
+        elif not isinstance(token, str):
+            token_text = str(token)
+        
+        # Only append if we have actual text content
+        if token_text:
+            self.text += token_text
+            self.container.markdown(self.text)
 
 class KnowledgeGraphRAG:
-    def __init__(self, url, username, password, answer_placeholder=None, run_environment="script"):
+    def __init__(self, url, username, password, database=None, answer_placeholder=None, run_environment="script", enable_memory=True, memory=None, enable_logging=True, logger=None):
         """
         Initialize the KnowledgeGraphRAG class
 
@@ -296,8 +609,13 @@ class KnowledgeGraphRAG:
             url (str): URL of the Neo4j database
             username (str): Username of the Neo4j database
             password (str): Password of the Neo4j database
+            database (str): Name of the specific database to use. If None, uses the default database.
             answer_placeholder (str): Streamlit placeholder for the LLM answer
             run_environment (str): The environment in which the code is running. Can be "script" or "notebook"
+            enable_memory (bool): Whether to use conversation memory. Default is True.
+            memory (ConversationMemory): Optional ConversationMemory instance. If None, a new one will be created.
+            enable_logging (bool): Whether to log conversations to JSON files. Default is True.
+            logger (ConversationLogger): Optional ConversationLogger instance. If None and enable_logging is True, a new one will be created.
         """
 
         driver = GraphDatabase.driver(url, auth=(username, password))
@@ -307,25 +625,60 @@ class KnowledgeGraphRAG:
             url=url,
             username=username,
             password=password,
+            database=database,
         )
+        
+        # Initialize or use provided conversation memory
+        self.memory = memory if memory is not None else (ConversationMemory() if enable_memory else None)
+        
+        # Initialize or use provided conversation logger
+        self.logger = logger if logger is not None else (ConversationLogger() if enable_logging else None)
+
+        # Load categories for prompt
+        categories_list = []
+        try:
+            categories_path = os.getenv("CATEGORIES_JSON_PATH")
+            
+            # If the path is relative, resolve it relative to the project root
+            if categories_path and not os.path.isabs(categories_path):
+                # Get the project root (go up 3 levels from this file: chatbot/llm_kg_retrieval.py)
+                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                categories_path = os.path.join(project_root, categories_path.lstrip("../"))
+            
+            with open(categories_path, "r", encoding="utf-8") as f:
+                categories_data = json.load(f)
+                # Extract all categories with hierarchy
+                for category in categories_data.get("categories", []):
+                    categories_list.append(f"• {category['name']}")
+                    # Add subcategories
+                    for subcategory in category.get("subcategories", []):
+                        categories_list.append(f"  └─ {subcategory['name']}")
+        except Exception as e:
+            print(f"Warning: Could not load categories: {e}")
+            categories_list = []
+        
+        categories_str = "\n".join(categories_list)
 
         # open cypher generation prompt template file
-        with open(os.path.join("..", os.getenv("CYPHER_GENERATION_PROMPT_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("CYPHER_GENERATION_PROMPT_PATH")), "r") as file:
             CYPHER_GENERATION_TEMPLATE = file.read()
 
-            # fstring replace index info in the template
+            # fstring replace index info and categories in the template
             CYPHER_GENERATION_TEMPLATE = CYPHER_GENERATION_TEMPLATE.format(
-                index_info=self.index_info)
+                index_info=self.index_info,
+                categories=categories_str)
 
         CYPHER_GENERATION_PROMPT = PromptTemplate(
-            input_variables=["schema", "field_descriptions", "question"], template=CYPHER_GENERATION_TEMPLATE
+            input_variables=["schema", "field_descriptions", "question", "conversation_history"], 
+            template=CYPHER_GENERATION_TEMPLATE
         )
 
-        with open(os.path.join("..", os.getenv("CYPHER_QA_PROMPT_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("CYPHER_QA_PROMPT_PATH")), "r") as file:
             CYPHER_QA_TEMPLATE = file.read()
 
         CYPHER_QA_PROMPT = PromptTemplate(
-            input_variables=["context", "field_descriptions", "question"], template=CYPHER_QA_TEMPLATE
+            input_variables=["context", "field_descriptions", "question", "conversation_history"], 
+            template=CYPHER_QA_TEMPLATE
         )
 
         # Initialize the LLM Chain based on if the code is running in a script or notebook
@@ -333,10 +686,8 @@ class KnowledgeGraphRAG:
         if run_environment == "script" and answer_placeholder:
             stream_handler = StreamHandler(container=answer_placeholder)
             self.chain = MyGraphCypherQAChain.from_llm(
-                cypher_llm=ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
-                qa_llm=ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME"), streaming=True, callbacks=[stream_handler]),
+                cypher_llm=get_llm(temperature=0, force_gemini=True),
+                qa_llm=get_llm(temperature=0, streaming=True, callbacks=[stream_handler]),
                 cypher_prompt=CYPHER_GENERATION_PROMPT,
                 qa_prompt=CYPHER_QA_PROMPT,
                 graph=self.graph,
@@ -347,10 +698,8 @@ class KnowledgeGraphRAG:
             )
         else:
             self.chain = MyGraphCypherQAChain.from_llm(
-                cypher_llm=ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
-                qa_llm=ChatOpenAI(
-                    temperature=0, model=os.getenv("OPENAI_MODEL_NAME")),
+                cypher_llm=get_llm(temperature=0, force_gemini=True),
+                qa_llm=get_llm(temperature=0),
                 cypher_prompt=CYPHER_GENERATION_PROMPT,
                 qa_prompt=CYPHER_QA_PROMPT,
                 graph=self.graph,
@@ -361,7 +710,7 @@ class KnowledgeGraphRAG:
             )
 
         # open diagram prompt template file
-        with open(os.path.join("..", os.getenv("DIAGRAM_GENERATION_PROMPT_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("DIAGRAM_GENERATION_PROMPT_PATH")), "r") as file:
             DIAGRAM_PROMPT_TEMPLATE = file.read()
 
         # Create a prompt template for diagram generation
@@ -370,10 +719,10 @@ class KnowledgeGraphRAG:
         )
 
         # Initialize the LLM Chain for diagram generation
-        self.diagram_chain = DIAGRAM_PROMPT | ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME"))
+        self.diagram_chain = DIAGRAM_PROMPT | get_llm(temperature=0)
 
         # open timeline prompt template file
-        with open(os.path.join("..", os.getenv("TIMELINE_GENERATION_PROMPT_PATH")), "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("TIMELINE_GENERATION_PROMPT_PATH")), "r") as file:
             TIMELINE_PROMPT_TEMPLATE = file.read()
 
         # create a prompt template for timeline generation
@@ -382,15 +731,22 @@ class KnowledgeGraphRAG:
         )
 
         # initialize the LLM Chain for timeline generation
-        self.timeline_chain = TIMELINE_PROMPT | ChatOpenAI(temperature=0, model=os.getenv("OPENAI_MODEL_NAME"))
+        self.timeline_chain = TIMELINE_PROMPT | get_llm(temperature=0)
 
     def process_prompt(self, prompt):
         """
-        Process a prompt and return the response, query, and context
+        Process a prompt and return the response, query, and context.
+        Conversation memory is used to provide context to all 4 AI queries.
         """
+        
+        # Get conversation history for all queries
+        conversation_history = self.memory.get_context_string() if self.memory else ""
 
         try:
-            result = self.chain.invoke(prompt)
+            result = self.chain.invoke({
+                "query": prompt,
+                "conversation_history": conversation_history
+            })
         except SessionExpired:
             self.graph = Neo4jGraph(
                 url=self.graph.url,
@@ -398,11 +754,27 @@ class KnowledgeGraphRAG:
                 password=self.graph.password,
             )
             self.chain.graph = self.graph
-            result = self.chain.invoke(prompt)
+            result = self.chain.invoke({
+                "query": prompt,
+                "conversation_history": conversation_history
+            })
 
         response = result["result"]
         query = result["intermediate_steps"][0]["query"]
         context = result["intermediate_steps"][1]["context"]
+        
+        # Save this exchange to memory (only the final answer, not intermediate steps)
+        if self.memory:
+            self.memory.add_exchange(prompt, response)
+        
+        # Log the conversation to JSON file
+        if self.logger:
+            self.logger.add_exchange(
+                user_question=prompt,
+                ai_answer=response,
+                query=query,
+                context=context
+            )
 
         return response, query, context
 
@@ -410,6 +782,10 @@ class KnowledgeGraphRAG:
         with driver.session() as session:
             res = session.run("SHOW VECTOR INDEXES YIELD name, labelsOrTypes, properties")
             return res.to_df().to_markdown()
+    
+    def get_log_file_path(self) -> str:
+        """Get the path to the current conversation log file."""
+        return self.logger.get_log_file_path() if self.logger else None
 
     @retry.retry(exceptions=Exception, tries=3)
     def get_diagram(self, question, data):
@@ -426,7 +802,7 @@ class KnowledgeGraphRAG:
         try:
             # load field descriptions from json
             FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-            with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+            with open(os.path.join(PROJECT_ROOT, os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
                 field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
             code = self.diagram_chain.invoke({
@@ -460,7 +836,7 @@ class KnowledgeGraphRAG:
 
         # load field descriptions from json
         FIELD_DESCRIPTIONS_JSON_PATH = os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")
-        with open(FIELD_DESCRIPTIONS_JSON_PATH, "r") as file:
+        with open(os.path.join(PROJECT_ROOT, os.getenv("FIELD_DESCRIPTIONS_JSON_PATH")), "r") as file:
             field_descriptions = json.dumps(json.load(file), indent=0, ensure_ascii=False)
 
         try:
@@ -477,3 +853,147 @@ class KnowledgeGraphRAG:
         except Exception as e:
             print(e)
             return None
+
+
+class WebSearchRAG:
+    """
+    A RAG system that uses Google Search to retrieve information from the web.
+    This is an alternative to KnowledgeGraphRAG that doesn't rely on Neo4j.
+    """
+    
+    def __init__(self, answer_placeholder=None, run_environment="script", enable_memory=True, memory=None, enable_logging=True, logger=None):
+        """
+        Initialize the WebSearchRAG class.
+        
+        Args:
+            answer_placeholder: Streamlit placeholder for the LLM answer
+            run_environment (str): The environment in which the code is running. Can be "script" or "notebook"
+            enable_memory (bool): Whether to use conversation memory. Default is True.
+            memory (ConversationMemory): Optional ConversationMemory instance. If None, a new one will be created.
+            enable_logging (bool): Whether to log conversations to JSON files. Default is True.
+            logger (ConversationLogger): Optional ConversationLogger instance. If None and enable_logging is True, a new one will be created.
+        """
+        
+        # Initialize or use provided conversation memory
+        self.memory = memory if memory is not None else (ConversationMemory() if enable_memory else None)
+        
+        # Initialize or use provided conversation logger
+        self.logger = logger if logger is not None else (ConversationLogger() if enable_logging else None)
+        
+        # Load the Malax info search prompt template
+        try:
+            with open(os.path.join(PROJECT_ROOT, os.getenv("MALAX_INFO_SEARCH_PROMPT_PATH")), "r") as file:
+                self.prompt_template = file.read()
+        except Exception as e:
+            print(f"Warning: Could not load Malax info search prompt: {e}")
+            # Fallback prompt if file not found
+            self.prompt_template = """You are a helpful assistant providing information about Malax municipality.
+Use web search to find current information and provide helpful answers.
+
+Conversation History:
+{conversation_history}
+
+Question: {question}"""
+        
+        # Initialize the LLM with Google Search tools
+        if run_environment == "script" and answer_placeholder:
+            stream_handler = StreamHandler(container=answer_placeholder)
+            self.llm = get_llm(
+                temperature=1,
+                streaming=True,
+                callbacks=[stream_handler],
+                thinking_level="low",
+                google_search=True
+            )
+        else:
+            self.llm = get_llm(
+                temperature=1,
+                streaming=False,
+                thinking_level="low",
+                google_search=True
+            )
+    
+    def process_prompt(self, prompt):
+        """
+        Process a prompt using Google Search and return the response.
+        
+        Args:
+            prompt (str): The user's question/prompt
+            
+        Returns:
+            tuple: (response, search_query, None) - search_query contains the actual prompt used
+        """
+        
+        # Get conversation history for context
+        conversation_history = self.memory.get_context_string() if self.memory else ""
+        
+        # Format the prompt using the template
+        try:
+            final_prompt = self.prompt_template.format(
+                conversation_history=conversation_history,
+                question=prompt
+            )
+        except KeyError:
+            # If template doesn't have the expected variables, use fallback
+            final_prompt = f"{conversation_history}\n\nUser question: {prompt}" if conversation_history else prompt
+        
+        try:
+            # Call the LLM with Google Search tools
+            response = self.llm.invoke(final_prompt)
+            
+            # Extract text content from response - handle various response types
+            response_text = ""
+            if hasattr(response, 'content'):
+                content = response.content
+                # If content is a string, use it directly
+                if isinstance(content, str):
+                    response_text = content
+                # If content is a list (can happen with tool responses), extract text
+                elif isinstance(content, list):
+                    response_text = "".join(
+                        str(item) if not isinstance(item, dict) else item.get('text', str(item))
+                        for item in content
+                    )
+                else:
+                    # For any other type, convert to string
+                    response_text = str(content)
+            else:
+                response_text = str(response)
+            
+            # Ensure we have a non-empty string
+            if not response_text or response_text.isspace():
+                response_text = str(response)
+            
+            # Save this exchange to memory
+            if self.memory:
+                self.memory.add_exchange(prompt, response_text)
+            
+            # Log the conversation to JSON file
+            if self.logger:
+                self.logger.add_exchange(
+                    user_question=prompt,
+                    ai_answer=response_text,
+                    query=None,  # Web search doesn't generate structured queries like Cypher
+                    context=None
+                )
+            
+            return response_text, prompt, None
+        
+        except Exception as e:
+            error_msg = f"Error processing question with web search: {str(e)}"
+            print(error_msg)
+            
+            # Still log the error attempt
+            if self.logger:
+                self.logger.add_exchange(
+                    user_question=prompt,
+                    ai_answer=error_msg,
+                    query=None,
+                    context=None
+                )
+            
+            raise
+    
+    def get_log_file_path(self) -> str:
+        """Get the path to the current conversation log file."""
+        return self.logger.get_log_file_path() if self.logger else None

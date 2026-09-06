@@ -1,53 +1,180 @@
-import cohere
-from tqdm import tqdm
-import os
 import json
+import os
+
 from neo4j import GraphDatabase
-import concurrent.futures
+from openai import OpenAI
+from tqdm import tqdm
+
+from .utils import *
 
 def generate_embeddings(texts):
     """
     Generates embeddings for the input texts
     """
+
     if isinstance(texts, str):
         texts = [texts]
-    co = cohere.Client(os.getenv("COHERE_API_KEY"))
-    response = co.embed(texts=texts, model='embed-multilingual-v3.0', input_type="search_document")  
-    return response.embeddings
 
-def execute_cypher_queries(driver, data):
+    texts = [text.strip()[:8192] if text and text.strip() else "[empty]" for text in texts]
+
+    # Filter out "[empty]" texts that resulted from empty/whitespace-only inputs
+    filtered_texts = [text for text in texts if text != "[empty]"]
+    
+    # If all texts were empty, return embeddings filled with zeros
+    if not filtered_texts:
+        # Return zero embeddings (dimension should match the model's embedding size, typically 1536)
+        embedding_dim = 1536
+        return [[0.0] * embedding_dim for _ in texts]
+
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    with llm_limiter:
+        response = client.embeddings.create(
+            input=filtered_texts,
+            model=os.getenv("OPENAI_TEXT_EMBEDDING_MODEL_NAME")
+        )
+
+    # Create a mapping of filtered texts to embeddings
+    embedding_dict = {filtered_texts[i]: response.data[i].embedding for i in range(len(filtered_texts))}
+    
+    # Return embeddings in the original order, using zero embeddings for "[empty]" entries
+    embedding_dim = len(response.data[0].embedding)
+    result = []
+    for text in texts:
+        if text == "[empty]":
+            result.append([0.0] * embedding_dim)
+        else:
+            result.append(embedding_dict[text])
+    
+    return result
+
+def extract_errand_topics(driver):
+    """
+    Retrieves all distinct Errands from Neo4j.
+    For each errand, collects and sorts the associated MeetingItems by Meeting date.
+    Calls the LLM to extract the errand topic.
+    Creates a topic embedding and writes back to the Errand node.
+    """
+
+    ERRAND_EXTRACTION_PROMPT_PATH = os.getenv("ERRAND_EXTRACTION_PROMPT_PATH")
+    MODEL_NAME = os.getenv("OPENAI_MODEL_NAME")
+
+    # Initialize the OpenAI client
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    # Read the prompt text
+    with open(ERRAND_EXTRACTION_PROMPT_PATH, "r") as file:
+        prompt = file.read()
+
+    # Pull out all distinct errand_tags from MeetingItems
+    with driver.session() as session:
+        errand_tags_result = session.run("""
+            MATCH (mi:MeetingItem)
+            WHERE mi.errand_tag IS NOT NULL AND mi.errand_tag <> ''
+            RETURN DISTINCT mi.errand_tag AS tag
+        """)
+        errand_tags = [r["tag"] for r in errand_tags_result]
+
+    # For each errand, collect the MeetingItems sorted by date
+    for tag in tqdm(errand_tags, desc="Extracting errand topics using LLM"):
+        with driver.session() as session:
+            meeting_items_result = session.run("""
+                MATCH (m:Meeting)-[:HAS_ITEM]->(mi:MeetingItem)
+                WHERE mi.errand_tag = $tag
+                ORDER BY
+                    date({
+                        year:  toInteger(split(m.meeting_date, '.')[0]),
+                        month: toInteger(split(m.meeting_date, '.')[1]),
+                        day:   toInteger(split(m.meeting_date, '.')[2])
+                    }) ASC
+                RETURN
+                    m.meeting_date AS date,
+                    mi.title       AS title,
+                    mi.context     AS context,
+                    mi.decision    AS decision
+            """, tag=tag)
+
+            items_text = []
+            for record in meeting_items_result:
+                date = record["date"] or "Missing date."
+                title = record["title"] or "Missing title."
+                context = record.get("context", "") or "Missing context."
+                decision = record.get("decision", "") or "Missing decision."
+                items_text.append(
+                    f"Next meeting\nDate: {date}\nTitle: {title}\nContext: {context}\nDecision: {decision}"
+                )
+
+            concatenated_text = "\n".join(items_text)
+
+        # Extract the topic from the LLM
+        topic = "Missing topic"
+
+        # Format the prompt with items text
+        formatted_prompt = prompt.replace('{meeting_items}', concatenated_text)
+
+        last_error = None
+        for _ in range(3):
+            try:
+                with llm_limiter:
+                    response = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        response_format={ "type": "json_object" },
+                        messages=[{ "role": "system", "content": formatted_prompt }],
+                        temperature=0
+                    )
+
+                json_response = json.loads(response.choices[0].message.content)
+                topic = json_response.get("topic", "Missing topic")
+                break
+            except Exception as e:
+                print(f'Error extracting errand topic: {e}')
+                last_error = e
+
+        # Create the embedding for the topic
+        topic_embedding = generate_embeddings(topic)[0]
+
+        with driver.session() as session:
+            session.run("""
+                MERGE (e:Errand {errand_tag: $tag})
+                SET e.topic           = $topic,
+                    e.topic_embedding = $topic_embedding
+            """, tag=tag, topic=topic, topic_embedding=topic_embedding)
+
+    attach_meetingitem_to_errand(driver)
+
+def attach_meetingitem_to_errand(driver):
+    # Add MeetingItem -> Errand relationship
+    with driver.session() as session:
+        session.run("""
+            MATCH (mi:MeetingItem), (e:Errand)
+            WHERE mi.errand_tag = e.errand_tag
+            MERGE (mi)-[:BELONGS_TO]->(e)
+        """)
+
+def execute_cypher_queries(driver, data, wipe_database=True):
     """
     Executes Cypher queries to create a knowledge graph in Neo4j
 
     Args:
         driver : neo4j driver
         data : JSON data
-
-    Returns:
-        None
+        wipe_database (bool): Whether to wipe the database before creating the graph.
     """
-    with driver.session() as session:
-        # Delete existing nodes and relationships
-        print("Deleting existing nodes and relationships...")
-        session.run("MATCH (n) DETACH DELETE n")
+
+    if wipe_database:
+        with driver.session() as session:
+            # Delete existing nodes and relationships
+            print("Deleting existing nodes and relationships...")
+            session.run("MATCH (n) DETACH DELETE n")
 
     # Generate body embeddings
     bodies = data.get("body", [])
     body_names = [body.get("name", "") for body in bodies]
     body_embeddings = generate_embeddings(body_names)
 
-    # Process bodies sequentially (very slow, use this if kernel crashes)
-    # for i, body in enumerate(tqdm(bodies, desc="Processing bodies")):
-    #     process_body(driver, body, body_embeddings[i])
-
-    # Process bodies in parallel, could increase the max workers 
-    # depending on the system resources for faster execution
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = []
-        for i, body in enumerate(tqdm(bodies, desc="Processing bodies concurrently")):
-            future = executor.submit(process_body, driver, body, body_embeddings[i])
-            futures.append(future)
-        concurrent.futures.wait(futures)
+    # Process bodies sequentially (very slow)
+    for i, body in enumerate(tqdm(bodies, desc="Processing bodies")):
+        process_body(driver, body, body_embeddings[i])
 
 def process_body(driver, body, body_embedding):
     with driver.session() as session:
@@ -56,12 +183,12 @@ def process_body(driver, body, body_embedding):
         session.run("""
             MERGE (b:Body {name: $body_name})
             SET b.name_embedding = $name_embedding
-            """, 
+            """,
             body_name=body_name,
             name_embedding=body_embedding)
 
     # Process meetings
-    meetings = body.get("meetings", [])
+    meetings = [meeting for meeting in body.get("meetings", []) if meeting is not None]
     meeting_locations = [meeting.get("meeting_location", "") for meeting in meetings]
     meeting_embeddings = generate_embeddings(meeting_locations)
 
@@ -70,32 +197,46 @@ def process_body(driver, body, body_embedding):
             process_meeting(driver, body_name, meeting, meeting_embeddings[j])
 
 def process_meeting(driver, body_name, meeting, meeting_embedding):
+    # Sanitize meeting data to remove None values from lists to prevent Neo4j errors
+    def remove_none_from_lists(obj):
+        if isinstance(obj, dict):
+            return {k: remove_none_from_lists(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [remove_none_from_lists(v) for v in obj if v is not None]
+        return obj
+        
+    meeting = remove_none_from_lists(meeting)
+
     with driver.session() as session:
         # Merge Meeting
         meeting_location = meeting.get("meeting_location", "")
         result = session.run("""
             MERGE (m:Meeting {
-            meeting_date: $meeting_date,
-            start_time: $start_time,
-            meeting_reference: $meeting_reference,
-            end_time: $end_time,
-            meeting_location: $meeting_location,
-            doc_link: $doc_link
+                meeting_date: $meeting_date,
+                start_time: $start_time,
+                meeting_reference: $meeting_reference,
+                end_time: $end_time,
+                meeting_location: $meeting_location,
+                doc_link: $doc_link,
+                page_list: $page_list
             })
             WITH m
             MATCH (b:Body {name: $body_name})
             MERGE (b)-[:HOSTED]->(m)
             SET m.meeting_location_embedding = $meeting_location_embedding
-            RETURN id(m)
-            """, 
+            SET m.is_upcoming = COALESCE($is_upcoming, false)
+            RETURN elementId(m)
+            """,
             meeting_date=meeting.get("meeting_date", ""),
             start_time=meeting.get("start_time", ""),
             meeting_reference=meeting.get("meeting_reference", ""),
             end_time=meeting.get("end_time", ""),
             doc_link=meeting.get("doc_link", ""),
+            page_list=meeting.get("page_list", []),
             meeting_location=meeting_location,
             body_name=body_name,
-            meeting_location_embedding=meeting_embedding
+            meeting_location_embedding=meeting_embedding,
+            is_upcoming=meeting.get("is_upcoming", False)
             )
         meeting_id = result.single()[0]
 
@@ -105,11 +246,11 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         if participants:
             for person in participants:
                 participant_data.append({
-                    'fname': person.get("fname", ""),
-                    'lname': person.get("lname", ""),
-                    'role': person.get("role", ""),
-                    'attendance': person.get("attendance", ""),
-                    'meeting_id': meeting_id
+                    "fname": person.get("fname", ""),
+                    "lname": person.get("lname", ""),
+                    "role": person.get("role", ""),
+                    "attendance": person.get("attendance", ""),
+                    "meeting_id": meeting_id
                 })
 
         # Run a single query to create participants and relationships
@@ -118,9 +259,9 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $participants AS person
                 MERGE (p:Person {fname: person.fname, lname: person.lname})
                 WITH p, person
-                MATCH (m:Meeting) WHERE id(m) = person.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = person.meeting_id
                 MERGE (p)-[:ATTENDED {
-                    role: coalesce(person.role, ''), 
+                    role: coalesce(person.role, ''),
                     attendance: coalesce(person.attendance, '')
                 }]->(m)
                 """, participants=participant_data)
@@ -131,10 +272,10 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         if substitutes:
             for substitute in substitutes:
                 substitute_data.append({
-                    'fname': substitute.get("fname", ""),
-                    'lname': substitute.get("lname", ""),
-                    'substituted_for': substitute.get("substituted_for", ""),
-                    'meeting_id': meeting_id
+                    "fname": substitute.get("fname", ""),
+                    "lname": substitute.get("lname", ""),
+                    "substituted_for": substitute.get("substituted_for", ""),
+                    "meeting_id": meeting_id
                 })
 
         if substitute_data:
@@ -142,7 +283,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $substitutes AS sub
                 MERGE (s:Person {fname: sub.fname, lname: sub.lname})
                 WITH s, sub
-                MATCH (m:Meeting) WHERE id(m) = sub.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = sub.meeting_id
                 MERGE (s)-[:SUBSTITUTE_ATTENDEE]->(m)
                 WITH s, sub
                 WHERE sub.substituted_for <> ''
@@ -156,10 +297,10 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         if additional_attendees:
             for attendee in additional_attendees:
                 attendee_data.append({
-                    'fname': attendee.get("fname", ""),
-                    'lname': attendee.get("lname", ""),
-                    'role': attendee.get("role", ""),
-                    'meeting_id': meeting_id
+                    "fname": attendee.get("fname", ""),
+                    "lname": attendee.get("lname", ""),
+                    "role": attendee.get("role", ""),
+                    "meeting_id": meeting_id
                 })
 
         if attendee_data:
@@ -167,7 +308,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $attendees AS person
                 MERGE (a:Person {fname: person.fname, lname: person.lname})
                 WITH a, person
-                MATCH (m:Meeting) WHERE id(m) = person.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = person.meeting_id
                 MERGE (a)-[:ADDITIONAL_ATTENDEE {
                     role: coalesce(person.role, '')
                 }]->(m)
@@ -179,9 +320,9 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         if signatories:
             for signatory in signatories:
                 signatory_data.append({
-                    'fname': signatory.get("fname", ""),
-                    'lname': signatory.get("lname", ""),
-                    'meeting_id': meeting_id
+                    "fname": signatory.get("fname", ""),
+                    "lname": signatory.get("lname", ""),
+                    "meeting_id": meeting_id
                 })
 
         if signatory_data:
@@ -189,7 +330,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $signatories AS s
                 MERGE (person:Person {fname: coalesce(s.fname, ''), lname: coalesce(s.lname, '')})
                 WITH person, s
-                MATCH (m:Meeting) WHERE id(m) = s.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = s.meeting_id
                 MERGE (person)-[:SIGNED]->(m)
                 """, signatories=signatory_data)
 
@@ -198,13 +339,15 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
         adjuster_data = []
         if adjusters:
             for adjuster in adjusters:
+                if adjuster is None:
+                    continue
                 name = adjuster.split(" ")
                 fname = " ".join(name[:-1]) if len(name) > 1 else name[0]
                 lname = name[-1]
                 adjuster_data.append({
-                    'fname': fname,
-                    'lname': lname,
-                    'meeting_id': meeting_id
+                    "fname": fname,
+                    "lname": lname,
+                    "meeting_id": meeting_id
                 })
 
         if adjuster_data:
@@ -212,7 +355,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 UNWIND $adjusters AS a
                 MERGE (person:Person {fname: coalesce(a.fname, ''), lname: coalesce(a.lname, '')})
                 WITH person, a
-                MATCH (m:Meeting) WHERE id(m) = a.meeting_id
+                MATCH (m:Meeting) WHERE elementId(m) = a.meeting_id
                 MERGE (person)-[:ADJUSTED]->(m)
                 """, adjusters=adjuster_data)
 
@@ -228,9 +371,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 ]
                 item_embeddings = generate_embeddings(item_texts)
 
-                errand_id_value = item.get("errand_id", "")
-
-                # Create MeetingItem without errand_id property
+                # Create MeetingItem
                 result = session.run("""
                     MERGE (i:MeetingItem {
                         title: coalesce($title, ''),
@@ -238,22 +379,24 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         references: coalesce($references, ''),
                         context: coalesce($context, ''),
                         decision: coalesce($decision, ''),
+                        errand_tag: coalesce($errand_tag, ''),
                         doc_link: coalesce($doc_link, '')
                     })
                     WITH i
-                    MATCH (m:Meeting) WHERE id(m) = $meeting_id
+                    MATCH (m:Meeting) WHERE elementId(m) = $meeting_id
                     MERGE (m)-[:HAS_ITEM]->(i)
                     SET i.title_embedding = $title_embedding,
                         i.context_embedding = $context_embedding,
                         i.decision_embedding = $decision_embedding
-                    RETURN id(i)
-                    """, 
+                    RETURN elementId(i)
+                    """,
                     title=item.get("title", ""),
                     section=item.get("section", ""),
                     references=item.get("references", ""),
                     meeting_id=meeting_id,
                     context=item.get("context", ""),
                     decision=item.get("decision", ""),
+                    errand_tag=item.get("errand_tag", ""),
                     doc_link=item.get("doc_link", ""),
                     title_embedding=item_embeddings[0],
                     context_embedding=item_embeddings[1],
@@ -261,24 +404,15 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 )
                 item_id = result.single()[0]
 
-                # If errand_id is present, create or merge an Errand node and link it
-                if errand_id_value:
-                    session.run("""
-                        MERGE (e:Errand {errand_id: $errand_id})
-                        WITH e
-                        MATCH (i:MeetingItem) WHERE id(i) = $item_id
-                        MERGE (i)-[:BELONGS_TO]->(e)
-                        """, errand_id=errand_id_value, item_id=item_id)
-
                 # Collect preparers
                 preparers = item.get("prepared_by", [])
                 preparer_data = []
                 if preparers:
                     for preparer in preparers:
                         preparer_data.append({
-                            'fname': preparer.get("fname", ""),
-                            'lname': preparer.get("lname", ""),
-                            'item_id': item_id
+                            "fname": preparer.get("fname", ""),
+                            "lname": preparer.get("lname", ""),
+                            "item_id": item_id
                         })
 
                 if preparer_data:
@@ -286,7 +420,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         UNWIND $preparers AS p
                         MERGE (person:Person {fname: coalesce(p.fname, ''), lname: coalesce(p.lname, '')})
                         WITH person, p
-                        MATCH (i:MeetingItem) WHERE id(i) = p.item_id
+                        MATCH (i:MeetingItem) WHERE elementId(i) = p.item_id
                         MERGE (person)-[:PREPARED]->(i)
                         """, preparers=preparer_data)
 
@@ -296,9 +430,9 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 if proposers:
                     for proposer in proposers:
                         proposer_data.append({
-                            'fname': proposer.get("fname", ""),
-                            'lname': proposer.get("lname", ""),
-                            'item_id': item_id
+                            "fname": proposer.get("fname", ""),
+                            "lname": proposer.get("lname", ""),
+                            "item_id": item_id
                         })
 
                 if proposer_data:
@@ -306,7 +440,7 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                         UNWIND $proposers AS p
                         MERGE (person:Person {fname: coalesce(p.fname, ''), lname: coalesce(p.lname, '')})
                         WITH person, p
-                        MATCH (i:MeetingItem) WHERE id(i) = p.item_id
+                        MATCH (i:MeetingItem) WHERE elementId(i) = p.item_id
                         MERGE (person)-[:PROPOSED]->(i)
                         """, proposers=proposer_data)
 
@@ -322,18 +456,23 @@ def process_meeting(driver, body_name, meeting, meeting_embedding):
                 if attachments:
                     for k, attachment in enumerate(attachments):
                         attachment_data.append({
-                            'link': attachment.get("link", ""),
-                            'title': attachment.get("title", ""),
-                            'title_embedding': attachment_embeddings[k] if attachment_embeddings else None,
-                            'item_id': item_id
+                            "link": attachment.get("link", ""),
+                            "title": attachment.get("title", ""),
+                            "title_embedding": attachment_embeddings[k] if attachment_embeddings else None,
+                            "page_list": attachment.get("page_list", []),
+                            "item_id": item_id
                         })
 
                 if attachment_data:
                     session.run("""
                         UNWIND $attachments AS a
-                        MERGE (attachment:Attachment {link: coalesce(a.link, ''), title: coalesce(a.title, '')})
+                        MERGE (attachment:Attachment {
+                            link: coalesce(a.link, ''),
+                            title: coalesce(a.title, ''),
+                            page_list: coalesce(a.page_list, [])
+                        })
                         WITH attachment, a
-                        MATCH (i:MeetingItem) WHERE id(i) = a.item_id
+                        MATCH (i:MeetingItem) WHERE elementId(i) = a.item_id
                         MERGE (i)-[:HAS_ATTACHMENT]->(attachment)
                         SET attachment.title_embedding = a.title_embedding
                         """, attachments=attachment_data)
@@ -344,10 +483,8 @@ def create_embeddings_index(driver):
 
     Args:
         driver : neo4j driver
-
-    Returns:
-        None
     """
+
     print("Creating vector indexes...")
     with driver.session() as session:
         # Drop existing indexes
@@ -357,19 +494,22 @@ def create_embeddings_index(driver):
                 session.run(f"DROP INDEX `{name}`")
 
         # Define options for vector index creation
-        options = """OPTIONS {indexConfig: {
-                `vector.dimensions`: 1024,
-                `vector.similarity_function`: 'cosine'}}"""
+        NEO4J_EMBEDDING_DIMENSIONS = int(os.getenv("NEO4J_EMBEDDING_DIMENSIONS"))
+
+        options = f"""OPTIONS {{indexConfig: {{
+            `vector.dimensions`: {NEO4J_EMBEDDING_DIMENSIONS},
+            `vector.similarity_function`: 'cosine'
+        }}}}"""
 
         # Create vector indexes
         session.run(f"""
             CREATE VECTOR INDEX `body_name_embedding` IF NOT EXISTS
-            FOR (b:Body) ON (b.name_embedding) 
+            FOR (b:Body) ON (b.name_embedding)
             {options}
         """)
         session.run(f"""
             CREATE VECTOR INDEX `meeting_location_embedding` IF NOT EXISTS
-            FOR (n:Meeting) ON (n.meeting_location_embedding) 
+            FOR (n:Meeting) ON (n.meeting_location_embedding)
             {options}
         """)
 
@@ -377,14 +517,20 @@ def create_embeddings_index(driver):
         for property in item_properties:
             session.run(f"""
                 CREATE VECTOR INDEX `item_{property}` IF NOT EXISTS
-                FOR (n:MeetingItem) ON (n.{property}) 
+                FOR (n:MeetingItem) ON (n.{property})
                 {options}
             """)
         session.run(f"""
                 CREATE VECTOR INDEX `attachment_title_embedding` IF NOT EXISTS
-                FOR (n:Attachment) ON (n.title_embedding) 
+                FOR (n:Attachment) ON (n.title_embedding)
                 {options}
             """)
+        session.run(f"""
+            CREATE VECTOR INDEX `errand_topic_embedding` IF NOT EXISTS
+            FOR (e:Errand) ON (e.topic_embedding)
+            {options}
+        """)
+
     print("Vector indexes created.")
 
 def post_process_knowledge_graph(driver):
@@ -393,36 +539,33 @@ def post_process_knowledge_graph(driver):
 
     Args:
         driver : neo4j driver
-
-    Returns:
-        None
     """
+
     print("Post-processing knowledge graph...")
     with driver.session() as session:
         # Convert date string (yyyy.mm.dd) to datetime
         session.run("""
             MATCH (m:Meeting)
             WHERE toString(m.meeting_date) = m.meeting_date
-            WITH m, 
+            WITH m,
                 split(m.meeting_date, '.') AS dateParts
-            WITH m, 
-                toInteger(dateParts[0]) AS year, 
-                toInteger(dateParts[1]) AS month, 
+            WITH m,
+                toInteger(dateParts[0]) AS year,
+                toInteger(dateParts[1]) AS month,
                 toInteger(dateParts[2]) AS day
             SET m.meeting_date = date({ year: year, month: month, day: day })
         """)
     print("Post-processing complete.")
 
-def create_knowledge_graph(construct_from): # construct_from = "llm" or "manual"
+def create_knowledge_graph(construct_from, wipe_database=True, is_upcoming=False):
     """
     Creates a knowledge graph in Neo4j from the aggregate JSON data
 
     Args:
         construct_from (str): The source from which to construct the JSON. Can be "llm" or "manual".
-    
-    Returns:
-        None
+        wipe_database (bool): Whether to wipe the database before creating the graph.
     """
+
     if construct_from.lower() not in ["llm", "manual"]:
         raise ValueError("'construct_from' argument only accepts 'llm' and 'manual'.")
     # Load JSON data
@@ -440,10 +583,17 @@ def create_knowledge_graph(construct_from): # construct_from = "llm" or "manual"
     driver = GraphDatabase.driver(uri, auth=(username, password))
 
     # Execute Cypher queries to create knowledge graph
-    execute_cypher_queries(driver, data)
+    execute_cypher_queries(driver, data, wipe_database=wipe_database)
+
+    # Extract errand topics from meeting items
+    if not is_upcoming:
+        extract_errand_topics(driver)
+    else:
+        attach_meetingitem_to_errand(driver)
 
     # Create embeddings index
-    create_embeddings_index(driver)
+    if not is_upcoming:
+        create_embeddings_index(driver)
 
-    # Post-process knowledge graph
+    # Post-process knowledge graph (convert date strings to DATE objects)
     post_process_knowledge_graph(driver)

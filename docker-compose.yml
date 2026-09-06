@@ -1,0 +1,9 @@
+services:
+
+  # Your Python App
+  app:
+    build: .
+    env_file:
+      - ./config/secrets.env
+    ports:
+      - "8501:8501"  # Streamlit default port

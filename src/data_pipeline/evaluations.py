@@ -1,22 +1,23 @@
-from difflib import SequenceMatcher
 import json
 import os
 
+from difflib import SequenceMatcher
+
 def string_similarity(a, b):
     """
-    Uses SequenceMatcher to calculate similarity ratio between two strings. 
+    Uses SequenceMatcher to calculate similarity ratio between two strings.
     Algorithm is based on Ratcliff/Obershelp pattern recognition. (https://typesense.org/learn/fuzzy-string-matching-python/)
-    
+
     Note: string_similarity(a, b) is not the same as string_similarity(b, a).
 
     Args:
-    a (str): First string.
-    b (str): Second string.
+        a (str): First string.
+        b (str): Second string.
 
     Returns:
-    float: Similarity ratio between the two strings.
-    
+        float: Similarity ratio between the two strings.
     """
+
     return SequenceMatcher(None, a, b).ratio()
 
 def evaluate_json(gt_json, llm_json):
@@ -24,12 +25,13 @@ def evaluate_json(gt_json, llm_json):
     Evaluate JSON function for a single ground truth and LLM pair.
 
     Args:
-    gt_json (dict): Ground truth JSON data.
-    llm_json (dict): LLM JSON data.
+        gt_json (dict): Ground truth JSON data.
+        llm_json (dict): LLM JSON data.
 
     Returns:
-    dict: Evaluation results for each field in the JSON data.
+        dict: Evaluation results for each field in the JSON data.
     """
+
     field_results = {}
     for key in gt_json.keys():
         gt_value = gt_json.get(key)
@@ -38,7 +40,7 @@ def evaluate_json(gt_json, llm_json):
         if isinstance(gt_value, str) and isinstance(llm_value, str):
             similarity = string_similarity(gt_value.lower(), llm_value.lower())
             field_results[key] = similarity
-        
+
         elif isinstance(gt_value, list) and isinstance(llm_value, list):
             if len(gt_value) == len(llm_value):
                 similarities = []
@@ -53,7 +55,7 @@ def evaluate_json(gt_json, llm_json):
                 field_results[key] = sum(similarities) / len(similarities) if similarities else 1.0
             else:
                 field_results[key] = 0.0  # Array length mismatch
-        
+
         else:
             field_results[key] = 1.0 if gt_value == llm_value else 0.0
 
@@ -64,20 +66,21 @@ def aggregate_results(gt_llm_pairs):
     Aggregate results function for multiple ground truth and LLM pairs.
 
     Args:
-    gt_llm_pairs (list): List of tuples containing ground truth and LLM JSON data.
+        gt_llm_pairs (list): List of tuples containing ground truth and LLM JSON data.
 
     Returns:
-    dict: Averaged evaluation results for each field in the JSON data.
+        dict: Averaged evaluation results for each field in the JSON data.
     """
+
     # Initialize aggregate scores dictionary
     aggregate_scores = {key: [] for key in gt_llm_pairs[0][0].keys()}  # Assumes all JSONs have the same keys
-    
+
     # Evaluate each ground truth and LLM JSON pair
     for gt_json, llm_json in gt_llm_pairs:
         result = evaluate_json(gt_json, llm_json)
         for key, score in result.items():
             aggregate_scores[key].append(score)
-    
+
     # Calculate average score for each field
     averaged_results = {key: sum(scores) / len(scores) for key, scores in aggregate_scores.items()}
     return averaged_results
@@ -87,22 +90,23 @@ def remove_duplicates(results):
     Remove duplicates from a list of dictionaries.
 
     Args:
-    results (list): List of dictionaries.
+        results (list): List of dictionaries.
 
     Returns:
-    list: List of unique dictionaries.
+        list: List of unique dictionaries.
     """
+
     seen = set()
     unique_results = []
 
     for result in results:
         # Convert dictionary to a JSON string, which is hashable
         result_str = json.dumps(result, sort_keys=True)
-        
+
         if result_str not in seen:
             seen.add(result_str)
             unique_results.append(result)
-    
+
     return unique_results
 
 def process_results(filepaths, prompt, json_schema, title_for_llm_experiment, results_path):
